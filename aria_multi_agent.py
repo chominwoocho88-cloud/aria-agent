@@ -103,12 +103,12 @@ HUNTER_SYSTEM = """당신은 금융 뉴스 수집 전담 에이전트입니다.
 }"""
 
 def agent_hunter(date_str: str) -> dict:
-    console.print("\n[bold cyan]Agent 1 · HUNTER — 뉴스 수집[/bold cyan]")
+    console.print(f"\n[bold cyan]Agent 1 · HUNTER — News Collection[/bold cyan]")
     raw = call_api(HUNTER_SYSTEM,
         f"오늘 날짜 {date_str}. 6개 영역 검색 후 JSON 반환.",
         use_search=True, model=MODEL_HUNTER, max_tokens=2000)
     result = parse_json(raw)
-    console.print(f"  [green]완료: {result.get('total_signals', 0)}개 시그널[/green]")
+    console.print(f"  [green]Done: {result.get('total_signals', 0)} signals[/green]")
     return result
 
 
@@ -143,7 +143,7 @@ Hunter가 수집한 데이터를 받아 분석하세요.
 }"""
 
 def agent_analyst(hunter_data: dict) -> dict:
-    console.print("\n[bold yellow]Agent 2 · ANALYST — 자본 흐름 분석[/bold yellow]")
+    console.print("\n[bold yellow]Agent 2 · ANALYST — Flow Analysis[/bold yellow]")
     # Hunter: 핵심 시그널만 추려서 넘기기 (컨텍스트 로트 방지)
     slim_hunter = {
         "market_snapshot": hunter_data.get("market_snapshot", {}),
@@ -154,7 +154,7 @@ def agent_analyst(hunter_data: dict) -> dict:
         f"Hunter 데이터:\n{json.dumps(slim_hunter, ensure_ascii=False)}\n\nJSON 반환.",
         model=MODEL_ANALYST, max_tokens=2500)
     result = parse_json(raw)
-    console.print(f"  [green]완료: {result.get('market_regime')} / {result.get('trend_phase')}[/green]")
+    console.print(f"  [green]Done: {result.get('market_regime')} / {result.get('trend_phase')}[/green]")
     return result
 
 
@@ -180,7 +180,7 @@ Analyst 결론에 날카롭게 반론하세요.
 }"""
 
 def agent_devil(analyst_data: dict, memory: list) -> dict:
-    console.print("\n[bold red]Agent 3 · DEVIL — 반론 검토[/bold red]")
+    console.print("\n[bold red]Agent 3 · DEVIL — Counter Arguments[/bold red]")
     past = ""
     if memory:
         last = memory[-1]
@@ -198,7 +198,7 @@ def agent_devil(analyst_data: dict, memory: list) -> dict:
         f"Analyst 분석:\n{json.dumps(slim_analyst, ensure_ascii=False)}{past}\n\nJSON 반환.",
         model=MODEL_DEVIL, max_tokens=2000)
     result = parse_json(raw)
-    console.print(f"  [green]완료: {result.get('verdict')} / 반론 {len(result.get('counterarguments',[]))}개[/green]")
+    console.print(f"  [green]Done: {result.get('verdict')} / {len(result.get('counterarguments',[]))} counter args[/green]")
     return result
 
 
@@ -241,7 +241,7 @@ Hunter, Analyst, Devil 결과를 종합하세요.
 }"""
 
 def agent_reporter(hunter: dict, analyst: dict, devil: dict, memory: list) -> dict:
-    console.print("\n[bold green]Agent 4 · REPORTER — 최종 종합[/bold green]")
+    console.print("\n[bold green]Agent 4 · REPORTER — Final Report[/bold green]")
     past_ctx = ""
     if memory:
         past_ctx = f"\n\n과거 분석:\n{json.dumps(memory[-3:], ensure_ascii=False)}"
@@ -254,7 +254,7 @@ def agent_reporter(hunter: dict, analyst: dict, devil: dict, memory: list) -> di
         f"에이전트 결과:\n{json.dumps(payload, ensure_ascii=False)}{past_ctx}\n\nJSON 반환.",
         model=MODEL_REPORTER, max_tokens=4000)
     result = parse_json(raw)
-    console.print(f"  [green]완료: {result.get('market_regime')} / 합의도: {result.get('consensus_level')}[/green]")
+    console.print(f"  [green]Done: {result.get('market_regime')} / consensus: {result.get('consensus_level')}[/green]")
     return result
 
 
@@ -416,7 +416,7 @@ def main():
             return
 
     console.print(Panel(
-        "[bold]ARIA 분석 시작[/bold]\nHunter → Analyst → Devil → Reporter",
+        "[bold]ARIA Analysis Start[/bold]\nHunter -> Analyst -> Devil -> Reporter",
         border_style="purple"
     ))
 
@@ -434,7 +434,7 @@ def main():
 
         save_memory(memory, report)
         path = save_report(report)
-        console.print(f"[dim]저장 완료: {path}[/dim]")
+        console.print(f"[dim]Saved: {path}[/dim]")
 
     except Exception as e:
         console.print(f"[bold red]오류: {e}[/bold red]")
