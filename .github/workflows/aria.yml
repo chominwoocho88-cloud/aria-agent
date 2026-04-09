@@ -23,16 +23,19 @@ jobs:
       - name: Install dependencies
         run: pip install anthropic rich httpx
 
-      - name: Fix encoding
+- name: Fix encoding
         run: |
-          for f in aria_multi_agent.py aria_verifier.py aria_sentiment.py aria_portfolio.py aria_telegram.py; do
-            if [ -f "$f" ]; then
-              sed -i 's/\u201c/"/g' $f
-              sed -i 's/\u201d/"/g' $f
-              sed -i "s/\u2018/'/g" $f
-              sed -i "s/\u2019/'/g" $f
-            fi
-          done
+          python3 -c "
+          import os
+          files = ['aria_multi_agent.py','aria_verifier.py','aria_sentiment.py','aria_portfolio.py','aria_telegram.py']
+          for f in files:
+              if os.path.exists(f):
+                  text = open(f, encoding='utf-8').read()
+                  text = text.replace('\u201c', '\"').replace('\u201d', '\"')
+                  text = text.replace('\u2018', \"'\").replace('\u2019', \"'\")
+                  open(f, 'w', encoding='utf-8').write(text)
+                  print(f'Fixed: {f}')
+          "
 
       - name: Run ARIA
         env:
