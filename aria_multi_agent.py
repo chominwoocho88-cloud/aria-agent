@@ -331,8 +331,8 @@ def print_report(report: dict, run_n: int):
     ft.add_column("Inflow", style="green")
     out, inp = report.get("outflows", []), report.get("inflows", [])
     for i in range(max(len(out), len(inp))):
-        oc = f"[bold]{out[i]['zone']}[/bold]\n[dim]{out[i].get('reason','')[:55]}[/dim]" if i < len(out) else ""
-        ic = f"[bold]{inp[i]['zone']}[/bold]\n[dim]{inp[i].get('reason','')[:55]}[/dim]" if i < len(inp) else ""
+        oc = f"[bold]{out[i]['zone']}[/bold]\n[dim]{out[i].get('reason','')[:80]}[/dim]" if i < len(out) else ""
+        ic = f"[bold]{inp[i]['zone']}[/bold]\n[dim]{inp[i].get('reason','')[:80]}[/dim]" if i < len(inp) else ""
         ft.add_row(oc, ic)
     console.print(Panel(ft, title="Capital Flow Map", border_style="blue"))
 
