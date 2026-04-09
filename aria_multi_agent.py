@@ -12,11 +12,15 @@ from rich.table import Table
 from rich import box
 
 # ── 설정 ──────────────────────────────────────────────────────────────────────
-API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+API_KEY     = "여기에_ANTHROPIC_API_키_입력"
 MEMORY_FILE = Path("memory.json")
 REPORTS_DIR = Path("reports")
 KST         = timezone(timedelta(hours=9))
-MODEL       = "claude-opus-4-5"
+# 에이전트별 모델 분리 (비용 최적화)
+MODEL_HUNTER   = "claude-haiku-4-5-20251001"   # 검색 전담 → 가장 저렴
+MODEL_ANALYST  = "claude-sonnet-4-6"            # 분석 → 중간급
+MODEL_DEVIL    = "claude-sonnet-4-6"            # 반론 → 중간급
+MODEL_REPORTER = "claude-opus-4-6"              # 최종 종합 → 고급
 
 console = Console()
 client  = anthropic.Anthropic(api_key=API_KEY)
@@ -38,10 +42,10 @@ def parse_json(text: str) -> dict:
     s += "]" * opens_arr + "}" * opens
     return json.loads(s)
 
-def call_api(system: str, user: str, use_search: bool = False) -> str:
+def call_api(system: str, user: str, use_search: bool = False, model: str = MODEL_ANALYST, max_tokens: int = 2000) -> str:
     kwargs = dict(
-        model=MODEL,
-        max_tokens=4000,
+        model=model,
+        max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user}],
     )
@@ -96,7 +100,8 @@ HUNTER_SYSTEM = """당신은 금융 뉴스 수집 전담 에이전트입니다.
 def agent_hunter(date_str: str) -> dict:
     console.print("\n[bold cyan]Agent 1 · HUNTER — 뉴스 수집[/bold cyan]")
     raw = call_api(HUNTER_SYSTEM,
-        f"오늘 날짜 {date_str}. 6개 영역 검색 후 JSON 반환.", use_search=True)
+        f"오늘 날짜 {date_str}. 6개 영역 검색 후 JSON 반환.",
+        use_search=True, model=MODEL_HUNTER, max_tokens=2000)
     result = parse_json(raw)
     console.print(f"  [green]완료: {result.get('total_signals', 0)}개 시그널[/green]")
     return result
@@ -134,8 +139,15 @@ Hunter가 수집한 데이터를 받아 분석하세요.
 
 def agent_analyst(hunter_data: dict) -> dict:
     console.print("\n[bold yellow]Agent 2 · ANALYST — 자본 흐름 분석[/bold yellow]")
+    # Hunter: 핵심 시그널만 추려서 넘기기 (컨텍스트 로트 방지)
+    slim_hunter = {
+        "market_snapshot": hunter_data.get("market_snapshot", {}),
+        "raw_signals": hunter_data.get("raw_signals", [])[:15],  # 상위 15개만
+        "total_signals": hunter_data.get("total_signals", 0),
+    }
     raw = call_api(ANALYST_SYSTEM,
-        f"Hunter 데이터:\n{json.dumps(hunter_data, ensure_ascii=False)}\n\nJSON 반환.")
+        f"Hunter 데이터:\n{json.dumps(slim_hunter, ensure_ascii=False)}\n\nJSON 반환.",
+        model=MODEL_ANALYST, max_tokens=2500)
     result = parse_json(raw)
     console.print(f"  [green]완료: {result.get('market_regime')} / {result.get('trend_phase')}[/green]")
     return result
@@ -168,8 +180,18 @@ def agent_devil(analyst_data: dict, memory: list) -> dict:
     if memory:
         last = memory[-1]
         past = f"\n\n과거 분석:\n레짐: {last.get('market_regime')}\n요약: {last.get('one_line_summary')}"
+    # Devil: Analyst 핵심만 넘기기 (컨텍스트 로트 방지)
+    slim_analyst = {
+        "market_regime": analyst_data.get("market_regime"),
+        "trend_phase": analyst_data.get("trend_phase"),
+        "outflows": analyst_data.get("outflows", [])[:3],
+        "inflows": analyst_data.get("inflows", [])[:3],
+        "hidden_signals": analyst_data.get("hidden_signals", [])[:3],
+        "analyst_confidence": analyst_data.get("analyst_confidence"),
+    }
     raw = call_api(DEVIL_SYSTEM,
-        f"Analyst 분석:\n{json.dumps(analyst_data, ensure_ascii=False)}{past}\n\nJSON 반환.")
+        f"Analyst 분석:\n{json.dumps(slim_analyst, ensure_ascii=False)}{past}\n\nJSON 반환.",
+        model=MODEL_DEVIL, max_tokens=2000)
     result = parse_json(raw)
     console.print(f"  [green]완료: {result.get('verdict')} / 반론 {len(result.get('counterarguments',[]))}개[/green]")
     return result
@@ -224,7 +246,8 @@ def agent_reporter(hunter: dict, analyst: dict, devil: dict, memory: list) -> di
         "devil": devil,
     }
     raw = call_api(REPORTER_SYSTEM,
-        f"에이전트 결과:\n{json.dumps(payload, ensure_ascii=False)}{past_ctx}\n\nJSON 반환.")
+        f"에이전트 결과:\n{json.dumps(payload, ensure_ascii=False)}{past_ctx}\n\nJSON 반환.",
+        model=MODEL_REPORTER, max_tokens=4000)
     result = parse_json(raw)
     console.print(f"  [green]완료: {result.get('market_regime')} / 합의도: {result.get('consensus_level')}[/green]")
     return result
