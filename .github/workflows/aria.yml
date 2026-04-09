@@ -46,7 +46,7 @@ jobs:
           EOF
 
       - name: Run Weekly Report (Monday only)
-        if: github.event.schedule == '0 22 * * 0'
+        if: github.event.schedule == '0 22 * * 0' || github.event_name == 'workflow_dispatch'
         env:
           PYTHONIOENCODING: utf-8
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
