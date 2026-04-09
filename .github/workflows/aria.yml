@@ -2,13 +2,13 @@ name: ARIA Daily Report
 
 on:
   schedule:
-    - cron: '30 22 * * 0-4'   # 평일 07:30 KST
-    - cron: '30 5  * * 1-5'   # 평일 14:30 KST
-    - cron: '30 11 * * 1-5'   # 평일 20:30 KST
-    - cron: '30 19 * * 0-4'   # 평일 04:30 KST
+    - cron: '30 19 * * 0-4'   # 04:30 KST - 새벽 글로벌 (DAWN)
+    - cron: '30 22 * * 0-4'   # 07:30 KST - 아침 풀분석 (MORNING)
+    - cron: '30 5  * * 1-5'   # 14:30 KST - 오후 업데이트 (AFTERNOON)
+    - cron: '30 11 * * 1-5'   # 20:30 KST - 저녁 마감 (EVENING)
     - cron: '0 22  * * 0'     # 일요일 07:00 KST - 주간 리포트
     - cron: '0 21  1 * *'     # 매월 1일 06:00 KST - 월간 리포트
-    - cron: '0 */2 * * *'     # 2시간마다 - 긴급 속보 체크
+    - cron: '0 */2 * * *'     # 2시간마다 - 긴급 속보
   workflow_dispatch:
 
 jobs:
@@ -34,17 +34,10 @@ jobs:
           python3 << 'EOF'
           import os
           files = [
-              'aria_multi_agent.py',
-              'aria_verifier.py',
-              'aria_sentiment.py',
-              'aria_portfolio.py',
-              'aria_telegram.py',
-              'aria_weekly.py',
-              'aria_breaking.py',
-              'aria_calendar.py',
-              'aria_rotation.py',
-              'aria_monthly.py',
-              'aria_weights.py',
+              'aria_multi_agent.py','aria_verifier.py','aria_sentiment.py',
+              'aria_portfolio.py','aria_telegram.py','aria_weekly.py',
+              'aria_breaking.py','aria_calendar.py','aria_rotation.py',
+              'aria_monthly.py','aria_weights.py','aria_lessons.py',
           ]
           for f in files:
               if os.path.exists(f):
@@ -64,40 +57,86 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python aria_breaking.py
 
-      - name: Run Weekly Report
-        if: github.event.schedule == '0 22 * * 0'
-        env:
-          PYTHONIOENCODING: utf-8
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python aria_weekly.py
-
-      - name: Run Calendar
+      - name: Run Weekly Report + Lessons
         if: github.event.schedule == '0 22 * * 0'
         env:
           PYTHONIOENCODING: utf-8
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python aria_calendar.py
+        run: |
+          python aria_weekly.py
+          python aria_calendar.py
+          python3 -c "
+          import json
+          from pathlib import Path
+          from aria_lessons import extract_weekly_lessons
+          memory   = json.loads(Path('memory.json').read_text(encoding='utf-8')) if Path('memory.json').exists() else []
+          accuracy = json.loads(Path('accuracy.json').read_text(encoding='utf-8')) if Path('accuracy.json').exists() else {}
+          extract_weekly_lessons(memory, accuracy)
+          print('Weekly lessons extracted')
+          "
 
-      - name: Run Monthly Report
+      - name: Run Monthly Report + Lessons
         if: github.event.schedule == '0 21 1 * *'
         env:
           PYTHONIOENCODING: utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python aria_monthly.py
+        run: |
+          python aria_monthly.py
+          python3 -c "
+          import json
+          from pathlib import Path
+          from aria_lessons import extract_monthly_lessons
+          memory   = json.loads(Path('memory.json').read_text(encoding='utf-8')) if Path('memory.json').exists() else []
+          accuracy = json.loads(Path('accuracy.json').read_text(encoding='utf-8')) if Path('accuracy.json').exists() else {}
+          extract_monthly_lessons(memory, accuracy)
+          print('Monthly lessons extracted')
+          "
 
-      - name: Run ARIA Daily
-        if: >
-          github.event.schedule == '30 22 * * 0-4' ||
-          github.event.schedule == '30 5 * * 1-5'  ||
-          github.event.schedule == '30 11 * * 1-5' ||
-          github.event.schedule == '30 19 * * 0-4' ||
-          github.event_name == 'workflow_dispatch'
+      - name: Run ARIA DAWN
+        if: github.event.schedule == '30 19 * * 0-4'
         env:
           PYTHONIOENCODING: utf-8
+          ARIA_MODE: DAWN
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_REPO: ${{ secrets.GH_REPO }}
+        run: python aria_multi_agent.py
+
+      - name: Run ARIA MORNING
+        if: github.event.schedule == '30 22 * * 0-4' || github.event_name == 'workflow_dispatch'
+        env:
+          PYTHONIOENCODING: utf-8
+          ARIA_MODE: MORNING
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_REPO: ${{ secrets.GH_REPO }}
+        run: python aria_multi_agent.py
+
+      - name: Run ARIA AFTERNOON
+        if: github.event.schedule == '30 5 * * 1-5'
+        env:
+          PYTHONIOENCODING: utf-8
+          ARIA_MODE: AFTERNOON
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_REPO: ${{ secrets.GH_REPO }}
+        run: python aria_multi_agent.py
+
+      - name: Run ARIA EVENING
+        if: github.event.schedule == '30 11 * * 1-5'
+        env:
+          PYTHONIOENCODING: utf-8
+          ARIA_MODE: EVENING
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -112,6 +151,8 @@ jobs:
           git stash
           git pull --rebase origin main
           git stash pop
-          git add memory.json reports/ sentiment.json accuracy.json rotation.json breaking_sent.json aria_weights.json || true
-          git diff --staged --quiet || git commit -m "ARIA: $(date +'%Y-%m-%d %H:%M') 분석 저장"
+          git add memory.json reports/ sentiment.json accuracy.json rotation.json breaking_sent.json aria_weights.json aria_lessons.json || true
+          git diff --staged --quiet || git commit -m "ARIA: $(date +'%Y-%m-%d %H:%M') [${ARIA_MODE:-AUTO}] 저장"
           git push
+        env:
+          ARIA_MODE: ${{ env.ARIA_MODE }}
