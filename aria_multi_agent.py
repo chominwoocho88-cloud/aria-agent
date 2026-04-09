@@ -82,8 +82,11 @@ Search these 6 areas using web_search:
 2. US stock market S&P Nasdaq today
 3. Korean won USD exchange rate today
 4. Semiconductor Nvidia SK Hynix Samsung today
-5. US treasury bond yield today
-6. Geopolitical risk today
+5. VIX index value today AND US treasury bond yield today
+6. CNN fear greed index today AND VKOSPI today
+
+When searching for VIX and fear/greed index, find the EXACT current number.
+Do not estimate or assume. Only report confirmed data points.
 
 Return ONLY valid JSON. No markdown.
 {
