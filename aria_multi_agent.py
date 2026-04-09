@@ -232,22 +232,34 @@ Return ONLY valid JSON in Korean. No markdown.
 “actionable_watch”: []
 }”””
 
-def agent_reporter(hunter: dict, analyst: dict, devil: dict, memory: list) -> dict:
+def agent_reporter(hunter: dict, analyst: dict, devil: dict, memory: list, accuracy: dict = {}) -> dict:
 console.print(”\n[bold green]Agent 4 - REPORTER - Final Report[/bold green]”)
 past_ctx = “”
 if memory:
 past_ctx = f”\n\nPast analyses:\n{json.dumps(memory[-3:], ensure_ascii=False)}”
+
+```
+# 정확도 정보 추가 (자기보정)
+accuracy_ctx = ""
+if accuracy.get("total", 0) > 0:
+    total_acc = round(accuracy["correct"] / accuracy["total"] * 100, 1)
+    accuracy_ctx = f"\n\nARIA accuracy stats: {total_acc}% overall"
+    if accuracy.get("weak_areas"):
+        accuracy_ctx += f"\nWeak areas (be more cautious): {', '.join(accuracy['weak_areas'])}"
+    if accuracy.get("strong_areas"):
+        accuracy_ctx += f"\nStrong areas: {', '.join(accuracy['strong_areas'])}"
 payload = {
-“hunter”: hunter.get(“market_snapshot”, {}),
-“analyst”: analyst,
-“devil”: devil,
+    "hunter": hunter.get("market_snapshot", {}),
+    "analyst": analyst,
+    "devil": devil,
 }
 raw = call_api(REPORTER_SYSTEM,
-f”Agent results:\n{json.dumps(payload, ensure_ascii=False)}{past_ctx}\n\nReturn JSON.”,
-model=MODEL_REPORTER, max_tokens=4000)
+    f"Agent results:\n{json.dumps(payload, ensure_ascii=False)}{past_ctx}{accuracy_ctx}\n\nReturn JSON.",
+    model=MODEL_REPORTER, max_tokens=4000)
 result = parse_json(raw)
-console.print(f”  [green]Done: {result.get(‘market_regime’)} / consensus: {result.get(‘consensus_level’)}[/green]”)
+console.print(f"  [green]Done: {result.get('market_regime')} / consensus: {result.get('consensus_level')}[/green]")
 return result
+```
 
 # ── 메모리 관리 ────────────────────────────────────────────────────────────────
 
@@ -387,7 +399,7 @@ try:
     hunter  = agent_hunter(today)
     analyst = agent_analyst(hunter)
     devil   = agent_devil(analyst, memory)
-    report  = agent_reporter(hunter, analyst, devil, memory)
+    report  = agent_reporter(hunter, analyst, devil, memory, accuracy)
 
     print_report(report, len(memory) + 1)
     send_report(report, len(memory) + 1)
