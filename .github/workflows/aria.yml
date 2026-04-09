@@ -2,8 +2,10 @@ name: ARIA Daily Report
 
 on:
   schedule:
-    - cron: '30 22 * * 0-4'
-    - cron: '0 22 * * 0'
+    - cron: '30 22 * * 1-5'   # 평일 07:30 KST - 일일 분석
+    - cron: '0 22 * * 0'      # 일요일 07:00 KST - 주간 리포트
+    - cron: '0 21 1 * *'      # 매월 1일 06:00 KST - 월간 리포트
+    - cron: '0 */2 * * *'     # 2시간마다 - 긴급 속보 체크
   workflow_dispatch:
 
 jobs:
@@ -34,7 +36,11 @@ jobs:
               'aria_sentiment.py',
               'aria_portfolio.py',
               'aria_telegram.py',
-              'aria_weekly.py'
+              'aria_weekly.py',
+              'aria_breaking.py',
+              'aria_calendar.py',
+              'aria_rotation.py',
+              'aria_monthly.py',
           ]
           for f in files:
               if os.path.exists(f):
@@ -45,16 +51,42 @@ jobs:
                   print('Fixed: ' + f)
           EOF
 
-      - name: Run Weekly Report (Monday only)
-        if: github.event.schedule == '0 22 * * 0' || github.event_name == 'workflow_dispatch'
+      - name: Run Breaking News Check
+        if: github.event.schedule == '0 */2 * * *'
+        env:
+          PYTHONIOENCODING: utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python aria_breaking.py
+
+      - name: Run Weekly Report
+        if: github.event.schedule == '0 22 * * 0'
         env:
           PYTHONIOENCODING: utf-8
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python aria_weekly.py
 
-      - name: Run ARIA
-        if: github.event.schedule != '0 22 * * 0' || github.event_name == 'workflow_dispatch'
+      - name: Run Calendar
+        if: github.event.schedule == '0 22 * * 0'
+        env:
+          PYTHONIOENCODING: utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python aria_calendar.py
+
+      - name: Run Monthly Report
+        if: github.event.schedule == '0 21 1 * *'
+        env:
+          PYTHONIOENCODING: utf-8
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python aria_monthly.py
+
+      - name: Run ARIA Daily
+        if: github.event.schedule == '30 22 * * 1-5' || github.event_name == 'workflow_dispatch'
         env:
           PYTHONIOENCODING: utf-8
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -71,6 +103,6 @@ jobs:
           git stash
           git pull --rebase origin main
           git stash pop
-          git add memory.json reports/ sentiment.json accuracy.json || true
+          git add memory.json reports/ sentiment.json accuracy.json rotation.json breaking_sent.json || true
           git diff --staged --quiet || git commit -m "ARIA: $(date +'%Y-%m-%d') 분석 저장"
           git push
