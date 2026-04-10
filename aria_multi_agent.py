@@ -21,18 +21,12 @@ API_KEY     = os.environ.get("ANTHROPIC_API_KEY", "")
 MEMORY_FILE = Path("memory.json")
 REPORTS_DIR = Path("reports")
 KST         = timezone(timedelta(hours=9))
+MODE        = os.environ.get("ARIA_MODE", "MORNING")
 
 MODEL_HUNTER   = "claude-haiku-4-5-20251001"
 MODEL_ANALYST  = "claude-sonnet-4-6"
 MODEL_DEVIL    = "claude-sonnet-4-6"
 MODEL_REPORTER = "claude-opus-4-6"
-
-# 실행 모드 (환경변수로 주입)
-MODE = os.environ.get("ARIA_MODE", "MORNING")
-# MORNING  : 07:30 풀 분석 + 교훈 반영
-# AFTERNOON: 14:30 오후 업데이트
-# EVENING  : 20:30 저녁 마감
-# DAWN     : 04:30 글로벌 + 실수 추출
 
 console = Console()
 client  = anthropic.Anthropic(api_key=API_KEY)
@@ -92,14 +86,13 @@ def save_memory(memory, analysis):
 
 def save_report(analysis):
     REPORTS_DIR.mkdir(exist_ok=True)
-    date  = analysis.get("analysis_date", now_kst().strftime("%Y-%m-%d"))
-    mode  = analysis.get("mode", "MORNING").lower()
-    path  = REPORTS_DIR / (date + "_" + mode + ".json")
+    date = analysis.get("analysis_date", now_kst().strftime("%Y-%m-%d"))
+    mode = analysis.get("mode", "MORNING").lower()
+    path = REPORTS_DIR / (date + "_" + mode + ".json")
     path.write_text(json.dumps(analysis, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
 
 def get_todays_analyses():
-    """오늘 저장된 모든 분석 불러오기"""
     today   = now_kst().strftime("%Y-%m-%d")
     reports = []
     if REPORTS_DIR.exists():
@@ -111,71 +104,43 @@ def get_todays_analyses():
     return reports
 
 
-# ── 모드별 시스템 프롬프트 ─────────────────────────────────────────────────────
+# ── 모드별 컨텍스트 ────────────────────────────────────────────────────────────
 def get_mode_context(mode, lessons_prompt=""):
-    base = lessons_prompt  # 교훈 주입
+    base = lessons_prompt
 
     if mode == "MORNING":
-        return """You are ARIA in MORNING mode (07:30 KST).
-This is the PRIMARY daily analysis. Set the baseline for today.
-Do a FULL comprehensive analysis.
-Pay special attention to overnight US market moves and pre-market signals.
-""" + base
-
+        return (
+            "You are ARIA in MORNING mode (07:30 KST). "
+            "This is the PRIMARY daily analysis. Set the baseline for today. "
+            "Do a FULL comprehensive analysis. "
+            "Pay special attention to overnight US market moves.\n" + base
+        )
     elif mode == "AFTERNOON":
-        return """You are ARIA in AFTERNOON mode (14:30 KST).
-This is an UPDATE analysis. Focus on what CHANGED since this morning.
-Compare with morning analysis if available.
-Focus on: intraday reversals, new news, volume anomalies, momentum shifts.
-Do NOT repeat the morning analysis. Only highlight CHANGES and new developments.
-""" + base
-
+        return (
+            "You are ARIA in AFTERNOON mode (14:30 KST). "
+            "Focus ONLY on what CHANGED since this morning. "
+            "Do NOT repeat the morning analysis. Highlight intraday reversals and new news.\n" + base
+        )
     elif mode == "EVENING":
-        return """You are ARIA in EVENING mode (20:30 KST).
-This is the DAY SUMMARY. Summarize what actually happened today.
-- What did the morning analysis get right?
-- What did it miss?
-- What is the setup for tomorrow?
-- Key levels to watch overnight.
-Be honest about prediction quality.
-""" + base
-
+        return (
+            "You are ARIA in EVENING mode (20:30 KST). "
+            "Summarize what actually happened today. "
+            "What did morning analysis get right/wrong? "
+            "What is the setup for tomorrow?\n" + base
+        )
     elif mode == "DAWN":
-        return """You are ARIA in DAWN mode (04:30 KST).
-Focus on GLOBAL markets overnight:
-- US market close results
-- After-hours / futures
-- Asian market open
-- Overnight geopolitical developments
-Also review today's earlier analyses and note what was right/wrong.
-Set the stage for tomorrow morning.
-""" + base
-
+        return (
+            "You are ARIA in DAWN mode (04:30 KST). "
+            "Focus on global markets overnight: US close, after-hours, Asian open. "
+            "Set the stage for tomorrow morning.\n" + base
+        )
     return base
 
 
 # ── Agent 1: Hunter ───────────────────────────────────────────────────────────
-def get_hunter_queries(mode):
-    base = [
-        "global financial markets today",
-        "US stock market S&P Nasdaq today",
-        "Korean won USD exchange rate today",
-        "semiconductor Nvidia SK Hynix Samsung today",
-        "VIX index value today AND CNN fear greed index exact number",
-        "geopolitical risk today",
-    ]
-    if mode == "DAWN":
-        base[0] = "US market close results today AND Asia market open"
-        base.append("overnight futures S&P Nasdaq")
-    elif mode == "AFTERNOON":
-        base.append("market reversal midday today")
-    elif mode == "EVENING":
-        base.append("market close summary today")
-    return base
-
 HUNTER_SYSTEM = """You are a financial news collection agent. Only collect facts.
-Search the provided areas and return structured data.
-Find EXACT numbers for VIX and fear/greed index. Do not estimate.
+Real-time market data is already provided above — use those exact numbers.
+Search for additional news context only.
 Return ONLY valid JSON. No markdown.
 {
   "collected_at": "YYYY-MM-DD HH:MM KST",
@@ -183,22 +148,59 @@ Return ONLY valid JSON. No markdown.
   "raw_signals": [{"category":"","headline":"","data_point":""}],
   "market_snapshot": {
     "sp500":"","nasdaq":"","kospi":"",
-    "krw_usd":"","us_10y":"","vix":"","vkospi":"","fear_greed":""
+    "krw_usd":"","us_10y":"","vix":""
   },
   "total_signals": 0
 }"""
 
-def agent_hunter(date_str, mode):
+def get_hunter_queries(mode):
+    base = [
+        "global financial markets major news today",
+        "Korea market KOSPI news today",
+        "semiconductor AI Nvidia SK Hynix news today",
+        "geopolitical risk market impact today",
+    ]
+    if mode == "DAWN":
+        base[0] = "US market close results AND Asia market open today"
+    elif mode == "AFTERNOON":
+        base[0] = "market intraday reversal midday news today"
+    elif mode == "EVENING":
+        base[0] = "market close summary today what happened"
+    return base
+
+def agent_hunter(date_str, mode, market_data=None):
     console.print("\n[bold cyan]Agent 1 - HUNTER [" + mode + "][/bold cyan]")
-    queries = get_hunter_queries(mode)
+
+    # 실시간 데이터 주입
+    market_ctx = ""
+    if market_data:
+        try:
+            from aria_data import format_for_hunter
+            market_ctx = format_for_hunter(market_data)
+        except ImportError:
+            pass
+
+    queries    = get_hunter_queries(mode)
     search_str = " AND ".join(queries[:3])
+
     raw = call_api(
         HUNTER_SYSTEM,
-        "Today: " + date_str + " Mode: " + mode + ". Search: " + search_str + ". Return JSON.",
+        "Today: " + date_str + " Mode: " + mode + "."
+        + market_ctx
+        + "\nSearch for additional context: " + search_str + ". Return JSON.",
         use_search=True, model=MODEL_HUNTER, max_tokens=2000
     )
     result = parse_json(raw)
     result["mode"] = mode
+
+    # 실시간 데이터로 market_snapshot 보강
+    if market_data:
+        snap = result.get("market_snapshot", {})
+        for key in ["sp500", "nasdaq", "vix", "kospi", "krw_usd", "us_10y"]:
+            if market_data.get(key) and market_data[key] != "N/A":
+                snap[key] = market_data[key]
+        result["market_snapshot"] = snap
+
     console.print("  [green]Done: " + str(result.get("total_signals", 0)) + " signals[/green]")
     return result
 
@@ -206,6 +208,7 @@ def agent_hunter(date_str, mode):
 # ── Agent 2: Analyst ──────────────────────────────────────────────────────────
 ANALYST_SYSTEM_BASE = """You are a capital flow analysis agent.
 Analyze Hunter data and map capital flows.
+Use the real-time market data numbers provided — do not override them with estimates.
 Return ONLY valid JSON in Korean. No markdown.
 {
   "market_regime": "위험선호/위험회피/전환중/혼조",
@@ -240,7 +243,7 @@ def agent_analyst(hunter_data, mode, lessons_prompt=""):
         model=MODEL_ANALYST, max_tokens=2500
     )
     result = parse_json(raw)
-    console.print("  [green]Done: " + str(result.get("market_regime","")) + " / " + str(result.get("trend_phase","")) + "[/green]")
+    console.print("  [green]Done: " + str(result.get("market_regime", "")) + " / " + str(result.get("trend_phase", "")) + "[/green]")
     return result
 
 
@@ -260,14 +263,14 @@ def agent_devil(analyst_data, memory, mode):
     past = ""
     if memory:
         last = memory[-1]
-        past = "\n\nPrior: regime=" + str(last.get("market_regime","")) + " summary=" + str(last.get("one_line_summary",""))
+        past = "\n\nPrior: regime=" + str(last.get("market_regime", "")) + " summary=" + str(last.get("one_line_summary", ""))
     slim = {
-        "market_regime":  analyst_data.get("market_regime",""),
-        "trend_phase":    analyst_data.get("trend_phase",""),
-        "outflows":       analyst_data.get("outflows",[])[:3],
-        "inflows":        analyst_data.get("inflows",[])[:3],
-        "hidden_signals": analyst_data.get("hidden_signals",[])[:3],
-        "analyst_confidence": analyst_data.get("analyst_confidence",""),
+        "market_regime":      analyst_data.get("market_regime", ""),
+        "trend_phase":        analyst_data.get("trend_phase", ""),
+        "outflows":           analyst_data.get("outflows", [])[:3],
+        "inflows":            analyst_data.get("inflows", [])[:3],
+        "hidden_signals":     analyst_data.get("hidden_signals", [])[:3],
+        "analyst_confidence": analyst_data.get("analyst_confidence", ""),
     }
     raw = call_api(
         DEVIL_SYSTEM,
@@ -275,7 +278,7 @@ def agent_devil(analyst_data, memory, mode):
         model=MODEL_DEVIL, max_tokens=2000
     )
     result = parse_json(raw)
-    console.print("  [green]Done: " + str(result.get("verdict","")) + " / " + str(len(result.get("counterarguments",[]))) + " counters[/green]")
+    console.print("  [green]Done: " + str(result.get("verdict", "")) + " / " + str(len(result.get("counterarguments", []))) + " counters[/green]")
     return result
 
 
@@ -335,7 +338,7 @@ def agent_reporter(hunter, analyst, devil, memory, accuracy={}, mode="MORNING"):
     )
     result = parse_json(raw)
     result["mode"] = mode
-    console.print("  [green]Done: " + str(result.get("market_regime","")) + " / consensus: " + str(result.get("consensus_level","")) + "[/green]")
+    console.print("  [green]Done: " + str(result.get("market_regime", "")) + " / consensus: " + str(result.get("consensus_level", "")) + "[/green]")
     return result
 
 
@@ -348,38 +351,55 @@ def print_report(report, run_n):
 
     console.rule("[bold purple]ARIA [" + mode_label + "] #" + str(run_n) + "[/bold purple]")
     console.print(Panel(
-        "[bold]" + report.get("one_line_summary","") + "[/bold]",
-        title="[" + rc + "]" + regime + "[/" + rc + "]  " + report.get("confidence_overall","") + "  " + report.get("analysis_date",""),
+        "[bold]" + report.get("one_line_summary", "") + "[/bold]",
+        title="[" + rc + "]" + regime + "[/" + rc + "]  " + report.get("confidence_overall", "") + "  " + report.get("analysis_date", ""),
         border_style="purple"
     ))
 
-    tp = report.get("trend_phase","")
-    ts = report.get("trend_strategy",{})
+    tp = report.get("trend_phase", "")
+    ts = report.get("trend_strategy", {})
     if tp:
         tc = "green" if "상승" in tp else "red" if "하락" in tp else "yellow"
         console.print(Panel(
-            "[bold]" + tp + "[/bold]\n\nStrategy: " + ts.get("recommended","") + "\nCaution: " + ts.get("caution",""),
+            "[bold]" + tp + "[/bold]\n\n"
+            "Strategy: " + ts.get("recommended", "") + "\n"
+            "Caution: " + ts.get("caution", ""),
             title="Trend", border_style=tc
         ))
 
-    kr = report.get("korea_focus",{})
+    vi = report.get("volatility_index", {})
+    if vi:
+        vt = Table(box=box.SIMPLE, show_header=False)
+        vt.add_column("", style="dim", width=12)
+        vt.add_column("")
+        vt.add_row("VIX",     vi.get("vix", "-"))
+        vt.add_row("VKOSPI",  vi.get("vkospi", "-"))
+        vt.add_row("공포탐욕", vi.get("fear_greed", "-"))
+        vt.add_row("레벨",    vi.get("level", "-"))
+        console.print(Panel(vt, title="Volatility", border_style="yellow"))
+
+    kr = report.get("korea_focus", {})
     if kr:
         kt = Table(box=box.SIMPLE, show_header=False)
         kt.add_column("", style="dim", width=12)
         kt.add_column("", style="cyan")
-        for k, v in [("KRW/USD", kr.get("krw_usd")), ("KOSPI", kr.get("kospi_flow")),
-                     ("SK Hynix", kr.get("sk_hynix")), ("Samsung", kr.get("samsung"))]:
+        for k, v in [
+            ("KRW/USD",  kr.get("krw_usd")),
+            ("KOSPI",    kr.get("kospi_flow")),
+            ("SK Hynix", kr.get("sk_hynix")),
+            ("Samsung",  kr.get("samsung")),
+        ]:
             kt.add_row(k, v or "")
         console.print(Panel(kt, title="Korea Market", border_style="cyan"))
 
     ft = Table(box=box.SIMPLE, show_header=True, header_style="bold", expand=True)
     ft.add_column("Outflow", style="red")
     ft.add_column("Inflow",  style="green")
-    out = report.get("outflows",[])
-    inp = report.get("inflows",[])
+    out = report.get("outflows", [])
+    inp = report.get("inflows", [])
     for i in range(max(len(out), len(inp))):
-        oc = "[bold]" + out[i]["zone"] + "[/bold]\n[dim]" + out[i].get("reason","")[:80] + "[/dim]" if i < len(out) else ""
-        ic = "[bold]" + inp[i]["zone"] + "[/bold]\n[dim]" + inp[i].get("reason","")[:80] + "[/dim]" if i < len(inp) else ""
+        oc = "[bold]" + out[i]["zone"] + "[/bold]\n[dim]" + out[i].get("reason", "")[:80] + "[/dim]" if i < len(out) else ""
+        ic = "[bold]" + inp[i]["zone"] + "[/bold]\n[dim]" + inp[i].get("reason", "")[:80] + "[/dim]" if i < len(inp) else ""
         ft.add_row(oc, ic)
     console.print(Panel(ft, title="Capital Flow", border_style="blue"))
 
@@ -393,7 +413,6 @@ def print_report(report, run_n):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--history", action="store_true")
-    parser.add_argument("--review",  type=int, metavar="N")
     args = parser.parse_args()
 
     memory = load_memory()
@@ -405,15 +424,20 @@ def main():
         t = Table(title="ARIA History", box=box.ROUNDED)
         t.add_column("Date"); t.add_column("Mode"); t.add_column("Regime"); t.add_column("Summary")
         for m in reversed(memory[-20:]):
-            reg = m.get("market_regime","")
+            reg = m.get("market_regime", "")
             col = "green" if "선호" in reg else "red" if "회피" in reg else "yellow"
-            t.add_row(m.get("analysis_date",""), m.get("mode",""), "[" + col + "]" + reg + "[/" + col + "]", m.get("one_line_summary","")[:40])
+            t.add_row(
+                m.get("analysis_date", ""), m.get("mode", ""),
+                "[" + col + "]" + reg + "[/" + col + "]",
+                m.get("one_line_summary", "")[:40]
+            )
         console.print(t)
         return
 
     today = now_kst().strftime("%Y-%m-%d")
     console.print(Panel(
-        "[bold]ARIA [" + MODE + "] Analysis Start[/bold]\nHunter -> Analyst -> Devil -> Reporter",
+        "[bold]ARIA [" + MODE + "] Analysis Start[/bold]\n"
+        "Hunter -> Analyst -> Devil -> Reporter",
         border_style="purple"
     ))
 
@@ -422,7 +446,14 @@ def main():
         from aria_verifier import run_verification
         from aria_sentiment import run_sentiment
         from aria_portfolio import run_portfolio
-        from aria_rotation import run_rotation
+        from aria_rotation  import run_rotation
+        from aria_data      import fetch_all_market_data, format_for_hunter, update_cost, get_monthly_cost_summary
+
+        # 실시간 데이터 수집
+        print("\n=== 실시간 시장 데이터 수집 ===")
+        market_data = fetch_all_market_data()
+        update_cost(MODE)
+        print(get_monthly_cost_summary())
 
         # 교훈 로드 (아침 분석에만 주입)
         lessons_prompt = ""
@@ -431,11 +462,11 @@ def main():
                 from aria_lessons import build_lessons_prompt
                 lessons_prompt = build_lessons_prompt()
                 if lessons_prompt:
-                    console.print("[dim]Lessons injected: " + str(lessons_prompt.count("\n")) + " lines[/dim]")
+                    console.print("[dim]Lessons injected[/dim]")
             except ImportError:
                 pass
 
-        # 새벽 모드: 어제 분석 돌아보고 교훈 추출
+        # 새벽: 교훈 추출
         if MODE == "DAWN":
             try:
                 from aria_lessons import extract_dawn_lessons
@@ -445,16 +476,15 @@ def main():
             except ImportError:
                 pass
 
-        # 아침 모드: 어제 예측 채점
+        # 아침: 어제 예측 채점
+        accuracy = {}
         if MODE == "MORNING":
             print("\n=== Verifying yesterday predictions ===")
             accuracy = run_verification()
-        else:
-            accuracy = {}
 
         send_start_notification()
 
-        hunter  = agent_hunter(today, MODE)
+        hunter  = agent_hunter(today, MODE, market_data)
         analyst = agent_analyst(hunter, MODE, lessons_prompt)
         devil   = agent_devil(analyst, memory, MODE)
         report  = agent_reporter(hunter, analyst, devil, memory, accuracy, MODE)
@@ -462,8 +492,13 @@ def main():
         print_report(report, len(memory) + 1)
         send_report(report, len(memory) + 1)
 
+        print("\n=== Sentiment Tracking ===")
         run_sentiment(report)
+
+        print("\n=== Sector Rotation ===")
         run_rotation(report)
+
+        print("\n=== Portfolio Analysis ===")
         run_portfolio(report)
 
         save_memory(memory, report)
@@ -473,9 +508,11 @@ def main():
     except Exception as e:
         console.print("[bold red]Error: " + str(e) + "[/bold red]")
         try:
+            from aria_telegram import send_error
             send_error(str(e))
         except:
             pass
+        import sys
         sys.exit(1)
 
 
