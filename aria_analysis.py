@@ -87,39 +87,33 @@ def get_sentiment_weights() -> dict:
 
 
 def update_weights_from_accuracy(accuracy_data: dict) -> list:
-    """최근 30일 history 기반으로 카테고리별 정확도를 재계산해 가중치 업데이트.
-    오래된 오판이 현재 신뢰도를 계속 낮추는 문제를 방지한다."""
+    """history_by_category(날짜별 스냅샷)에서 최근 30일 데이터만 집계해 가중치 업데이트.
+    오래된 오판이 현재 신뢰도를 계속 낮추는 문제를 실제로 방지한다."""
     weights = load_weights()
     changes = []
     cutoff  = (datetime.now(KST) - timedelta(days=30)).strftime("%Y-%m-%d")
 
-    # history에서 최근 30일 항목만 추출
-    recent_history = [
-        h for h in accuracy_data.get("history", [])
-        if h.get("date", "") >= cutoff
-    ]
+    # 최근 30일 카테고리별 실적 집계 (날짜 인덱스 사용)
+    recent_cat: dict = {}
+    for entry in accuracy_data.get("history_by_category", []):
+        if entry.get("date", "") < cutoff:
+            continue
+        for cat, stats in entry.get("by_category", {}).items():
+            if cat not in recent_cat:
+                recent_cat[cat] = {"total": 0, "correct": 0}
+            recent_cat[cat]["total"]   += stats.get("total", 0)
+            recent_cat[cat]["correct"] += stats.get("correct", 0)
 
-    if not recent_history:
-        # 30일치 데이터가 없으면 전체 by_category 사용 (초기 운영 기간)
-        recent_history = None
+    # history_by_category가 없으면 (초기 운영) 전체 by_category 폴백
+    use_stats = recent_cat if recent_cat else accuracy_data.get("by_category", {})
 
-    # 카테고리별 최근 30일 정확도 계산
-    # history 항목에는 category breakdown이 없으므로
-    # by_category의 누적 수치를 전체 히스토리 비율로 보정한다
-    total_all    = sum(h.get("total", 0) for h in accuracy_data.get("history", []))
-    total_recent = sum(h.get("total", 0) for h in (recent_history or []))
-    recent_ratio = (total_recent / total_all) if total_all > 0 else 1.0
-
-    for cat, stats in accuracy_data.get("by_category", {}).items():
+    for cat, stats in use_stats.items():
         total_cum   = stats.get("total", 0)
         correct_cum = stats.get("correct", 0)
         if total_cum < 3:
             continue
 
-        # 최근 30일 비율로 보정한 추정 정확도
-        estimated_total   = max(1, round(total_cum * recent_ratio))
-        estimated_correct = round(correct_cum * recent_ratio)
-        acc = estimated_correct / estimated_total
+        acc = correct_cum / total_cum
         current_conf = weights["prediction_confidence"].get(cat, 1.0)
         new_conf     = current_conf
         if acc >= 0.75:
@@ -881,6 +875,9 @@ def run_verification() -> dict:
 
     accuracy["total"]   += len(judged)
     accuracy["correct"] += len(correct)
+
+    # 오늘 카테고리별 결과 (날짜 인덱스용)
+    today_cat: dict = {}
     for r in judged:
         cat = r.get("category", "기타")
         if cat not in accuracy["by_category"]:
@@ -888,11 +885,26 @@ def run_verification() -> dict:
         accuracy["by_category"][cat]["total"] += 1
         if r["verdict"] == "confirmed":
             accuracy["by_category"][cat]["correct"] += 1
+        # 오늘 카테고리 스냅샷 (시간 감쇠용)
+        if cat not in today_cat:
+            today_cat[cat] = {"total": 0, "correct": 0}
+        today_cat[cat]["total"] += 1
+        if r["verdict"] == "confirmed":
+            today_cat[cat]["correct"] += 1
 
     today_acc = round(len(correct) / len(judged) * 100, 1) if judged else 0
     accuracy["history"].append({"date": today, "total": len(judged),
                                  "correct": len(correct), "accuracy": today_acc})
     accuracy["history"] = accuracy["history"][-90:]
+
+    # 날짜별 카테고리 스냅샷 저장 (최근 30일 시간 감쇠에 사용)
+    if "history_by_category" not in accuracy:
+        accuracy["history_by_category"] = []
+    accuracy["history_by_category"] = [
+        h for h in accuracy["history_by_category"] if h.get("date") != today
+    ]
+    accuracy["history_by_category"].append({"date": today, "by_category": today_cat})
+    accuracy["history_by_category"] = accuracy["history_by_category"][-90:]
 
     strong, weak = [], []
     for cat, s in accuracy["by_category"].items():
@@ -1005,23 +1017,116 @@ def build_lessons_prompt() -> str:
 
 
 _DAWN_LESSON_SYS = """You are ARIA-LessonExtractor.
-Compare today's analysis results with what actually happened.
+Compare today's ARIA predictions with actual results provided below.
+Do NOT search the web. Use only the data given.
 Return ONLY valid JSON. No markdown.
 {"has_lessons":true,"lessons":[{"category":"레짐판단/VIX/섹터/지정학/한국시장","lesson":"","severity":"high/medium/low","what_happened":"","what_was_predicted":""}],"overall_assessment":""}"""
 
 
+def _local_lesson_check(today_analyses: list, market_data: dict) -> list:
+    """웹서치 없이 로컬 데이터만으로 명백한 오판 감지 — 비용 0"""
+    lessons = []
+    if not today_analyses or not market_data:
+        return lessons
+
+    latest = today_analyses[-1]
+    regime = latest.get("market_regime", "")
+    trend  = latest.get("trend_phase", "")
+
+    # Fear&Greed vs 레짐 괴리
+    try:
+        fg = float(market_data.get("fear_greed_value", "50"))
+        if fg <= 25 and "선호" in regime:
+            lessons.append({
+                "category": "레짐판단",
+                "lesson":   "Fear&Greed " + str(fg) + "(공포)인데 위험선호 레짐 판단. 심리지표 더 반영 필요.",
+                "severity": "high",
+            })
+        elif fg >= 75 and "회피" in regime:
+            lessons.append({
+                "category": "레짐판단",
+                "lesson":   "Fear&Greed " + str(fg) + "(탐욕)인데 위험회피 레짐 판단. 과도한 보수 편향.",
+                "severity": "medium",
+            })
+    except Exception:
+        pass
+
+    # VIX vs 추세 괴리
+    try:
+        vix = float(market_data.get("vix", "20"))
+        if vix >= 30 and "상승" in trend:
+            lessons.append({
+                "category": "VIX",
+                "lesson":   "VIX " + str(vix) + " 고공포 구간에서 상승추세 판단. VIX 30 이상 시 추세 보수적으로.",
+                "severity": "high",
+            })
+    except Exception:
+        pass
+
+    # 코스피 급변 vs 예측 괴리
+    try:
+        kospi_chg = float(str(market_data.get("kospi_change","0%")).replace("%","").replace("+",""))
+        for a in today_analyses:
+            for tk in a.get("thesis_killers", []):
+                conf = tk.get("confirms_if","").lower()
+                if kospi_chg >= 3 and "하락" in conf:
+                    lessons.append({
+                        "category": "한국시장",
+                        "lesson":   "코스피 +" + str(kospi_chg) + "% 급등 예측 실패. 상승 가능성 과소평가.",
+                        "severity": "medium",
+                    })
+                    break
+                elif kospi_chg <= -3 and "상승" in conf:
+                    lessons.append({
+                        "category": "한국시장",
+                        "lesson":   "코스피 " + str(kospi_chg) + "% 급락 예측 실패. 하락 리스크 과소평가.",
+                        "severity": "medium",
+                    })
+                    break
+    except Exception:
+        pass
+
+    return lessons
+
+
 def extract_dawn_lessons(today_analyses: list, actual_news: str):
-    if not today_analyses: return
+    """1단계: 로컬 비교로 명백한 오판 무료 감지.
+       2단계: 로컬에서 못 잡은 경우에만 AI 호출 (웹서치 없음)."""
+    if not today_analyses:
+        print("No analyses to review")
+        return
+
+    # 실시간 데이터 로드
+    try:
+        from aria_data import load_market_data
+        market_data = load_market_data()
+    except ImportError:
+        market_data = {}
+
+    # 1단계: 로컬 비교 — 비용 0
+    local_lessons = _local_lesson_check(today_analyses, market_data)
+    for l in local_lessons:
+        add_lesson("dawn", l["category"], l["lesson"], l["severity"])
+        print("Local lesson: [" + l["category"] + "] " + l["lesson"][:50])
+
+    # 2단계: 로컬에서 못 잡은 케이스 — AI 호출 (웹서치 제거)
     summary = [{"time": a.get("analysis_time",""), "regime": a.get("market_regime",""),
                 "trend": a.get("trend_phase",""), "one_line": a.get("one_line_summary",""),
                 "thesis_killers": a.get("thesis_killers",[])[:2]} for a in today_analyses]
+
+    market_snapshot = {
+        k: market_data.get(k,"N/A")
+        for k in ["vix","kospi","kospi_change","krw_usd","fear_greed_value","fear_greed_rating","nvda_change"]
+    }
+
     full = ""
     with client.messages.stream(
-        model=MODEL, max_tokens=1500, system=_DAWN_LESSON_SYS,
-        tools=[{"type": "web_search_20250305", "name": "web_search"}],
-        messages=[{"role": "user", "content": "Search today's market outcomes and compare:\n"
-                   + json.dumps({"today_analyses": summary, "actual_news": actual_news, "analysis_date": _today()},
-                                ensure_ascii=False) + "\n\nReturn JSON."}]
+        model=MODEL, max_tokens=800, system=_DAWN_LESSON_SYS,
+        messages=[{"role": "user", "content":
+                   "오늘 실제 시장 데이터:\n" + json.dumps(market_snapshot, ensure_ascii=False)
+                   + "\n\nARIA 예측:\n" + json.dumps(summary, ensure_ascii=False)
+                   + "\n\n로컬에서 이미 감지한 오판: " + str(len(local_lessons)) + "개"
+                   + "\n\n추가로 놓친 오판이 있으면 JSON으로 반환. 없으면 has_lessons:false."}]
     ) as s:
         for ev in s:
             if getattr(ev, "type", "") == "content_block_delta":
@@ -1037,7 +1142,7 @@ def extract_dawn_lessons(today_analyses: list, actual_news: str):
     if not result.get("has_lessons"): return
     for l in result.get("lessons", []):
         add_lesson("dawn", l.get("category","기타"), l.get("lesson",""), l.get("severity","medium"))
-        print("Lesson: [" + l.get("category","") + "] " + l.get("lesson","")[:50])
+        print("AI lesson: [" + l.get("category","") + "] " + l.get("lesson","")[:50])
 
 
 def extract_weekly_lessons(memory_data: list, accuracy_data: dict):
