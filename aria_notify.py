@@ -50,7 +50,8 @@ def _save(path: Path, data):
 # ══════════════════════════════════════════════════════════════════════════════
 # TELEGRAM
 # ══════════════════════════════════════════════════════════════════════════════
-def send_message(text: str, reply_markup=None, parse_mode: str = "HTML") -> bool:
+def _send_single(text: str, reply_markup=None, parse_mode: str = "HTML") -> bool:
+    """단일 메시지 전송 (4096자 이하 보장된 텍스트)"""
     try:
         payload = {
             "chat_id": TELEGRAM_CHAT_ID,
@@ -65,6 +66,40 @@ def send_message(text: str, reply_markup=None, parse_mode: str = "HTML") -> bool
     except Exception as e:
         print("Telegram send error: " + str(e))
         return False
+
+
+def send_message(text: str, reply_markup=None, parse_mode: str = "HTML") -> bool:
+    """4096자 초과 시 자동 분할 전송"""
+    LIMIT = 4000
+    if len(text) <= LIMIT:
+        return _send_single(text, reply_markup, parse_mode)
+
+    # 줄 단위로 분할
+    lines  = text.split("\n")
+    chunks = []
+    current = []
+    length  = 0
+
+    for line in lines:
+        if length + len(line) + 1 > LIMIT:
+            chunks.append("\n".join(current))
+            current = [line]
+            length  = len(line)
+        else:
+            current.append(line)
+            length += len(line) + 1
+
+    if current:
+        chunks.append("\n".join(current))
+
+    ok = True
+    for i, chunk in enumerate(chunks):
+        suffix = ("\n<i>(" + str(i+1) + "/" + str(len(chunks)) + ")</i>") if len(chunks) > 1 else ""
+        # 마지막 청크에만 버튼 첨부
+        markup = reply_markup if i == len(chunks) - 1 else None
+        ok = ok and _send_single(chunk + suffix, markup, parse_mode)
+
+    return ok
 
 
 def make_buttons() -> dict:
