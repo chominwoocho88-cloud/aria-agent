@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import re
 import time
 import httpx
 from datetime import datetime, timezone, timedelta
@@ -15,12 +16,54 @@ COST_FILE = Path("aria_cost.json")
 DATA_FILE = Path("aria_market_data.json")
 
 
-# ── Yahoo Finance 데이터 수집 ──────────────────────────────────────────────────
+# ── Yahoo Finance ──────────────────────────────────────────────────────────────
+def fetch_yahoo_data() -> dict:
+    result  = {}
+    tickers = {
+        "^GSPC":     "sp500",
+        "^IXIC":     "nasdaq",
+        "^VIX":      "vix",
+        "^KS11":     "kospi",
+        "KRW=X":     "krw_usd",
+        "^TNX":      "us_10y",
+        "000660.KS": "sk_hynix",
+        "005930.KS": "samsung",
+        "NVDA":      "nvda",
+        "AVGO":      "avgo",
+        "SCHD":      "schd",
+    }
+    for ticker, key in tickers.items():
+        try:
+            url = "https://query1.finance.yahoo.com/v8/finance/chart/" + ticker
+            r   = httpx.get(
+                url,
+                params={"interval": "1d", "range": "1d"},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10,
+            )
+            data  = r.json()
+            meta  = data.get("chart", {}).get("result", [{}])[0].get("meta", {})
+            price = meta.get("regularMarketPrice", "")
+            prev  = meta.get("chartPreviousClose", "")
+            if price and prev and float(str(prev)) != 0:
+                change = round((float(price) - float(prev)) / float(prev) * 100, 2)
+                result[key]             = str(round(float(price), 2))
+                result[key + "_change"] = ("+" if change >= 0 else "") + str(change) + "%"
+                print("  " + ticker + ": " + result[key] + " (" + result[key + "_change"] + ")")
+            else:
+                result[key] = "N/A"
+                print("  " + ticker + ": 데이터 없음")
+            time.sleep(0.3)
+        except Exception as e:
+            print("  " + ticker + " 실패: " + str(e))
+            result[key] = "N/A"
+    return result
+
+
+# ── CNN Fear & Greed ───────────────────────────────────────────────────────────
 def fetch_fear_greed() -> dict:
-    """CNN 공포탐욕지수 실수치 파싱"""
     result = {"value": "N/A", "rating": "N/A", "prev_close": "N/A"}
     try:
-        # CNN Fear & Greed API (비공식)
         r = httpx.get(
             "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
             headers={"User-Agent": "Mozilla/5.0"},
@@ -36,110 +79,57 @@ def fetch_fear_greed() -> dict:
             result["prev_close"] = str(round(float(prev), 1)) if prev else "N/A"
             print("  CNN Fear&Greed: " + result["value"] + " (" + result["rating"] + ")")
     except Exception as e:
-        print("  CNN Fear&Greed 실패: " + str(e))
-        # 대체: alternative API
+        print("  CNN 실패: " + str(e) + " — alternative.me 대체")
         try:
-            r2 = httpx.get(
-                "https://api.alternative.me/fng/?limit=1",
-                timeout=10,
-            )
-            d2    = r2.json()
-            entry = d2.get("data", [{}])[0]
+            r2    = httpx.get("https://api.alternative.me/fng/?limit=1", timeout=10)
+            entry = r2.json().get("data", [{}])[0]
             val   = entry.get("value", "")
-            class_ = entry.get("value_classification", "")
+            cls   = entry.get("value_classification", "")
             if val:
                 result["value"]  = val
-                result["rating"] = class_
-                print("  Fear&Greed (대체): " + val + " (" + class_ + ")")
+                result["rating"] = cls
+                print("  Fear&Greed (대체): " + val + " (" + cls + ")")
         except Exception as e2:
             print("  Fear&Greed 대체도 실패: " + str(e2))
     return result
-    result = {}
-    tickers = {
-        "^GSPC":  "sp500",
-        "^IXIC":  "nasdaq",
-        "^VIX":   "vix",
-        "^KS11":  "kospi",
-        "KRW=X":  "krw_usd",
-        "^TNX":   "us_10y",
-        "000660.KS": "sk_hynix",
-        "005930.KS": "samsung",
-        "NVDA":   "nvda",
-        "AVGO":   "avgo",
-        "SCHD":   "schd",
-    }
-
-    for ticker, key in tickers.items():
-        try:
-            url = "https://query1.finance.yahoo.com/v8/finance/chart/" + ticker
-            r = httpx.get(
-                url,
-                params={"interval": "1d", "range": "1d"},
-                headers={"User-Agent": "Mozilla/5.0"},
-                timeout=10,
-            )
-            data  = r.json()
-            meta  = data.get("chart", {}).get("result", [{}])[0].get("meta", {})
-            price = meta.get("regularMarketPrice", "")
-            prev  = meta.get("chartPreviousClose", "")
-
-            if price and prev and float(str(prev)) != 0:
-                change = round((float(price) - float(prev)) / float(prev) * 100, 2)
-                result[key]             = str(round(float(price), 2))
-                result[key + "_change"] = ("+" if change >= 0 else "") + str(change) + "%"
-                print("  " + ticker + ": " + result[key] + " (" + result[key + "_change"] + ")")
-            else:
-                result[key] = "N/A"
-                print("  " + ticker + ": 데이터 없음")
-
-            time.sleep(0.3)
-
-        except Exception as e:
-            print("  " + ticker + " 실패: " + str(e))
-            result[key] = "N/A"
-
-    return result
 
 
-# ── 변동성 체크 (적응형 스케줄) ───────────────────────────────────────────────
+# ── 한국 특수 뉴스 ─────────────────────────────────────────────────────────────
 def fetch_korea_news() -> list:
-    """한국 특수 뉴스 — 공시/기관수급/외국인 매매 검색"""
     results = []
     queries = [
         "오늘 기관 외국인 순매수 코스피",
         "오늘 한국 주요 공시 대형주",
         "오늘 외국인 매매 동향 반도체",
     ]
-    try:
-        for q in queries:
+    for q in queries:
+        try:
             r = httpx.get(
                 "https://search.naver.com/search.naver",
                 params={"where": "news", "query": q, "sort": "1"},
                 headers={"User-Agent": "Mozilla/5.0"},
                 timeout=8,
             )
-            # 간단히 제목만 파싱
-            import re
             titles = re.findall(r'class="news_tit"[^>]*title="([^"]+)"', r.text)
             for t in titles[:2]:
                 results.append({"query": q, "headline": t})
-    except Exception as e:
-        print("  한국 뉴스 파싱 실패: " + str(e))
+        except Exception as e:
+            print("  한국 뉴스 실패: " + str(e))
     return results[:6]
+
+
+# ── 변동성 체크 ────────────────────────────────────────────────────────────────
+def check_volatility_alert(data: dict) -> dict:
     try:
         vix = float(str(data.get("vix", "0")).replace(",", ""))
     except:
         vix = 0
-
     try:
-        kospi_chg = data.get("kospi_change", "0%")
-        kospi_pct = float(str(kospi_chg).replace("%", "").replace("+", ""))
+        kospi_pct = float(str(data.get("kospi_change", "0%")).replace("%", "").replace("+", ""))
     except:
         kospi_pct = 0
-
     try:
-        sp500_chg = data.get("sp500_change", "0%")
-        sp500_pct = float(str(sp500_chg).replace("%", "").replace("+", ""))
+        sp500_pct = float(str(data.get("sp500_change", "0%")).replace("%", "").replace("+", ""))
     except:
         sp500_pct = 0
 
@@ -147,13 +137,13 @@ def fetch_korea_news() -> list:
     level  = "normal"
 
     if vix >= 40:
-        alerts.append("VIX " + str(vix) + " — 극단공포 (금융위기 수준)")
+        alerts.append("VIX " + str(vix) + " — 극단공포")
         level = "critical"
     elif vix >= 30:
-        alerts.append("VIX " + str(vix) + " — 공포 구간")
+        alerts.append("VIX " + str(vix) + " — 공포")
         level = "elevated"
     elif vix >= 25:
-        alerts.append("VIX " + str(vix) + " — 경계 수준")
+        alerts.append("VIX " + str(vix) + " — 경계")
         if level == "normal":
             level = "elevated"
 
@@ -194,27 +184,21 @@ def update_cost(mode: str = "MORNING"):
     cost      = load_cost()
     now       = datetime.now(KST)
     month_key = now.strftime("%Y-%m")
-
     cost["total_runs"] += 1
     cost["last_run"]    = now.strftime("%Y-%m-%d %H:%M KST")
-
     if month_key not in cost["monthly_runs"]:
         cost["monthly_runs"][month_key] = {"runs": 0, "estimated_usd": 0.0}
-
     cost["monthly_runs"][month_key]["runs"] += 1
-
     cost_per_run = {"MORNING": 1.2, "AFTERNOON": 0.7, "EVENING": 0.7, "DAWN": 0.9}
     run_cost = cost_per_run.get(mode, 0.8)
     cost["estimated_cost_usd"] = round(cost.get("estimated_cost_usd", 0) + run_cost, 2)
     cost["monthly_runs"][month_key]["estimated_usd"] = round(
         cost["monthly_runs"][month_key].get("estimated_usd", 0) + run_cost, 2
     )
-
     months = sorted(cost["monthly_runs"].keys())
     if len(months) > 3:
         for old in months[:-3]:
             del cost["monthly_runs"][old]
-
     COST_FILE.write_text(json.dumps(cost, ensure_ascii=False, indent=2), encoding="utf-8")
     return cost
 
@@ -226,13 +210,14 @@ def get_monthly_cost_summary() -> str:
     runs  = m.get("runs", 0)
     usd   = m.get("estimated_usd", 0.0)
     krw   = round(usd * 1480)
-    return "이번달 " + str(runs) + "회 실행 | 추정 비용 $" + str(usd) + " (약 " + f"{krw:,}" + "원)"
+    return "이번달 " + str(runs) + "회 실행 | 추정 $" + str(usd) + " (약 " + f"{krw:,}" + "원)"
 
 
 # ── 전체 수집 ──────────────────────────────────────────────────────────────────
 def fetch_all_market_data() -> dict:
-    print("\n[Yahoo Finance 실시간 데이터 수집]")
-    now   = datetime.now(KST)
+    now = datetime.now(KST)
+
+    print("[Yahoo Finance 실시간 데이터 수집]")
     yahoo = fetch_yahoo_data()
 
     print("[CNN Fear & Greed]")
@@ -241,36 +226,33 @@ def fetch_all_market_data() -> dict:
     print("[한국 특수 뉴스]")
     kr_news = fetch_korea_news()
 
-    # KIS 미연결
     print("[KIS API] 미연결 - Yahoo로 대체")
 
     data = {
-        "fetched_at":     now.strftime("%Y-%m-%d %H:%M KST"),
-        "sp500":          yahoo.get("sp500", "N/A"),
-        "sp500_change":   yahoo.get("sp500_change", ""),
-        "nasdaq":         yahoo.get("nasdaq", "N/A"),
-        "nasdaq_change":  yahoo.get("nasdaq_change", ""),
-        "vix":            yahoo.get("vix", "N/A"),
-        "vix_change":     yahoo.get("vix_change", ""),
-        "us_10y":         yahoo.get("us_10y", "N/A"),
-        "kospi":          yahoo.get("kospi", "N/A"),
-        "kospi_change":   yahoo.get("kospi_change", ""),
-        "krw_usd":        yahoo.get("krw_usd", "N/A"),
-        "sk_hynix":       yahoo.get("sk_hynix", "N/A"),
+        "fetched_at":      now.strftime("%Y-%m-%d %H:%M KST"),
+        "sp500":           yahoo.get("sp500", "N/A"),
+        "sp500_change":    yahoo.get("sp500_change", ""),
+        "nasdaq":          yahoo.get("nasdaq", "N/A"),
+        "nasdaq_change":   yahoo.get("nasdaq_change", ""),
+        "vix":             yahoo.get("vix", "N/A"),
+        "vix_change":      yahoo.get("vix_change", ""),
+        "us_10y":          yahoo.get("us_10y", "N/A"),
+        "kospi":           yahoo.get("kospi", "N/A"),
+        "kospi_change":    yahoo.get("kospi_change", ""),
+        "krw_usd":         yahoo.get("krw_usd", "N/A"),
+        "sk_hynix":        yahoo.get("sk_hynix", "N/A"),
         "sk_hynix_change": yahoo.get("sk_hynix_change", ""),
-        "samsung":        yahoo.get("samsung", "N/A"),
-        "samsung_change": yahoo.get("samsung_change", ""),
-        "nvda":           yahoo.get("nvda", "N/A"),
-        "nvda_change":    yahoo.get("nvda_change", ""),
-        "avgo":           yahoo.get("avgo", "N/A"),
-        "avgo_change":    yahoo.get("avgo_change", ""),
-        "schd":           yahoo.get("schd", "N/A"),
-        "schd_change":    yahoo.get("schd_change", ""),
-        # A3: CNN 공포탐욕지수 실수치
+        "samsung":         yahoo.get("samsung", "N/A"),
+        "samsung_change":  yahoo.get("samsung_change", ""),
+        "nvda":            yahoo.get("nvda", "N/A"),
+        "nvda_change":     yahoo.get("nvda_change", ""),
+        "avgo":            yahoo.get("avgo", "N/A"),
+        "avgo_change":     yahoo.get("avgo_change", ""),
+        "schd":            yahoo.get("schd", "N/A"),
+        "schd_change":     yahoo.get("schd_change", ""),
         "fear_greed_value":  fg.get("value", "N/A"),
         "fear_greed_rating": fg.get("rating", "N/A"),
         "fear_greed_prev":   fg.get("prev_close", "N/A"),
-        # D3: 한국 특수 뉴스
         "korea_special_news": kr_news,
         "source": "Yahoo Finance + CNN Fear&Greed",
     }
@@ -303,22 +285,20 @@ def format_for_hunter(data: dict) -> str:
         except:
             pass
 
-    # 공포탐욕지수
     fg_val    = data.get("fear_greed_value", "N/A")
     fg_rating = data.get("fear_greed_rating", "N/A")
     fg_prev   = data.get("fear_greed_prev", "N/A")
     fg_str    = fg_val + " / " + fg_rating + " (전일: " + fg_prev + ")" if fg_val != "N/A" else "N/A"
 
-    # 한국 특수 뉴스
-    kr_news = data.get("korea_special_news", [])
+    kr_news     = data.get("korea_special_news", [])
     kr_news_str = ""
     if kr_news:
-        kr_news_str = "\n\n### 한국 특수 뉴스 (공시/기관수급)\n"
+        kr_news_str = "\n\n### 한국 특수 뉴스 (기관수급/공시)\n"
         for n in kr_news:
             kr_news_str += "- " + n.get("headline", "") + "\n"
 
     return (
-        "\n\n## 실시간 시장 데이터 (API 직접 수집 — 이 수치를 그대로 사용하세요. 추정 금지)\n"
+        "\n\n## 실시간 시장 데이터 (API 직접 수집 — 이 수치를 그대로 사용. 추정 금지)\n"
         "수집: " + data.get("fetched_at", "") + "\n\n"
         "### 미국\n"
         "- S&P 500: " + data.get("sp500", "N/A") + " (" + data.get("sp500_change", "") + ")\n"
@@ -335,17 +315,17 @@ def format_for_hunter(data: dict) -> str:
         "- 엔비디아: " + data.get("nvda", "N/A") + " (" + data.get("nvda_change", "") + ")\n"
         "- 브로드컴: " + data.get("avgo", "N/A") + " (" + data.get("avgo_change", "") + ")\n"
         "- SCHD:     " + data.get("schd", "N/A") + " (" + data.get("schd_change", "") + ")"
-        + alert_str
-        + kr_news_str
+        + alert_str + kr_news_str
     )
 
 
 if __name__ == "__main__":
     data = fetch_all_market_data()
     print("\n--- 수집 결과 ---")
-    print("VIX:      " + data.get("vix", "N/A"))
-    print("코스피:   " + data.get("kospi", "N/A"))
-    print("원달러:   " + data.get("krw_usd", "N/A"))
-    print("엔비디아: " + data.get("nvda", "N/A"))
-    print("변동성:   " + data.get("volatility_alert", {}).get("level", "normal"))
+    print("VIX:        " + data.get("vix", "N/A"))
+    print("코스피:     " + data.get("kospi", "N/A"))
+    print("원달러:     " + data.get("krw_usd", "N/A"))
+    print("엔비디아:   " + data.get("nvda", "N/A"))
+    print("공포탐욕:   " + data.get("fear_greed_value", "N/A"))
+    print("변동성:     " + data.get("volatility_alert", {}).get("level", "normal"))
     print("\n" + get_monthly_cost_summary())
