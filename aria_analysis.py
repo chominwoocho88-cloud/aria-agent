@@ -87,27 +87,39 @@ def get_sentiment_weights() -> dict:
 
 
 def update_weights_from_accuracy(accuracy_data: dict) -> list:
-    """최근 30일 데이터만 사용해 가중치 업데이트 — 오래된 오판이 현재 신뢰도를 낮추지 않도록"""
-    weights  = load_weights()
-    changes  = []
-    today    = _today()
-    cutoff   = (datetime.now(KST) - timedelta(days=30)).strftime("%Y-%m-%d")
+    """최근 30일 history 기반으로 카테고리별 정확도를 재계산해 가중치 업데이트.
+    오래된 오판이 현재 신뢰도를 계속 낮추는 문제를 방지한다."""
+    weights = load_weights()
+    changes = []
+    cutoff  = (datetime.now(KST) - timedelta(days=30)).strftime("%Y-%m-%d")
 
-    # 카테고리별 최근 30일 정확도 재계산
-    recent_by_cat: dict = {}
-    for h in accuracy_data.get("history", []):
-        if h.get("date", "") < cutoff:
-            continue
-        # history에는 category별 breakdown이 없으므로 by_category를 직접 사용하되
-        # total accuracy로 전체 경향만 보정
-        pass
+    # history에서 최근 30일 항목만 추출
+    recent_history = [
+        h for h in accuracy_data.get("history", [])
+        if h.get("date", "") >= cutoff
+    ]
+
+    if not recent_history:
+        # 30일치 데이터가 없으면 전체 by_category 사용 (초기 운영 기간)
+        recent_history = None
+
+    # 카테고리별 최근 30일 정확도 계산
+    # history 항목에는 category breakdown이 없으므로
+    # by_category의 누적 수치를 전체 히스토리 비율로 보정한다
+    total_all    = sum(h.get("total", 0) for h in accuracy_data.get("history", []))
+    total_recent = sum(h.get("total", 0) for h in (recent_history or []))
+    recent_ratio = (total_recent / total_all) if total_all > 0 else 1.0
 
     for cat, stats in accuracy_data.get("by_category", {}).items():
-        total   = stats.get("total", 0)
-        correct = stats.get("correct", 0)
-        if total < 3:
+        total_cum   = stats.get("total", 0)
+        correct_cum = stats.get("correct", 0)
+        if total_cum < 3:
             continue
-        acc          = correct / total
+
+        # 최근 30일 비율로 보정한 추정 정확도
+        estimated_total   = max(1, round(total_cum * recent_ratio))
+        estimated_correct = round(correct_cum * recent_ratio)
+        acc = estimated_correct / estimated_total
         current_conf = weights["prediction_confidence"].get(cat, 1.0)
         new_conf     = current_conf
         if acc >= 0.75:
@@ -967,14 +979,28 @@ def get_active_lessons(max_lessons: int = 8) -> list:
 
 
 def build_lessons_prompt() -> str:
-    """최대 5개 교훈, 각 70자 압축 — 프롬프트 토큰 낭비 방지"""
-    lessons = get_active_lessons(max_lessons=5)
-    if not lessons: return ""
-    lines = ["\n\n## ARIA 과거 실수 교훈 (필수 반영, 간결)"]
-    for i, l in enumerate(lessons, 1):
-        mark    = "!!!" if l["severity"]=="high" else "!!" if l["severity"]=="medium" else "!"
-        lesson  = l["lesson"][:70] + ("…" if len(l["lesson"]) > 70 else "")
-        lines.append(str(i) + ". [" + mark + "] [" + l["category"] + "] " + lesson)
+    """오답 교훈(최대 4개) + 강점(최대 2개) 각 50자 이내 — 프롬프트 토큰 최소화"""
+    all_lessons = get_active_lessons(max_lessons=10)
+    if not all_lessons: return ""
+
+    mistakes   = [l for l in all_lessons if l.get("type") != "strength"][:4]
+    strengths  = [l for l in all_lessons if l.get("type") == "strength"][:2]
+
+    lines = []
+
+    if mistakes:
+        lines.append("\n\n## ARIA 과거 실수 교훈 (필수 반영)")
+        for i, l in enumerate(mistakes, 1):
+            mark   = "!!!" if l["severity"]=="high" else "!!" if l["severity"]=="medium" else "!"
+            lesson = l["lesson"][:50] + ("…" if len(l["lesson"]) > 50 else "")
+            lines.append(str(i) + ". [" + mark + "] [" + l["category"] + "] " + lesson)
+
+    if strengths:
+        lines.append("\n## ARIA 강점 패턴 (이 분야는 현재 분석을 신뢰)")
+        for l in strengths:
+            lesson = l["lesson"][:50] + ("…" if len(l["lesson"]) > 50 else "")
+            lines.append("✓ [" + l["category"] + "] " + lesson)
+
     return "\n".join(lines)
 
 
@@ -1019,16 +1045,54 @@ def extract_weekly_lessons(memory_data: list, accuracy_data: dict):
     analyses = [m for m in memory_data if isinstance(m, dict) and m.get("analysis_date","") >= week_ago]
     if not analyses: return
 
+    # ── 오답 교훈 ──────────────────────────────────────────────────────────────
     regimes = [a.get("market_regime","") for a in analyses]
     if len(set(regimes)) >= 3:
         add_lesson("weekly", "레짐판단",
                    "이번 주 레짐 판단이 " + str(len(set(regimes))) + "번 바뀜. 지정학 이슈 시 더 보수적 접근 필요.", "medium")
 
     for cat, s in accuracy_data.get("by_category", {}).items():
-        if s.get("total", 0) >= 3 and s["correct"] / s["total"] < 0.4:
-            add_lesson("weekly", cat,
-                       cat + " 예측 정확도 " + str(round(s["correct"]/s["total"]*100)) + "% - 반론 더 강하게 적용.", "high")
+        if s.get("total", 0) >= 3:
+            acc = s["correct"] / s["total"]
+            if acc < 0.4:
+                add_lesson("weekly", cat,
+                           cat + " 정확도 " + str(round(acc*100)) + "% — 반론 더 강하게 적용.", "high")
+
+            # ── 강점 교훈: 잘 맞춘 카테고리는 패턴 강화 ──────────────────────
+            elif acc >= 0.75:
+                add_strength("weekly", cat,
+                             cat + " 예측 적중률 " + str(round(acc*100)) + "% — 이 분야 분석 패턴 유지.")
+
     print("Weekly lessons extracted")
+
+
+def add_strength(source: str, category: str, text: str):
+    """잘 맞춘 패턴을 강점으로 저장 — 다음 분석에서 해당 카테고리 신뢰도 강화"""
+    data  = load_lessons()
+    today = _today()
+
+    # 같은 날 같은 카테고리 강점이 이미 있으면 스킵
+    exists = any(
+        l for l in data["lessons"]
+        if l["date"] == today and l["category"] == category and l.get("type") == "strength"
+    )
+    if exists:
+        return
+
+    data["lessons"].append({
+        "date":       today,
+        "source":     source,
+        "category":   category,
+        "lesson":     text,
+        "severity":   "low",
+        "type":       "strength",   # 강점 마킹
+        "applied":    0,
+        "reinforced": 0,
+    })
+    data["total_lessons"] += 1
+    data["lessons"] = sorted(data["lessons"], key=lambda x: x["date"], reverse=True)[:60]
+    data["last_updated"] = today
+    _save(LESSONS_FILE, data)
 
 
 def extract_monthly_lessons(memory_data: list, accuracy_data: dict):
