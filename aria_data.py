@@ -28,6 +28,8 @@ def fetch_yahoo_data() -> dict:
         "^TNX":      "us_10y",
         "000660.KS": "sk_hynix",
         "005930.KS": "samsung",
+        "035720.KS": "kakao",       # 카카오 KRX 티커 수정
+        "279530.KS": "kodex",       # KODEX 고배당 ETF 수정
         "NVDA":      "nvda",
         "AVGO":      "avgo",
         "SCHD":      "schd",
@@ -60,9 +62,29 @@ def fetch_yahoo_data() -> dict:
     return result
 
 
-# ── CNN Fear & Greed ───────────────────────────────────────────────────────────
+# ── Fear & Greed: alternative.me 우선, CNN 폴백 ────────────────────────────────
 def fetch_fear_greed() -> dict:
     result = {"value": "N/A", "rating": "N/A", "prev_close": "N/A"}
+
+    # 1순위: alternative.me (더 안정적)
+    try:
+        r2    = httpx.get("https://api.alternative.me/fng/?limit=2", timeout=10)
+        data  = r2.json().get("data", [])
+        if data:
+            entry = data[0]
+            val   = entry.get("value", "")
+            cls   = entry.get("value_classification", "")
+            prev  = data[1].get("value", "N/A") if len(data) > 1 else "N/A"
+            if val:
+                result["value"]      = val
+                result["rating"]     = cls
+                result["prev_close"] = prev
+                print("  Fear&Greed (alternative.me): " + val + " (" + cls + ")")
+                return result
+    except Exception as e:
+        print("  alternative.me 실패: " + str(e) + " — CNN 대체 시도")
+
+    # 2순위: CNN (폴백)
     try:
         r = httpx.get(
             "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
@@ -77,20 +99,10 @@ def fetch_fear_greed() -> dict:
             result["value"]      = str(round(float(score), 1))
             result["rating"]     = rating
             result["prev_close"] = str(round(float(prev), 1)) if prev else "N/A"
-            print("  CNN Fear&Greed: " + result["value"] + " (" + result["rating"] + ")")
+            print("  Fear&Greed (CNN): " + result["value"] + " (" + result["rating"] + ")")
     except Exception as e:
-        print("  CNN 실패: " + str(e) + " — alternative.me 대체")
-        try:
-            r2    = httpx.get("https://api.alternative.me/fng/?limit=1", timeout=10)
-            entry = r2.json().get("data", [{}])[0]
-            val   = entry.get("value", "")
-            cls   = entry.get("value_classification", "")
-            if val:
-                result["value"]  = val
-                result["rating"] = cls
-                print("  Fear&Greed (대체): " + val + " (" + cls + ")")
-        except Exception as e2:
-            print("  Fear&Greed 대체도 실패: " + str(e2))
+        print("  CNN도 실패: " + str(e))
+
     return result
 
 
@@ -122,15 +134,15 @@ def fetch_korea_news() -> list:
 def check_volatility_alert(data: dict) -> dict:
     try:
         vix = float(str(data.get("vix", "0")).replace(",", ""))
-    except:
+    except Exception:
         vix = 0
     try:
         kospi_pct = float(str(data.get("kospi_change", "0%")).replace("%", "").replace("+", ""))
-    except:
+    except Exception:
         kospi_pct = 0
     try:
         sp500_pct = float(str(data.get("sp500_change", "0%")).replace("%", "").replace("+", ""))
-    except:
+    except Exception:
         sp500_pct = 0
 
     alerts = []
@@ -220,7 +232,7 @@ def fetch_all_market_data() -> dict:
     print("[Yahoo Finance 실시간 데이터 수집]")
     yahoo = fetch_yahoo_data()
 
-    print("[CNN Fear & Greed]")
+    print("[Fear & Greed]")
     fg = fetch_fear_greed()
 
     print("[한국 특수 뉴스]")
@@ -244,6 +256,10 @@ def fetch_all_market_data() -> dict:
         "sk_hynix_change": yahoo.get("sk_hynix_change", ""),
         "samsung":         yahoo.get("samsung", "N/A"),
         "samsung_change":  yahoo.get("samsung_change", ""),
+        "kakao":           yahoo.get("kakao", "N/A"),
+        "kakao_change":    yahoo.get("kakao_change", ""),
+        "kodex":           yahoo.get("kodex", "N/A"),
+        "kodex_change":    yahoo.get("kodex_change", ""),
         "nvda":            yahoo.get("nvda", "N/A"),
         "nvda_change":     yahoo.get("nvda_change", ""),
         "avgo":            yahoo.get("avgo", "N/A"),
@@ -254,7 +270,7 @@ def fetch_all_market_data() -> dict:
         "fear_greed_rating": fg.get("rating", "N/A"),
         "fear_greed_prev":   fg.get("prev_close", "N/A"),
         "korea_special_news": kr_news,
-        "source": "Yahoo Finance + CNN Fear&Greed",
+        "source": "Yahoo Finance + Fear&Greed Index",
     }
 
     data["volatility_alert"] = check_volatility_alert(data)
@@ -282,7 +298,7 @@ def format_for_hunter(data: dict) -> str:
     if krw != "N/A":
         try:
             krw = str(round(float(krw))) + " KRW/USD"
-        except:
+        except Exception:
             pass
 
     fg_val    = data.get("fear_greed_value", "N/A")
@@ -305,12 +321,14 @@ def format_for_hunter(data: dict) -> str:
         "- 나스닥:  " + data.get("nasdaq", "N/A") + " (" + data.get("nasdaq_change", "") + ")\n"
         "- VIX:     " + data.get("vix", "N/A") + " (" + data.get("vix_change", "") + ")\n"
         "- 미국10Y: " + data.get("us_10y", "N/A") + "%\n"
-        "- CNN 공포탐욕: " + fg_str + "\n\n"
+        "- Fear&Greed: " + fg_str + "\n\n"
         "### 한국\n"
         "- 코스피:     " + data.get("kospi", "N/A") + " (" + data.get("kospi_change", "") + ")\n"
         "- 원/달러:    " + krw + "\n"
         "- SK하이닉스: " + data.get("sk_hynix", "N/A") + " (" + data.get("sk_hynix_change", "") + ")\n"
-        "- 삼성전자:   " + data.get("samsung", "N/A") + " (" + data.get("samsung_change", "") + ")\n\n"
+        "- 삼성전자:   " + data.get("samsung", "N/A") + " (" + data.get("samsung_change", "") + ")\n"
+        "- 카카오:     " + data.get("kakao", "N/A") + " (" + data.get("kakao_change", "") + ")\n"
+        "- KODEX고배당: " + data.get("kodex", "N/A") + " (" + data.get("kodex_change", "") + ")\n\n"
         "### 포트폴리오\n"
         "- 엔비디아: " + data.get("nvda", "N/A") + " (" + data.get("nvda_change", "") + ")\n"
         "- 브로드컴: " + data.get("avgo", "N/A") + " (" + data.get("avgo_change", "") + ")\n"
@@ -325,6 +343,8 @@ if __name__ == "__main__":
     print("VIX:        " + data.get("vix", "N/A"))
     print("코스피:     " + data.get("kospi", "N/A"))
     print("원달러:     " + data.get("krw_usd", "N/A"))
+    print("카카오:     " + data.get("kakao", "N/A"))
+    print("KODEX:      " + data.get("kodex", "N/A"))
     print("엔비디아:   " + data.get("nvda", "N/A"))
     print("공포탐욕:   " + data.get("fear_greed_value", "N/A"))
     print("변동성:     " + data.get("volatility_alert", {}).get("level", "normal"))
