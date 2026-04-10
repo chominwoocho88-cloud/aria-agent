@@ -337,6 +337,17 @@ def agent_reporter(hunter: dict, analyst: dict, devil: dict,
         "analyst": analyst,
         "devil":   devil,
     }
+
+    # Devil "반대" 판정 시 Reporter에 강화 지시
+    devil_override = ""
+    if devil.get("verdict") == "반대":
+        devil_override = (
+            "\n\n## CRITICAL: Devil 에이전트가 \'반대\' 판정을 내렸습니다."
+            "\n- confidence_overall은 반드시 \'낮음\'으로 설정하세요."
+            "\n- counterarguments를 one_line_summary에 반드시 포함하세요."
+            "\n- Analyst 결론을 그대로 따르지 말고 Devil 반론을 우선 반영하세요."
+        )
+
     # MORNING만 Opus, 나머지는 Sonnet (비용 최적화)
     reporter_model = MODEL_REPORTER_FULL if mode == "MORNING" else MODEL_REPORTER_LITE
     max_tok        = 4000 if mode == "MORNING" else 2500
