@@ -153,10 +153,12 @@ def calculate_sentiment(report: dict, market_data: dict = None) -> dict:
 
     comps = {}
 
-    # 1. 시장레짐
+    # 1. 시장레짐 — 공포 구간에서 낙관 신호 강하게 억제
     raw = 20 if "선호" in regime else -20 if "회피" in regime else 5 if "전환" in regime else 0
-    if fg_raw is not None and fg_raw <= 25 and raw > 0:
-        raw //= 2
+    if fg_raw is not None and raw > 0:
+        if fg_raw <= 20:   raw = 0         # 극단공포 → 레짐 신호 완전 무효화
+        elif fg_raw <= 35: raw = raw // 3  # 공포 → 1/3 억제
+        elif fg_raw <= 45: raw = raw // 2  # 공포우위 → 절반 억제
     comps["시장레짐"] = {"score": round(raw * sw.get("시장레짐", 1.0)), "reason": regime[:25] or "데이터없음"}
 
     # 2. 추세방향
@@ -227,8 +229,11 @@ def calculate_sentiment(report: dict, market_data: dict = None) -> dict:
                           "reason": "고신뢰" + str(h_conf) + " / 저신뢰" + str(l_conf)}
 
     score = 50 + sum(c["score"] for c in comps.values())
-    if fg_raw is not None and fg_raw <= 25: score = min(score, 45)
-    if fg_raw is not None and fg_raw >= 80: score = max(score, 70)
+    if fg_raw is not None:
+        if fg_raw <= 20:   score = min(score, 30)   # 극단공포 상한
+        elif fg_raw <= 35: score = min(score, 40)   # 공포 상한
+        elif fg_raw <= 45: score = min(score, 48)   # 공포우위 상한
+        elif fg_raw >= 80: score = max(score, 70)   # 극단탐욕 하한
     if vix_val and vix_val >= 25:           score = min(score, 60)
     if vkospi_val and vkospi_val >= 40:     score = min(score, 55)
     score = max(0, min(100, score))
