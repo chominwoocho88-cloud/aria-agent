@@ -16,7 +16,44 @@ DATA_FILE = Path("aria_market_data.json")
 
 
 # ── Yahoo Finance 데이터 수집 ──────────────────────────────────────────────────
-def fetch_yahoo_data() -> dict:
+def fetch_fear_greed() -> dict:
+    """CNN 공포탐욕지수 실수치 파싱"""
+    result = {"value": "N/A", "rating": "N/A", "prev_close": "N/A"}
+    try:
+        # CNN Fear & Greed API (비공식)
+        r = httpx.get(
+            "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
+        )
+        data   = r.json()
+        score  = data.get("fear_and_greed", {}).get("score", "")
+        rating = data.get("fear_and_greed", {}).get("rating", "")
+        prev   = data.get("fear_and_greed", {}).get("previous_close", "")
+        if score:
+            result["value"]      = str(round(float(score), 1))
+            result["rating"]     = rating
+            result["prev_close"] = str(round(float(prev), 1)) if prev else "N/A"
+            print("  CNN Fear&Greed: " + result["value"] + " (" + result["rating"] + ")")
+    except Exception as e:
+        print("  CNN Fear&Greed 실패: " + str(e))
+        # 대체: alternative API
+        try:
+            r2 = httpx.get(
+                "https://api.alternative.me/fng/?limit=1",
+                timeout=10,
+            )
+            d2    = r2.json()
+            entry = d2.get("data", [{}])[0]
+            val   = entry.get("value", "")
+            class_ = entry.get("value_classification", "")
+            if val:
+                result["value"]  = val
+                result["rating"] = class_
+                print("  Fear&Greed (대체): " + val + " (" + class_ + ")")
+        except Exception as e2:
+            print("  Fear&Greed 대체도 실패: " + str(e2))
+    return result
     result = {}
     tickers = {
         "^GSPC":  "sp500",
@@ -65,7 +102,30 @@ def fetch_yahoo_data() -> dict:
 
 
 # ── 변동성 체크 (적응형 스케줄) ───────────────────────────────────────────────
-def check_volatility_alert(data: dict) -> dict:
+def fetch_korea_news() -> list:
+    """한국 특수 뉴스 — 공시/기관수급/외국인 매매 검색"""
+    results = []
+    queries = [
+        "오늘 기관 외국인 순매수 코스피",
+        "오늘 한국 주요 공시 대형주",
+        "오늘 외국인 매매 동향 반도체",
+    ]
+    try:
+        for q in queries:
+            r = httpx.get(
+                "https://search.naver.com/search.naver",
+                params={"where": "news", "query": q, "sort": "1"},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=8,
+            )
+            # 간단히 제목만 파싱
+            import re
+            titles = re.findall(r'class="news_tit"[^>]*title="([^"]+)"', r.text)
+            for t in titles[:2]:
+                results.append({"query": q, "headline": t})
+    except Exception as e:
+        print("  한국 뉴스 파싱 실패: " + str(e))
+    return results[:6]
     try:
         vix = float(str(data.get("vix", "0")).replace(",", ""))
     except:
@@ -175,8 +235,14 @@ def fetch_all_market_data() -> dict:
     now   = datetime.now(KST)
     yahoo = fetch_yahoo_data()
 
-    # KIS 미연결 - Yahoo로 대체
-    print("[KIS API] 미연결 - Yahoo Finance로 대체")
+    print("[CNN Fear & Greed]")
+    fg = fetch_fear_greed()
+
+    print("[한국 특수 뉴스]")
+    kr_news = fetch_korea_news()
+
+    # KIS 미연결
+    print("[KIS API] 미연결 - Yahoo로 대체")
 
     data = {
         "fetched_at":     now.strftime("%Y-%m-%d %H:%M KST"),
@@ -200,7 +266,13 @@ def fetch_all_market_data() -> dict:
         "avgo_change":    yahoo.get("avgo_change", ""),
         "schd":           yahoo.get("schd", "N/A"),
         "schd_change":    yahoo.get("schd_change", ""),
-        "source":         "Yahoo Finance",
+        # A3: CNN 공포탐욕지수 실수치
+        "fear_greed_value":  fg.get("value", "N/A"),
+        "fear_greed_rating": fg.get("rating", "N/A"),
+        "fear_greed_prev":   fg.get("prev_close", "N/A"),
+        # D3: 한국 특수 뉴스
+        "korea_special_news": kr_news,
+        "source": "Yahoo Finance + CNN Fear&Greed",
     }
 
     data["volatility_alert"] = check_volatility_alert(data)
@@ -231,6 +303,20 @@ def format_for_hunter(data: dict) -> str:
         except:
             pass
 
+    # 공포탐욕지수
+    fg_val    = data.get("fear_greed_value", "N/A")
+    fg_rating = data.get("fear_greed_rating", "N/A")
+    fg_prev   = data.get("fear_greed_prev", "N/A")
+    fg_str    = fg_val + " / " + fg_rating + " (전일: " + fg_prev + ")" if fg_val != "N/A" else "N/A"
+
+    # 한국 특수 뉴스
+    kr_news = data.get("korea_special_news", [])
+    kr_news_str = ""
+    if kr_news:
+        kr_news_str = "\n\n### 한국 특수 뉴스 (공시/기관수급)\n"
+        for n in kr_news:
+            kr_news_str += "- " + n.get("headline", "") + "\n"
+
     return (
         "\n\n## 실시간 시장 데이터 (API 직접 수집 — 이 수치를 그대로 사용하세요. 추정 금지)\n"
         "수집: " + data.get("fetched_at", "") + "\n\n"
@@ -238,7 +324,8 @@ def format_for_hunter(data: dict) -> str:
         "- S&P 500: " + data.get("sp500", "N/A") + " (" + data.get("sp500_change", "") + ")\n"
         "- 나스닥:  " + data.get("nasdaq", "N/A") + " (" + data.get("nasdaq_change", "") + ")\n"
         "- VIX:     " + data.get("vix", "N/A") + " (" + data.get("vix_change", "") + ")\n"
-        "- 미국10Y: " + data.get("us_10y", "N/A") + "%\n\n"
+        "- 미국10Y: " + data.get("us_10y", "N/A") + "%\n"
+        "- CNN 공포탐욕: " + fg_str + "\n\n"
         "### 한국\n"
         "- 코스피:     " + data.get("kospi", "N/A") + " (" + data.get("kospi_change", "") + ")\n"
         "- 원/달러:    " + krw + "\n"
@@ -249,6 +336,7 @@ def format_for_hunter(data: dict) -> str:
         "- 브로드컴: " + data.get("avgo", "N/A") + " (" + data.get("avgo_change", "") + ")\n"
         "- SCHD:     " + data.get("schd", "N/A") + " (" + data.get("schd_change", "") + ")"
         + alert_str
+        + kr_news_str
     )
 
 
