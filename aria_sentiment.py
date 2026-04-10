@@ -2,7 +2,6 @@ import os
 import sys
 import json
 import re
-import argparse
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -10,548 +9,388 @@ os.environ["PYTHONIOENCODING"] = "utf-8"
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
-import anthropic
-from rich.console import Console
-from rich.panel import Panel
-from rich.table import Table
-from rich import box
-
-# ── 설정 ──────────────────────────────────────────────────────────────────────
-API_KEY     = os.environ.get("ANTHROPIC_API_KEY", "")
-MEMORY_FILE = Path("memory.json")
-REPORTS_DIR = Path("reports")
-KST         = timezone(timedelta(hours=9))
-MODE        = os.environ.get("ARIA_MODE", "MORNING")
-
-MODEL_HUNTER   = "claude-haiku-4-5-20251001"
-MODEL_ANALYST  = "claude-sonnet-4-6"
-MODEL_DEVIL    = "claude-sonnet-4-6"
-MODEL_REPORTER = "claude-opus-4-6"
-
-console = Console()
-client  = anthropic.Anthropic(api_key=API_KEY)
+KST            = timezone(timedelta(hours=9))
+SENTIMENT_FILE = Path("sentiment.json")
 
 
-# ── 유틸 ──────────────────────────────────────────────────────────────────────
 def now_kst():
     return datetime.now(KST)
 
-def parse_json(text):
-    raw = re.sub(r"```json|```", "", text).strip()
-    m   = re.search(r"\{[\s\S]*\}", raw)
-    if not m:
-        raise ValueError("JSON not found:\n" + text[:300])
-    s = m.group()
-    s = re.sub(r",\s*([}\]])", r"\1", s)
-    s += "]" * (s.count("[") - s.count("]"))
-    s += "}" * (s.count("{") - s.count("}"))
-    return json.loads(s)
 
-def call_api(system, user, use_search=False, model=MODEL_ANALYST, max_tokens=2000):
-    kwargs = dict(
-        model=model,
-        max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user}],
-    )
-    if use_search:
-        kwargs["tools"] = [{"type": "web_search_20250305", "name": "web_search"}]
-
-    full = ""
-    sc   = 0
-    with client.messages.stream(**kwargs) as s:
-        for ev in s:
-            t = getattr(ev, "type", "")
-            if t == "content_block_start":
-                blk = getattr(ev, "content_block", None)
-                if blk and getattr(blk, "type", "") == "tool_use":
-                    sc += 1
-                    q = getattr(blk, "input", {}).get("query", "")
-                    console.print("    [dim]Search [" + str(sc) + "]: " + q + "[/dim]")
-            elif t == "content_block_delta":
-                d = getattr(ev, "delta", None)
-                if d and getattr(d, "type", "") == "text_delta":
-                    full += d.text
-    return full
-
-def load_memory():
-    if MEMORY_FILE.exists():
-        return json.loads(MEMORY_FILE.read_text(encoding="utf-8"))
-    return []
-
-def save_memory(memory, analysis):
-    memory = [m for m in memory if m.get("analysis_date") != analysis.get("analysis_date")]
-    memory = (memory + [analysis])[-90:]
-    MEMORY_FILE.write_text(json.dumps(memory, ensure_ascii=False, indent=2), encoding="utf-8")
-
-def save_report(analysis):
-    REPORTS_DIR.mkdir(exist_ok=True)
-    date = analysis.get("analysis_date", now_kst().strftime("%Y-%m-%d"))
-    mode = analysis.get("mode", "MORNING").lower()
-    path = REPORTS_DIR / (date + "_" + mode + ".json")
-    path.write_text(json.dumps(analysis, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
-
-def get_todays_analyses():
-    today   = now_kst().strftime("%Y-%m-%d")
-    reports = []
-    if REPORTS_DIR.exists():
-        for f in REPORTS_DIR.glob(today + "_*.json"):
-            try:
-                reports.append(json.loads(f.read_text(encoding="utf-8")))
-            except:
-                pass
-    return reports
+def parse_vix_number(vix_str):
+    if not vix_str:
+        return None
+    m = re.search(r"(\d+\.?\d*)", str(vix_str))
+    return float(m.group(1)) if m else None
 
 
-# ── 모드별 컨텍스트 ────────────────────────────────────────────────────────────
-def get_mode_context(mode, lessons_prompt=""):
-    base = lessons_prompt
+def calculate_sentiment(report, market_data=None):
+    try:
+        from aria_weights import get_sentiment_weights
+        sw = get_sentiment_weights()
+    except ImportError:
+        sw = {k: 1.0 for k in ["시장레짐","추세방향","변동성지수","자금흐름","반론강도","한국시장","숨은시그널"]}
 
-    if mode == "MORNING":
-        return (
-            "You are ARIA in MORNING mode (07:30 KST). "
-            "This is the PRIMARY daily analysis. Set the baseline for today. "
-            "Do a FULL comprehensive analysis. "
-            "Pay special attention to overnight US market moves.\n" + base
-        )
-    elif mode == "AFTERNOON":
-        return (
-            "You are ARIA in AFTERNOON mode (14:30 KST). "
-            "Focus ONLY on what CHANGED since this morning. "
-            "Do NOT repeat the morning analysis. Highlight intraday reversals and new news.\n" + base
-        )
-    elif mode == "EVENING":
-        return (
-            "You are ARIA in EVENING mode (20:30 KST). "
-            "Summarize what actually happened today. "
-            "What did morning analysis get right/wrong? "
-            "What is the setup for tomorrow?\n" + base
-        )
-    elif mode == "DAWN":
-        return (
-            "You are ARIA in DAWN mode (04:30 KST). "
-            "Focus on global markets overnight: US close, after-hours, Asian open. "
-            "Set the stage for tomorrow morning.\n" + base
-        )
-    return base
+    regime   = report.get("market_regime", "")
+    trend    = report.get("trend_phase", "")
+    vi       = report.get("volatility_index", {})
+    outflows = report.get("outflows", [])
+    inflows  = report.get("inflows", [])
+    counters = report.get("counterarguments", [])
+    korea    = report.get("korea_focus", {})
+    hidden   = report.get("hidden_signals", [])
 
+    # 실제 수치 우선 추출
+    vix_val    = parse_vix_number(market_data.get("vix")) if market_data else None
+    vix_val    = vix_val or parse_vix_number(vi.get("vix"))
+    vkospi_val = parse_vix_number(vi.get("vkospi"))
 
-# ── Agent 1: Hunter ───────────────────────────────────────────────────────────
-HUNTER_SYSTEM = """You are a financial news collection agent. Only collect facts.
-Real-time market data is already provided above — use those exact numbers.
-Search for additional news context only.
-Return ONLY valid JSON. No markdown.
-{
-  "collected_at": "YYYY-MM-DD HH:MM KST",
-  "mode": "",
-  "raw_signals": [{"category":"","headline":"","data_point":""}],
-  "market_snapshot": {
-    "sp500":"","nasdaq":"","kospi":"",
-    "krw_usd":"","us_10y":"","vix":""
-  },
-  "total_signals": 0
-}"""
+    fg_raw = None
+    if market_data:
+        fg_raw = parse_vix_number(market_data.get("fear_greed_value"))
+    if fg_raw is None:
+        fg_raw = parse_vix_number(vi.get("fear_greed"))
 
-def get_hunter_queries(mode):
-    base = [
-        "global financial markets major news today",
-        "Korea market KOSPI news today",
-        "semiconductor AI Nvidia SK Hynix news today",
-        "geopolitical risk market impact today",
-    ]
-    if mode == "DAWN":
-        base[0] = "US market close results AND Asia market open today"
-    elif mode == "AFTERNOON":
-        base[0] = "market intraday reversal midday news today"
-    elif mode == "EVENING":
-        base[0] = "market close summary today what happened"
-    return base
+    components = {}
 
-def agent_hunter(date_str, mode, market_data=None):
-    console.print("\n[bold cyan]Agent 1 - HUNTER [" + mode + "][/bold cyan]")
+    # 1. 시장 레짐
+    if "선호" in regime:   raw = 20
+    elif "회피" in regime: raw = -20
+    elif "전환" in regime: raw = 5
+    else:                  raw = 0
+    if fg_raw is not None and fg_raw <= 25 and raw > 0:
+        raw = raw // 2
+    components["시장레짐"] = {
+        "score":  round(raw * sw.get("시장레짐", 1.0)),
+        "reason": regime[:25] if regime else "데이터없음"
+    }
 
-    # 실시간 데이터 주입
-    market_ctx = ""
+    # 2. 추세 방향
+    if "상승" in trend:   raw = 15
+    elif "하락" in trend: raw = -15
+    else:                 raw = 0
+    components["추세방향"] = {
+        "score":  round(raw * sw.get("추세방향", 1.0)),
+        "reason": trend if trend else "데이터없음"
+    }
+
+    # 3. 변동성 지수 (Fear&Greed 실수치 우선)
+    raw    = 0
+    reason = ""
+    if fg_raw is not None:
+        if fg_raw <= 20:
+            raw    = -25
+            reason = "Fear&Greed " + str(fg_raw) + " (극단공포)"
+        elif fg_raw <= 35:
+            raw    = -15
+            reason = "Fear&Greed " + str(fg_raw) + " (공포)"
+        elif fg_raw <= 55:
+            raw    = 0
+            reason = "Fear&Greed " + str(fg_raw) + " (중립)"
+        elif fg_raw <= 75:
+            raw    = 12
+            reason = "Fear&Greed " + str(fg_raw) + " (탐욕)"
+        else:
+            raw    = 20
+            reason = "Fear&Greed " + str(fg_raw) + " (극단탐욕)"
+        if vix_val:
+            if vix_val >= 30:   raw = min(raw, -10)
+            elif vix_val <= 15: raw = max(raw, 5)
+    else:
+        vix_level = vi.get("level", "")
+        if vix_val:
+            if vix_val >= 35:   raw, reason = -20, "VIX " + str(vix_val) + " 극단공포"
+            elif vix_val >= 25: raw, reason = -10, "VIX " + str(vix_val) + " 공포"
+            elif vix_val >= 20: raw, reason = -5,  "VIX " + str(vix_val) + " 경계"
+            elif vix_val <= 15: raw, reason = 10,  "VIX " + str(vix_val) + " 안정"
+        elif "극단공포" in vix_level: raw, reason = -20, vix_level
+        elif "공포" in vix_level:     raw, reason = -10, vix_level
+        elif "극단탐욕" in vix_level: raw, reason = 20,  vix_level
+        elif "탐욕" in vix_level:     raw, reason = 10,  vix_level
+
+    components["변동성지수"] = {
+        "score":  round(raw * sw.get("변동성지수", 1.5)),
+        "reason": reason[:30] if reason else "데이터없음"
+    }
+
+    # 4. 자금 흐름
+    out_count = len(outflows)
+    in_count  = len(inflows)
+    high_out  = sum(1 for o in outflows if o.get("severity") == "높음")
+    strong_in = sum(1 for i in inflows  if i.get("momentum") == "강함")
+    raw       = (strong_in * 5) - (high_out * 5) + (in_count - out_count) * 2
+    raw       = max(-15, min(15, raw))
+    components["자금흐름"] = {
+        "score":  round(raw * sw.get("자금흐름", 1.0)),
+        "reason": "유입" + str(in_count) + " / 유출" + str(out_count)
+    }
+
+    # 5. 반론 강도
+    high_risk = sum(1 for c in counters if c.get("risk_level") == "높음")
+    mid_risk  = sum(1 for c in counters if c.get("risk_level") == "보통")
+    raw       = -(high_risk * 4 + mid_risk * 2)
+    raw       = max(-10, raw)
+    components["반론강도"] = {
+        "score":  round(raw * sw.get("반론강도", 0.8)),
+        "reason": "고위험" + str(high_risk) + " / 중위험" + str(mid_risk)
+    }
+
+    # 6. 한국시장
+    raw      = 0
+    kr_notes = []
+    krw      = korea.get("krw_usd", "")
+    kospi    = korea.get("kospi_flow", "")
+    if "약세" in krw or "하락" in krw:
+        raw -= 3; kr_notes.append("원화약세")
+    elif "강세" in krw or "상승" in krw:
+        raw += 3; kr_notes.append("원화강세")
+    if "하락" in kospi or "-" in kospi:
+        raw -= 4; kr_notes.append("코스피하락")
+    elif "상승" in kospi or "+" in kospi:
+        raw += 4; kr_notes.append("코스피상승")
     if market_data:
         try:
-            from aria_data import format_for_hunter
-            market_ctx = format_for_hunter(market_data)
-        except ImportError:
-            pass
-
-    queries    = get_hunter_queries(mode)
-    search_str = " AND ".join(queries[:3])
-
-    raw = call_api(
-        HUNTER_SYSTEM,
-        "Today: " + date_str + " Mode: " + mode + "."
-        + market_ctx
-        + "\nSearch for additional context: " + search_str + ". Return JSON.",
-        use_search=True, model=MODEL_HUNTER, max_tokens=2000
-    )
-    result = parse_json(raw)
-    result["mode"] = mode
-
-    # 실시간 데이터로 market_snapshot 보강
-    if market_data:
-        snap = result.get("market_snapshot", {})
-        for key in ["sp500", "nasdaq", "vix", "kospi", "krw_usd", "us_10y"]:
-            if market_data.get(key) and market_data[key] != "N/A":
-                snap[key] = market_data[key]
-        result["market_snapshot"] = snap
-
-    console.print("  [green]Done: " + str(result.get("total_signals", 0)) + " signals[/green]")
-    return result
-
-
-# ── Agent 2: Analyst ──────────────────────────────────────────────────────────
-ANALYST_SYSTEM_BASE = """You are a capital flow analysis agent.
-Analyze Hunter data and map capital flows.
-Use the real-time market data numbers provided — do not override them with estimates.
-Return ONLY valid JSON in Korean. No markdown.
-{
-  "market_regime": "위험선호/위험회피/전환중/혼조",
-  "trend_phase": "상승추세/횡보추세/하락추세",
-  "trend_strategy": {"recommended":"","caution":"","difficulty":"쉬움/보통/어려움"},
-  "regime_reason": "",
-  "volatility_index": {
-    "vkospi":"","vix":"","fear_greed":"",
-    "level":"극단공포/공포/중립/탐욕/극단탐욕",
-    "interpretation":""
-  },
-  "retail_reversal_signal": {"retail_behavior":"","contrarian_implication":"","reliability":"낮음/보통/높음"},
-  "outflows": [{"zone":"","reason":"","severity":"높음/보통/낮음","data_point":""}],
-  "inflows":  [{"zone":"","reason":"","momentum":"강함/형성중/약함","data_point":""}],
-  "neutral_waiting": [{"zone":"","catalyst_needed":""}],
-  "hidden_signals": [{"signal":"","implication":"","confidence":"낮음/보통/높음"}],
-  "korea_focus": {"krw_usd":"","kospi_flow":"","sk_hynix":"","samsung":"","assessment":""},
-  "analyst_confidence": "낮음/보통/높음"
-}"""
-
-def agent_analyst(hunter_data, mode, lessons_prompt=""):
-    console.print("\n[bold yellow]Agent 2 - ANALYST [" + mode + "][/bold yellow]")
-    mode_ctx = get_mode_context(mode, lessons_prompt)
-    slim = {
-        "market_snapshot": hunter_data.get("market_snapshot", {}),
-        "raw_signals":     hunter_data.get("raw_signals", [])[:15],
-        "mode":            mode,
-    }
-    raw = call_api(
-        mode_ctx + "\n\n" + ANALYST_SYSTEM_BASE,
-        "Hunter data:\n" + json.dumps(slim, ensure_ascii=False) + "\n\nReturn JSON.",
-        model=MODEL_ANALYST, max_tokens=2500
-    )
-    result = parse_json(raw)
-    console.print("  [green]Done: " + str(result.get("market_regime", "")) + " / " + str(result.get("trend_phase", "")) + "[/green]")
-    return result
-
-
-# ── Agent 3: Devil ────────────────────────────────────────────────────────────
-DEVIL_SYSTEM = """You are a counter-argument agent. Challenge the Analyst sharply.
-Return ONLY valid JSON in Korean. No markdown.
-{
-  "verdict": "동의/부분동의/반대",
-  "counterarguments": [{"against":"","because":"","risk_level":"낮음/보통/높음"}],
-  "alternative_scenario": {"regime":"","narrative":"","probability":"낮음/보통/높음"},
-  "thesis_killers": [{"event":"","timeframe":"","confirms_if":"","invalidates_if":""}],
-  "tail_risks": []
-}"""
-
-def agent_devil(analyst_data, memory, mode):
-    console.print("\n[bold red]Agent 3 - DEVIL [" + mode + "][/bold red]")
-    past = ""
-    if memory:
-        last = memory[-1]
-        past = "\n\nPrior: regime=" + str(last.get("market_regime", "")) + " summary=" + str(last.get("one_line_summary", ""))
-    slim = {
-        "market_regime":      analyst_data.get("market_regime", ""),
-        "trend_phase":        analyst_data.get("trend_phase", ""),
-        "outflows":           analyst_data.get("outflows", [])[:3],
-        "inflows":            analyst_data.get("inflows", [])[:3],
-        "hidden_signals":     analyst_data.get("hidden_signals", [])[:3],
-        "analyst_confidence": analyst_data.get("analyst_confidence", ""),
-    }
-    raw = call_api(
-        DEVIL_SYSTEM,
-        "Analyst:\n" + json.dumps(slim, ensure_ascii=False) + past + "\n\nReturn JSON.",
-        model=MODEL_DEVIL, max_tokens=2000
-    )
-    result = parse_json(raw)
-    console.print("  [green]Done: " + str(result.get("verdict", "")) + " / " + str(len(result.get("counterarguments", []))) + " counters[/green]")
-    return result
-
-
-# ── Agent 4: Reporter ─────────────────────────────────────────────────────────
-REPORTER_SYSTEM = """You are the final report agent. Synthesize all agent results.
-Return ONLY valid JSON in Korean. No markdown.
-{
-  "analysis_date": "YYYY-MM-DD",
-  "analysis_time": "HH:MM KST",
-  "mode": "",
-  "mode_label": "아침 풀분석/오후 업데이트/저녁 마감/새벽 글로벌",
-  "market_regime": "",
-  "trend_phase": "상승추세/횡보추세/하락추세",
-  "trend_strategy": {"recommended":"","caution":"","difficulty":""},
-  "confidence_overall": "낮음/보통/높음",
-  "consensus_level": "높음/보통/낮음",
-  "top_headlines": [{"headline":"","signal_tag":"","impact":"높음/보통/낮음"}],
-  "volatility_index": {"vkospi":"","vix":"","fear_greed":"","level":"","interpretation":""},
-  "retail_reversal_signal": {"retail_behavior":"","contrarian_implication":"","reliability":""},
-  "outflows": [{"zone":"","reason":"","severity":"","data_point":""}],
-  "inflows":  [{"zone":"","reason":"","momentum":"","data_point":""}],
-  "neutral_waiting": [{"zone":"","catalyst_needed":""}],
-  "hidden_signals": [{"signal":"","implication":"","confidence":""}],
-  "korea_focus": {"krw_usd":"","kospi_flow":"","sk_hynix":"","samsung":"","assessment":""},
-  "counterarguments": [{"against":"","because":"","risk_level":""}],
-  "thesis_killers": [{"event":"","timeframe":"","confirms_if":"","invalidates_if":""}],
-  "tail_risks": [],
-  "agent_consensus": {"agreed":[],"disputed":[]},
-  "meta_improvement": {"missed_last_time":"","accuracy_review":"","reweighting":"","aria_version":""},
-  "tomorrow_setup": "",
-  "one_line_summary": "",
-  "actionable_watch": []
-}"""
-
-def agent_reporter(hunter, analyst, devil, memory, accuracy={}, mode="MORNING"):
-    console.print("\n[bold green]Agent 4 - REPORTER [" + mode + "][/bold green]")
-    past_ctx = ""
-    if memory:
-        past_ctx = "\n\nPast:\n" + json.dumps(memory[-2:], ensure_ascii=False)
-    acc_ctx = ""
-    if accuracy.get("total", 0) > 0:
-        total_acc = round(accuracy["correct"] / accuracy["total"] * 100, 1)
-        acc_ctx   = "\n\nAccuracy: " + str(total_acc) + "%"
-        if accuracy.get("weak_areas"):
-            acc_ctx += " Weak: " + ", ".join(accuracy["weak_areas"])
-
-    # 실제 시장 수치 강제 주입 (Volatility 패널 오류 방지)
-    try:
-        from aria_data import load_market_data
-        md = load_market_data()
-        real_data_ctx = (
-            "\n\n## CRITICAL: Use these EXACT numbers in volatility_index field"
-            "\nDo NOT estimate or say 데이터 미제공:"
-            "\n- vix: " + str(md.get("vix", "N/A"))
-            + "\n- fear_greed: " + str(md.get("fear_greed_value", "N/A"))
-            + " (" + str(md.get("fear_greed_rating", "")) + ")"
-            + "\n- kospi: " + str(md.get("kospi", "N/A"))
-            + "\n- krw_usd: " + str(md.get("krw_usd", "N/A"))
-        )
-    except:
-        real_data_ctx = ""
-
-    payload = {
-        "mode":    mode,
-        "hunter":  hunter.get("market_snapshot", {}),
-        "analyst": analyst,
-        "devil":   devil,
-    }
-    raw = call_api(
-        REPORTER_SYSTEM,
-        "Mode: " + mode + "\nData:\n" + json.dumps(payload, ensure_ascii=False)
-        + past_ctx + acc_ctx + real_data_ctx + "\n\nReturn JSON.",
-        model=MODEL_REPORTER, max_tokens=4000
-    )
-    result = parse_json(raw)
-    result["mode"] = mode
-    console.print("  [green]Done: " + str(result.get("market_regime", "")) + " / consensus: " + str(result.get("consensus_level", "")) + "[/green]")
-    return result
-
-
-# ── 터미널 출력 ────────────────────────────────────────────────────────────────
-def print_report(report, run_n):
-    regime     = report.get("market_regime", "?")
-    mode       = report.get("mode", "MORNING")
-    mode_label = report.get("mode_label", mode)
-    rc = "green" if "선호" in regime else "red" if "회피" in regime else "yellow"
-
-    console.rule("[bold purple]ARIA [" + mode_label + "] #" + str(run_n) + "[/bold purple]")
-    console.print(Panel(
-        "[bold]" + report.get("one_line_summary", "") + "[/bold]",
-        title="[" + rc + "]" + regime + "[/" + rc + "]  " + report.get("confidence_overall", "") + "  " + report.get("analysis_date", ""),
-        border_style="purple"
-    ))
-
-    tp = report.get("trend_phase", "")
-    ts = report.get("trend_strategy", {})
-    if tp:
-        tc = "green" if "상승" in tp else "red" if "하락" in tp else "yellow"
-        console.print(Panel(
-            "[bold]" + tp + "[/bold]\n\n"
-            "Strategy: " + ts.get("recommended", "") + "\n"
-            "Caution: " + ts.get("caution", ""),
-            title="Trend", border_style=tc
-        ))
-
-    vi = report.get("volatility_index", {})
-    if vi:
-        vt = Table(box=box.SIMPLE, show_header=False)
-        vt.add_column("", style="dim", width=12)
-        vt.add_column("")
-        vt.add_row("VIX",     vi.get("vix", "-"))
-        vt.add_row("VKOSPI",  vi.get("vkospi", "-"))
-        vt.add_row("공포탐욕", vi.get("fear_greed", "-"))
-        vt.add_row("레벨",    vi.get("level", "-"))
-        console.print(Panel(vt, title="Volatility", border_style="yellow"))
-
-    kr = report.get("korea_focus", {})
-    if kr:
-        kt = Table(box=box.SIMPLE, show_header=False)
-        kt.add_column("", style="dim", width=12)
-        kt.add_column("", style="cyan")
-        for k, v in [
-            ("KRW/USD",  kr.get("krw_usd")),
-            ("KOSPI",    kr.get("kospi_flow")),
-            ("SK Hynix", kr.get("sk_hynix")),
-            ("Samsung",  kr.get("samsung")),
-        ]:
-            kt.add_row(k, v or "")
-        console.print(Panel(kt, title="Korea Market", border_style="cyan"))
-
-    ft = Table(box=box.SIMPLE, show_header=True, header_style="bold", expand=True)
-    ft.add_column("Outflow", style="red")
-    ft.add_column("Inflow",  style="green")
-    out = report.get("outflows", [])
-    inp = report.get("inflows", [])
-    for i in range(max(len(out), len(inp))):
-        oc = "[bold]" + out[i]["zone"] + "[/bold]\n[dim]" + out[i].get("reason", "")[:80] + "[/dim]" if i < len(out) else ""
-        ic = "[bold]" + inp[i]["zone"] + "[/bold]\n[dim]" + inp[i].get("reason", "")[:80] + "[/dim]" if i < len(inp) else ""
-        ft.add_row(oc, ic)
-    console.print(Panel(ft, title="Capital Flow", border_style="blue"))
-
-    if report.get("tomorrow_setup") and mode in ["EVENING", "DAWN"]:
-        console.print(Panel(report["tomorrow_setup"], title="Tomorrow Setup", border_style="yellow"))
-
-    console.rule()
-
-
-# ── 메인 ──────────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--history", action="store_true")
-    args = parser.parse_args()
-
-    memory = load_memory()
-
-    if args.history:
-        if not memory:
-            console.print("[dim]No saved analyses[/dim]")
-            return
-        t = Table(title="ARIA History", box=box.ROUNDED)
-        t.add_column("Date"); t.add_column("Mode"); t.add_column("Regime"); t.add_column("Summary")
-        for m in reversed(memory[-20:]):
-            reg = m.get("market_regime", "")
-            col = "green" if "선호" in reg else "red" if "회피" in reg else "yellow"
-            t.add_row(
-                m.get("analysis_date", ""), m.get("mode", ""),
-                "[" + col + "]" + reg + "[/" + col + "]",
-                m.get("one_line_summary", "")[:40]
-            )
-        console.print(t)
-        return
-
-    today = now_kst().strftime("%Y-%m-%d")
-    console.print(Panel(
-        "[bold]ARIA [" + MODE + "] Analysis Start[/bold]\n"
-        "Hunter -> Analyst -> Devil -> Reporter",
-        border_style="purple"
-    ))
-
-    try:
-        from aria_telegram import send_start_notification, send_report, send_error
-        from aria_verifier import run_verification
-        from aria_sentiment import run_sentiment
-        from aria_portfolio import run_portfolio
-        from aria_rotation  import run_rotation
-        from aria_data      import fetch_all_market_data, format_for_hunter, update_cost, get_monthly_cost_summary
-        from aria_baseline  import save_baseline, build_baseline_context, get_regime_drift
-
-        # 실시간 데이터 수집
-        print("\n=== 실시간 시장 데이터 수집 ===")
-        market_data = fetch_all_market_data()
-        update_cost(MODE)
-        print(get_monthly_cost_summary())
-
-        # 교훈 로드 (아침 분석에만 주입)
-        lessons_prompt = ""
-        if MODE == "MORNING":
-            try:
-                from aria_lessons import build_lessons_prompt
-                lessons_prompt = build_lessons_prompt()
-                if lessons_prompt:
-                    console.print("[dim]Lessons injected[/dim]")
-            except ImportError:
-                pass
-
-        # 아침 외 모드: baseline 컨텍스트 로드
-        baseline_context = ""
-        if MODE != "MORNING":
-            baseline_context = build_baseline_context(MODE)
-            if baseline_context:
-                console.print("[dim]Morning baseline loaded[/dim]")
-            else:
-                console.print("[yellow]No baseline for today — running full analysis[/yellow]")
-
-        # 새벽: 교훈 추출
-        if MODE == "DAWN":
-            try:
-                from aria_lessons import extract_dawn_lessons
-                todays = get_todays_analyses()
-                if todays:
-                    extract_dawn_lessons(todays, "market outcomes today")
-            except ImportError:
-                pass
-
-        # 아침: 어제 예측 채점
-        accuracy = {}
-        if MODE == "MORNING":
-            print("\n=== Verifying yesterday predictions ===")
-            accuracy = run_verification()
-
-        send_start_notification()
-
-        hunter  = agent_hunter(today, MODE, market_data)
-        analyst = agent_analyst(hunter, MODE, lessons_prompt + baseline_context)
-        devil   = agent_devil(analyst, memory, MODE)
-        report  = agent_reporter(hunter, analyst, devil, memory, accuracy, MODE)
-
-        # 레짐 드리프트 감지
-        drift = get_regime_drift(report.get("market_regime", ""))
-        if drift and drift != "STABLE":
-            console.print("[yellow]Regime drift: " + drift + "[/yellow]")
-
-        print_report(report, len(memory) + 1)
-        send_report(report, len(memory) + 1)
-
-        # 아침 분석이면 baseline 저장
-        if MODE == "MORNING":
-            save_baseline(report, market_data)
-            console.print("[dim]Morning baseline saved[/dim]")
-
-        print("\n=== Sentiment Tracking ===")
-        run_sentiment(report, market_data)
-
-        print("\n=== Sector Rotation ===")
-        run_rotation(report)
-
-        print("\n=== Portfolio Analysis ===")
-        run_portfolio(report, market_data)
-
-        save_memory(memory, report)
-        path = save_report(report)
-        console.print("[dim]Saved: " + str(path) + "[/dim]")
-
-    except Exception as e:
-        console.print("[bold red]Error: " + str(e) + "[/bold red]")
-        try:
-            from aria_telegram import send_error
-            send_error(str(e))
+            k_chg = float(str(market_data.get("kospi_change","0%")).replace("%","").replace("+",""))
+            if k_chg >= 2:    raw += 3
+            elif k_chg <= -2: raw -= 3
         except:
             pass
-        import sys
-        sys.exit(1)
+    raw = max(-10, min(10, raw))
+    components["한국시장"] = {
+        "score":  round(raw * sw.get("한국시장", 0.8)),
+        "reason": ", ".join(kr_notes) if kr_notes else "중립"
+    }
+
+    # 7. 숨겨진 시그널
+    high_conf = sum(1 for h in hidden if h.get("confidence") == "높음")
+    low_conf  = sum(1 for h in hidden if h.get("confidence") == "낮음")
+    raw       = (high_conf * 3) - (low_conf * 2)
+    raw       = max(-10, min(10, raw))
+    components["숨은시그널"] = {
+        "score":  round(raw * sw.get("숨은시그널", 0.7)),
+        "reason": "고신뢰" + str(high_conf) + " / 저신뢰" + str(low_conf)
+    }
+
+    # 총점
+    total_delta = sum(c["score"] for c in components.values())
+    score       = 50 + total_delta
+
+    # 캡 적용
+    if fg_raw is not None and fg_raw <= 25:
+        score = min(score, 45)
+    if fg_raw is not None and fg_raw >= 80:
+        score = max(score, 70)
+    if vix_val and vix_val >= 25:
+        score = min(score, 60)
+    if vkospi_val and vkospi_val >= 40:
+        score = min(score, 55)
+
+    score = max(0, min(100, score))
+
+    if score <= 20:   level, emoji = "극단공포", "😱"
+    elif score <= 40: level, emoji = "공포",     "😰"
+    elif score <= 60: level, emoji = "중립",     "😐"
+    elif score <= 80: level, emoji = "탐욕",     "😏"
+    else:             level, emoji = "극단탐욕", "🤑"
+
+    return {
+        "date":        now_kst().strftime("%Y-%m-%d"),
+        "score":       score,
+        "level":       level,
+        "emoji":       emoji,
+        "components":  components,
+        "regime":      regime,
+        "trend":       trend,
+        "vix_level":   vi.get("level", ""),
+        "vix_val":     vix_val,
+        "vkospi_val":  vkospi_val,
+        "fear_greed":  fg_raw,
+    }
+
+
+def analyze_trend(history):
+    if len(history) < 2:
+        return {"direction": "neutral", "change": 0, "avg_7d": 50, "min_30d": 50, "max_30d": 50, "avg_30d": 50}
+    scores_7d  = [h["score"] for h in history[-7:]]
+    scores_30d = [h["score"] for h in history[-30:]]
+    half       = len(scores_7d) // 2
+    first_avg  = sum(scores_7d[:half]) / max(half, 1)
+    second_avg = sum(scores_7d[half:]) / max(len(scores_7d) - half, 1)
+    change     = round(second_avg - first_avg, 1)
+    if change > 5:    direction = "improving"
+    elif change < -5: direction = "deteriorating"
+    else:             direction = "stable"
+    return {
+        "direction": direction,
+        "change":    change,
+        "avg_7d":    round(sum(scores_7d) / len(scores_7d), 1),
+        "min_30d":   min(scores_30d),
+        "max_30d":   max(scores_30d),
+        "avg_30d":   round(sum(scores_30d) / len(scores_30d), 1),
+    }
+
+
+def get_percentile(score, history):
+    scores = [h["score"] for h in history[-30:]]
+    if not scores:
+        return 50
+    below = sum(1 for s in scores if s <= score)
+    return round(below / len(scores) * 100)
+
+
+def make_component_bar(score, max_val=20):
+    abs_s = abs(score)
+    bar   = "█" * min(5, round(abs_s / max_val * 5))
+    empty = "░" * (5 - len(bar))
+    sign  = "+" if score > 0 else ""
+    return "[" + bar + empty + "] " + sign + str(score)
+
+
+def make_history_chart(history, days=10):
+    recent = history[-days:]
+    if not recent:
+        return "No data"
+    lines = []
+    for h in recent:
+        score      = h["score"]
+        bar_len    = int(score / 10)
+        bar        = "█" * bar_len
+        empty      = "░" * (10 - bar_len)
+        date_short = h["date"][5:]
+        lines.append(date_short + " " + bar + empty + " " + str(score) + h.get("emoji", ""))
+    return "\n".join(lines)
+
+
+def load_sentiment():
+    if SENTIMENT_FILE.exists():
+        return json.loads(SENTIMENT_FILE.read_text(encoding="utf-8"))
+    return {"history": [], "current": None}
+
+
+def save_sentiment(data):
+    SENTIMENT_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def update_sentiment(report, market_data=None):
+    data    = load_sentiment()
+    new     = calculate_sentiment(report, market_data)
+    history = data.get("history", [])
+
+    existing = next((h for h in history if h["date"] == new["date"]), None)
+    if existing:
+        blended        = round(existing["score"] * 0.4 + new["score"] * 0.6)
+        new["score"]   = blended
+        if blended <= 20:   new["level"], new["emoji"] = "극단공포", "😱"
+        elif blended <= 40: new["level"], new["emoji"] = "공포",     "😰"
+        elif blended <= 60: new["level"], new["emoji"] = "중립",     "😐"
+        elif blended <= 80: new["level"], new["emoji"] = "탐욕",     "😏"
+        else:               new["level"], new["emoji"] = "극단탐욕", "🤑"
+
+    history = [h for h in history if h["date"] != new["date"]]
+    history.append(new)
+    history = history[-90:]
+
+    trend = analyze_trend(history)
+    data  = {"history": history, "current": new, "trend": trend}
+    save_sentiment(data)
+    return data
+
+
+def send_sentiment_report(data):
+    try:
+        from aria_telegram import send_message
+    except ImportError:
+        print("aria_telegram not found")
+        return
+
+    current    = data.get("current", {})
+    trend      = data.get("trend", {})
+    history    = data.get("history", [])
+    components = current.get("components", {})
+
+    score = current.get("score", 50)
+    level = current.get("level", "")
+    emoji = current.get("emoji", "")
+
+    if trend.get("direction") == "improving":     arrow = "↑ 개선중"
+    elif trend.get("direction") == "deteriorating": arrow = "↓ 악화중"
+    else:                                           arrow = "→ 안정"
+
+    percentile = get_percentile(score, history)
+
+    comp_lines = []
+    for name, info in components.items():
+        bar    = make_component_bar(info["score"])
+        reason = info["reason"][:18]
+        comp_lines.append(name[:5] + " " + bar)
+        comp_lines.append("  " + reason)
+
+    chart  = make_history_chart(history)
+    min_30 = trend.get("min_30d", score)
+    max_30 = trend.get("max_30d", score)
+    avg_30 = trend.get("avg_30d", score)
+
+    if score <= 20:   insight = "극단공포 - 분할매수 최적 타이밍"
+    elif score <= 35: insight = "공포 - 분할매수 적극 검토"
+    elif score <= 50: insight = "공포우위 - 신중한 분할매수"
+    elif score <= 65: insight = "중립 - 추세 확인 후 대응"
+    elif score <= 80: insight = "탐욕 - 리스크 관리 강화"
+    else:             insight = "극단탐욕 - 비중 축소 고려"
+
+    fg_val = current.get("fear_greed")
+    vix_cap_note = ""
+    if fg_val is not None:
+        vix_cap_note = "\n<i>Fear&Greed " + str(fg_val) + " 실수치 반영</i>"
+
+    lines = [
+        emoji + " <b>ARIA 시장 감정지수</b>",
+        "<code>" + current.get("date", "") + "</code>",
+        "",
+        "오늘: <b>" + str(score) + "/100</b> (" + level + ")",
+        "추세: " + arrow + " | 7일평균: " + str(trend.get("avg_7d", "-")),
+        vix_cap_note,
+        "",
+        "━━ 구성요소 ━━",
+        "<pre>" + "\n".join(comp_lines) + "</pre>",
+        "",
+        "━━ " + str(len(history[-10:])) + "일 추이 ━━",
+        "<pre>" + chart + "</pre>",
+        "",
+        "최저:" + str(min_30) + " 최고:" + str(max_30) + " 평균:" + str(avg_30),
+        "현재: 하위 " + str(percentile) + "% 구간",
+        "",
+        "💡 " + insight,
+    ]
+
+    send_message("\n".join(lines))
+    print("Sentiment report sent. Score: " + str(score) + " / " + level)
+
+
+def run_sentiment(report, market_data=None):
+    data = update_sentiment(report, market_data)
+    send_sentiment_report(data)
+    return data
 
 
 if __name__ == "__main__":
-    main()
+    test = {
+        "market_regime": "위험선호",
+        "trend_phase":   "상승추세",
+        "volatility_index": {"level": "공포", "vix": "19.49"},
+        "outflows": [{}, {}],
+        "inflows":  [{}, {}, {}],
+        "counterarguments": [{"risk_level": "높음"}, {"risk_level": "높음"}],
+        "korea_focus": {"krw_usd": "1483", "kospi_flow": "+1.4%"},
+        "hidden_signals": [{"confidence": "높음"}],
+    }
+    test_market = {
+        "vix":              "19.49",
+        "fear_greed_value": "16",
+        "fear_greed_rating": "Extreme Fear",
+        "kospi_change":     "+1.4%",
+    }
+    result = run_sentiment(test, test_market)
+    print("Score: " + str(result["current"]["score"]) + " / " + result["current"]["level"])
+    print("(Fear&Greed 16 반영 → 45점 이하 예상)")
