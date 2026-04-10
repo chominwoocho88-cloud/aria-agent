@@ -168,13 +168,11 @@ def main():
     ))
 
     try:
-        # 중복 실행 방어: MORNING은 오늘 이미 리포트가 있으면 스킵
-        if MODE == "MORNING":
-            existing = list(REPORTS_DIR.glob(today + "_morning.json")) if REPORTS_DIR.exists() else []
+        # 중복 실행 방어: MORNING/EVENING은 오늘 이미 리포트가 있으면 스킵
+        if MODE in ["MORNING", "EVENING"]:
+            existing = list(REPORTS_DIR.glob(today + "_" + MODE.lower() + ".json")) if REPORTS_DIR.exists() else []
             if existing:
-                console.print("[yellow]⚠️ 오늘 MORNING 분석이 이미 존재합니다: " + str(existing[0].name) + "[/yellow]")
-                console.print("[yellow]   중복 실행을 방지하려면 해당 파일을 삭제 후 재실행하세요.[/yellow]")
-                # workflow_dispatch 수동 실행은 경고만, 스케줄은 중단
+                console.print("[yellow]⚠️ 오늘 " + MODE + " 분석이 이미 존재합니다: " + str(existing[0].name) + "[/yellow]")
                 import os as _os
                 if _os.environ.get("GITHUB_EVENT_NAME") == "schedule":
                     console.print("[red]스케줄 실행 중복 감지 — 종료[/red]")
