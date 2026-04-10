@@ -39,34 +39,54 @@ def make_buttons():
 
 
 def send_report(report, run_number):
-    regime       = report.get("market_regime", "?")
-    mode         = report.get("mode", "MORNING")
-    mode_label   = report.get("mode_label", "")
-    confidence   = report.get("confidence_overall", "?")
-    date         = report.get("analysis_date", "")
-    time_        = report.get("analysis_time", "")
-    summary      = report.get("one_line_summary", "")
+    mode       = report.get("mode", "MORNING")
+    regime     = report.get("market_regime", "?")
+    confidence = report.get("confidence_overall", "?")
+    date       = report.get("analysis_date", "")
+    time_      = report.get("analysis_time", "")
+    summary    = report.get("one_line_summary", "")
+    mode_label = report.get("mode_label", "")
 
     regime_emoji = "🟢" if "선호" in regime else "🔴" if "회피" in regime else "🟡"
+    mode_icons   = {"MORNING": "🌅", "AFTERNOON": "☀️", "EVENING": "🌆", "DAWN": "🌙"}
+    mode_icon    = mode_icons.get(mode, "📊")
 
-    mode_icons = {
-        "MORNING":   "🌅",
-        "AFTERNOON": "☀️",
-        "EVENING":   "🌆",
-        "DAWN":      "🌙",
-    }
-    mode_icon = mode_icons.get(mode, "📊")
-
-    lines = [
-        mode_icon + " <b>ARIA 리포트 #" + str(run_number) + "</b>",
+    # ── 공통 헤더 ──
+    header = [
+        mode_icon + " <b>ARIA " + (mode_label or mode) + " #" + str(run_number) + "</b>",
         "<code>" + date + " " + time_ + "</code>",
         "",
-        regime_emoji + " <b>" + regime + "</b>",
-        "신뢰도: " + confidence + " | " + (mode_label or mode),
+        regime_emoji + " <b>" + regime + "</b>  신뢰도: " + confidence,
         "",
         "💡 <i>" + summary + "</i>",
         "",
     ]
+
+    # ── 모드별 분기 ────────────────────────────────────────────────────────────
+
+    # MORNING: 풀 리포트
+    if mode == "MORNING":
+        lines = header + _build_full_report(report)
+
+    # AFTERNOON: 핵심 3줄 카드
+    elif mode == "AFTERNOON":
+        lines = header + _build_afternoon_card(report)
+
+    # EVENING: 오늘 총정리
+    elif mode == "EVENING":
+        lines = header + _build_evening_summary(report)
+
+    # DAWN: 글로벌 브리핑
+    else:
+        lines = header + _build_dawn_brief(report)
+
+    lines += ["", "<code>ARIA Multi-Agent | Anthropic</code>"]
+    return send_message("\n".join(lines), reply_markup=make_buttons())
+
+
+def _build_full_report(report):
+    """MORNING 풀 리포트"""
+    lines = []
 
     kr = report.get("korea_focus", {})
     if kr:
@@ -102,33 +122,96 @@ def send_report(report, run_number):
     for idx, a in enumerate(report.get("actionable_watch", [])[:3], 1):
         lines.append("📌 " + str(idx) + ". " + a)
 
-    # 저녁/새벽 모드: 내일 세팅 추가
-    if mode in ["EVENING", "DAWN"] and report.get("tomorrow_setup"):
-        lines += [
-            "",
-            "━━ 내일 준비 포인트 ━━",
-            "<i>" + report.get("tomorrow_setup", "")[:100] + "</i>",
-        ]
+    # 교훈 반영 표시
+    try:
+        from aria_lessons import get_active_lessons
+        lessons = get_active_lessons(max_lessons=3)
+        if lessons:
+            lines += ["", "━━ 🧠 오늘 반영된 교훈 ━━"]
+            for l in lessons:
+                sev = "🔴" if l["severity"] == "high" else "🟡"
+                lines.append(sev + " [" + l["category"] + "] " + l["lesson"][:50])
+    except ImportError:
+        pass
 
-    # 아침 모드: 오늘 적용된 교훈 표시
-    if mode == "MORNING":
-        try:
-            from aria_lessons import get_active_lessons
-            lessons = get_active_lessons(max_lessons=5)
-            if lessons:
-                lines.append("")
-                lines.append("━━ 🧠 오늘 반영된 교훈 ━━")
-                for l in lessons[:3]:
-                    sev = "🔴" if l["severity"] == "high" else "🟡" if l["severity"] == "medium" else "🟢"
-                    reinf = " (" + str(l.get("reinforced", 0)) + "회 반복)" if l.get("reinforced", 0) > 0 else ""
-                    lines.append(sev + " [" + l["category"] + "] " + l["lesson"][:50] + reinf)
-        except ImportError:
-            pass
+    return lines
+
+
+def _build_afternoon_card(report):
+    """AFTERNOON 핵심 3줄 카드 (C1+C2)"""
+    lines = ["━━ 오후 업데이트 ━━", ""]
+
+    # 아침 대비 변화 포인트
+    actionable = report.get("actionable_watch", [])
+    outflows   = report.get("outflows", [])
+    inflows    = report.get("inflows", [])
+
+    if outflows:
+        lines.append("▼ " + outflows[0].get("zone", "") + " — " + outflows[0].get("reason", "")[:50])
+    if inflows:
+        lines.append("▲ " + inflows[0].get("zone", "") + " — " + inflows[0].get("reason", "")[:50])
+    if actionable:
+        lines.append("📌 " + actionable[0])
+
+    kr = report.get("korea_focus", {})
+    if kr.get("krw_usd"):
+        lines += ["", "원/달러: <code>" + kr["krw_usd"] + "</code>  코스피: <code>" + kr.get("kospi_flow", "-") + "</code>"]
+
+    # 테제 킬러 1개
+    tks = report.get("thesis_killers", [])
+    if tks:
+        lines += ["", "🎯 <b>" + tks[0].get("event", "") + "</b>"]
+        lines.append("  ✓ " + tks[0].get("confirms_if", "")[:50])
+
+    return lines
+
+
+def _build_evening_summary(report):
+    """EVENING 오늘 총정리 (C1+C4)"""
+    lines = ["━━ 오늘 총정리 ━━", ""]
+
+    # 내일 준비
+    tomorrow = report.get("tomorrow_setup", "")
+    if tomorrow:
+        lines += ["🌙 <b>내일 준비</b>", "<i>" + tomorrow[:100] + "</i>", ""]
+
+    # 핵심 반론
+    counters = report.get("counterarguments", [])
+    if counters:
+        lines.append("⚔️ <b>주요 리스크</b>")
+        for c in counters[:2]:
+            lines.append("• " + c.get("against", "")[:50])
+        lines.append("")
+
+    # 꼬리 리스크
+    tails = report.get("tail_risks", [])
+    if tails:
+        lines.append("☠️ " + tails[0][:60])
+
+    return lines
+
+
+def _build_dawn_brief(report):
+    """DAWN 글로벌 브리핑 (C1)"""
+    lines = ["━━ 새벽 글로벌 브리핑 ━━", ""]
+
+    # 미국 마감 요약
+    outflows = report.get("outflows", [])
+    inflows  = report.get("inflows", [])
+
+    if inflows:
+        lines.append("▲ " + inflows[0].get("zone", "") + " — " + inflows[0].get("reason", "")[:60])
+    if outflows:
+        lines.append("▼ " + outflows[0].get("zone", "") + " — " + outflows[0].get("reason", "")[:60])
 
     lines.append("")
-    lines.append("<code>ARIA Multi-Agent | Anthropic</code>")
 
-    return send_message("\n".join(lines), reply_markup=make_buttons())
+    # 내일 오전 준비
+    tomorrow = report.get("tomorrow_setup", "")
+    if tomorrow:
+        lines += ["📋 <b>오늘 아침 준비</b>", "<i>" + tomorrow[:100] + "</i>"]
+
+    return lines
 
 
 def send_lessons_status():
