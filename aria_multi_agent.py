@@ -325,6 +325,22 @@ def agent_reporter(hunter, analyst, devil, memory, accuracy={}, mode="MORNING"):
         if accuracy.get("weak_areas"):
             acc_ctx += " Weak: " + ", ".join(accuracy["weak_areas"])
 
+    # 실제 시장 수치 강제 주입 (Volatility 패널 오류 방지)
+    try:
+        from aria_data import load_market_data
+        md = load_market_data()
+        real_data_ctx = (
+            "\n\n## CRITICAL: Use these EXACT numbers in volatility_index field"
+            "\nDo NOT estimate or say 데이터 미제공:"
+            "\n- vix: " + str(md.get("vix", "N/A"))
+            + "\n- fear_greed: " + str(md.get("fear_greed_value", "N/A"))
+            + " (" + str(md.get("fear_greed_rating", "")) + ")"
+            + "\n- kospi: " + str(md.get("kospi", "N/A"))
+            + "\n- krw_usd: " + str(md.get("krw_usd", "N/A"))
+        )
+    except:
+        real_data_ctx = ""
+
     payload = {
         "mode":    mode,
         "hunter":  hunter.get("market_snapshot", {}),
@@ -333,7 +349,8 @@ def agent_reporter(hunter, analyst, devil, memory, accuracy={}, mode="MORNING"):
     }
     raw = call_api(
         REPORTER_SYSTEM,
-        "Mode: " + mode + "\nData:\n" + json.dumps(payload, ensure_ascii=False) + past_ctx + acc_ctx + "\n\nReturn JSON.",
+        "Mode: " + mode + "\nData:\n" + json.dumps(payload, ensure_ascii=False)
+        + past_ctx + acc_ctx + real_data_ctx + "\n\nReturn JSON.",
         model=MODEL_REPORTER, max_tokens=4000
     )
     result = parse_json(raw)
