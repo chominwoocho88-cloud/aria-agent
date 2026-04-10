@@ -448,6 +448,7 @@ def main():
         from aria_portfolio import run_portfolio
         from aria_rotation  import run_rotation
         from aria_data      import fetch_all_market_data, format_for_hunter, update_cost, get_monthly_cost_summary
+        from aria_baseline  import save_baseline, build_baseline_context, get_regime_drift
 
         # 실시간 데이터 수집
         print("\n=== 실시간 시장 데이터 수집 ===")
@@ -465,6 +466,15 @@ def main():
                     console.print("[dim]Lessons injected[/dim]")
             except ImportError:
                 pass
+
+        # 아침 외 모드: baseline 컨텍스트 로드
+        baseline_context = ""
+        if MODE != "MORNING":
+            baseline_context = build_baseline_context(MODE)
+            if baseline_context:
+                console.print("[dim]Morning baseline loaded[/dim]")
+            else:
+                console.print("[yellow]No baseline for today — running full analysis[/yellow]")
 
         # 새벽: 교훈 추출
         if MODE == "DAWN":
@@ -485,12 +495,22 @@ def main():
         send_start_notification()
 
         hunter  = agent_hunter(today, MODE, market_data)
-        analyst = agent_analyst(hunter, MODE, lessons_prompt)
+        analyst = agent_analyst(hunter, MODE, lessons_prompt + baseline_context)
         devil   = agent_devil(analyst, memory, MODE)
         report  = agent_reporter(hunter, analyst, devil, memory, accuracy, MODE)
 
+        # 레짐 드리프트 감지
+        drift = get_regime_drift(report.get("market_regime", ""))
+        if drift and drift != "STABLE":
+            console.print("[yellow]Regime drift: " + drift + "[/yellow]")
+
         print_report(report, len(memory) + 1)
         send_report(report, len(memory) + 1)
+
+        # 아침 분석이면 baseline 저장
+        if MODE == "MORNING":
+            save_baseline(report, market_data)
+            console.print("[dim]Morning baseline saved[/dim]")
 
         print("\n=== Sentiment Tracking ===")
         run_sentiment(report)
@@ -499,7 +519,7 @@ def main():
         run_rotation(report)
 
         print("\n=== Portfolio Analysis ===")
-        run_portfolio(report)
+        run_portfolio(report, market_data)
 
         save_memory(memory, report)
         path = save_report(report)
