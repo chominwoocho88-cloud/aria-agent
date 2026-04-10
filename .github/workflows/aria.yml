@@ -2,10 +2,12 @@ name: ARIA Daily Report
 
 on:
   schedule:
-    - cron: '30 22 * * 0-4'   # 07:30 KST - 아침 (MORNING) 월~금
-    - cron: '0 22  * * 0'     # 일요일 07:00 KST - 주간 리포트
-    - cron: '0 21  1 * *'     # 매월 1일 06:00 KST - 월간 리포트
-  workflow_dispatch:           # 수동 실행 (필요할 때만)
+    - cron: '30 22 * * 0-4'  # 07:30 KST - 아침 (MORNING) 월~금
+    - cron: '0 13  * * 1-5'  # 22:00 KST - 저녁 EDT(여름) 후보 월~금
+    - cron: '0 14  * * 1-5'  # 23:00 KST - 저녁 EST(겨울) 후보 월~금
+    - cron: '0 22  * * 0'    # 일요일 07:00 KST - 주간 리포트
+    - cron: '0 21  1 * *'    # 매월 1일 06:00 KST - 월간 리포트
+  workflow_dispatch:
 
 jobs:
   run-aria:
@@ -102,6 +104,46 @@ jobs:
           GH_REPO:           ${{ secrets.GH_REPO }}
         run: python aria_main.py
 
+      # ── EVENING (미장 30분 전 — 서머타임 자동 대응) ─────────────────────────
+      # 13:00 UTC(EDT여름)과 14:00 UTC(EST겨울) 둘 다 등록
+      # 실행 시점에 미국 동부시간(ET) 기준으로 09:00 ±10분인지 확인 후 실행
+      - name: Run ARIA EVENING
+        if: >
+          github.event.schedule == '0 13 * * 1-5' ||
+          github.event.schedule == '0 14 * * 1-5'
+        env:
+          PYTHONIOENCODING: utf-8
+          ARIA_MODE:         EVENING
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN:          ${{ secrets.GH_TOKEN }}
+          GH_REPO:           ${{ secrets.GH_REPO }}
+        run: |
+          python3 << 'EOF'
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import subprocess, os, sys
+
+          # 현재 미국 동부 시간 (EDT/EST 자동 적용)
+          et  = ZoneInfo("America/New_York")
+          now = datetime.now(et)
+          h, m = now.hour, now.minute
+
+          # 09:00 ET ±10분 범위일 때만 실행 (서머타임 무관하게 정확)
+          target_ok = (h == 8 and m >= 50) or (h == 9 and m <= 10)
+
+          print("현재 ET: " + str(h) + ":" + str(m).zfill(2)
+                + " " + now.strftime("%Z") + " — " + ("실행" if target_ok else "스킵"))
+
+          if not target_ok:
+              sys.exit(0)
+
+          env = dict(os.environ)
+          env["ARIA_MODE"] = "EVENING"
+          subprocess.run(["python", "aria_main.py"], check=True, env=env)
+          EOF
+
       # ── 저장 ────────────────────────────────────────────────────────────────
       - name: Save memory
         run: |
@@ -112,5 +154,7 @@ jobs:
           git add memory.json reports/ sentiment.json accuracy.json \
                   rotation.json aria_weights.json aria_lessons.json \
                   aria_cost.json aria_market_data.json morning_baseline.json || true
-          git diff --staged --quiet || git commit -m "ARIA: $(date +'%Y-%m-%d %H:%M') [MORNING] 저장"
+          git diff --staged --quiet || git commit -m "ARIA: $(date +'%Y-%m-%d %H:%M') [${ARIA_MODE:-AUTO}] 저장"
           git push || (echo "Push 실패 — rebase 후 재시도" && git pull --rebase origin main && git push)
+        env:
+          ARIA_MODE: ${{ env.ARIA_MODE }}
