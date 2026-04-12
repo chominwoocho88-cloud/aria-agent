@@ -1,14 +1,14 @@
 {
   "date": "2026-04-12",
-  "saved_at": "13:16 KST",
-  "market_regime": "혼조 – AI 모멘텀 vs 지정학·유가·달러 강세·외국인 이탈 교차 압력",
+  "saved_at": "15:27 KST",
+  "market_regime": "혼조 – AI·반도체 모멘텀 vs 지정학·유가·달러 강세·외국인 이탈 교차 압력",
   "trend_phase": "횡보추세",
   "confidence": "보통",
   "one_line_summary": "",
   "thesis_killers": [],
   "key_outflows": [
     {
-      "zone": "한국 증시(코스피) – 외국인 자금",
+      "zone": "코스피 외국인 포지션",
       "severity": "높음"
     },
     {
@@ -16,7 +16,7 @@
       "severity": "높음"
     },
     {
-      "zone": "S&P500 성장 기대치(월가 컨센서스)",
+      "zone": "미국 장기국채(10Y) 및 유럽·일본 채권",
       "severity": "보통"
     }
   ],
@@ -26,19 +26,19 @@
       "momentum": "강함"
     },
     {
-      "zone": "반도체(Broadcom, Nvidia, SK하이닉스)",
-      "momentum": "강함 (단기 모멘텀), 구조적 확정 미확인"
+      "zone": "반도체(SK하이닉스, Broadcom, Nvidia)",
+      "momentum": "강함(단기 모멘텀), 구조적 확정 미확인"
     },
     {
-      "zone": "미국 에너지 섹터(원유 관련)",
+      "zone": "한국 수출주(반도체·IT)",
       "momentum": "형성중"
     }
   ],
   "korea_focus": {},
   "volatility": {
     "vix": "19.23",
-    "vkospi": "데이터 미제공",
-    "fear_greed": "49 (Neutral, VIX기반)",
+    "vkospi": "데이터 미제공(KIS 미연결)",
+    "fear_greed": "49 (Neutral (VIX기반))",
     "level": "중립-공포 경계"
   },
   "market_snapshot": {
