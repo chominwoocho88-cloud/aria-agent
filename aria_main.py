@@ -184,6 +184,23 @@ def main():
         update_cost(MODE)
         print(get_monthly_cost_summary())
 
+        # 월 비용 임계값 초과 시 텔레그램 알림
+        try:
+            from aria_data import load_cost
+            _cost = load_cost()
+            from datetime import datetime as _dt
+            _mk = _dt.now(KST).strftime("%Y-%m")
+            _monthly_usd = _cost.get("monthly_runs", {}).get(_mk, {}).get("estimated_usd", 0)
+            if _monthly_usd >= 20.0:
+                send_message(
+                    "⚠️ <b>ARIA 월 비용 경고</b>\n\n"
+                    "이번 달 추정 비용: <b>$" + str(round(_monthly_usd, 2))
+                    + " (약 " + f"{round(_monthly_usd*1480):,}" + "원)</b>\n"
+                    "임계값 $20 초과 — 실행 횟수 확인 권장"
+                )
+        except Exception:
+            pass
+
         # 데이터 품질 불량 시 분석 중단 (핵심 티커 2개 이상 N/A)
         if market_data.get("_data_quality") == "poor":
             msg = "⚠️ 핵심 시장 데이터 수집 실패 — 분석 신뢰도 불충분으로 오늘 실행 중단"
