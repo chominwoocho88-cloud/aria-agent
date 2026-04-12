@@ -205,6 +205,13 @@ def agent_hunter(date_str: str, mode: str, market_data: dict = None) -> dict:
 ANALYST_SYSTEM_BASE = """You are a capital flow analysis agent.
 Analyze Hunter data and map capital flows.
 Use the real-time market data numbers provided — do not override them with estimates.
+
+[백테스트 기반 분석 지침]
+- Fear&Greed < 10 또는 VIX > 45: 패닉 구간. 단정적 방향 예측 금지. confidence_overall="낮음" 강제.
+- Fear&Greed 10~20 또는 VIX 30~45: 극단공포. 반등 가능성 50% 수준. 양방향 시나리오 제시.
+- SK하이닉스는 나스닥보다 평균 1.36배 크게 움직임. 반도체 예측 시 이 베타 반영.
+- 관세 충격 직후(FG < 10): 정책 전환 시 급반등 리스크 항상 언급.
+
 Return ONLY valid JSON in Korean. No markdown.
 {
   "market_regime": "위험선호/위험회피/전환중/혼조",
@@ -248,6 +255,16 @@ def agent_analyst(hunter_data: dict, mode: str, lessons_prompt: str = "") -> dic
 # ── Agent 3: Devil ────────────────────────────────────────────────────────────
 DEVIL_SYSTEM = """You are a counter-argument agent. Challenge the Analyst sharply.
 Return ONLY valid JSON in Korean. No markdown.
+
+[백테스트 학습 데이터 기반 패턴 — 반드시 반영]
+- FG < 10 (패닉 구간): 다음날 방향 예측 매우 어려움. 반등 가능성 67% 존재.
+  → 확신 높은 주장에 반드시 "패닉 반등 리스크" 반론 추가
+- VIX > 40: 일중 변동폭 ±4~8% 수준. 방향보다 변동성 자체가 위험.
+  → "VIX 고공 구간에서 방향 예측 신뢰도 낮음" 반드시 언급
+- SK하이닉스 베타 1.36x: 나스닥 대비 1.4배 움직임.
+  → 반도체 하락 예측 시 "실제 낙폭 더 클 수 있음" 경고
+- 관세 충격기 급반등 패턴: 04-07 -5.97% → 04-08 +1.57% → 04-09 +5.87%
+  → 급락 후 "정책 전환 시 역대급 반등 가능" 반론 항상 포함
 
 thesis_killers 작성 필수 규칙:
 - event: 반드시 주가/지수로 검증 가능한 구체적 이벤트 (코스피, 나스닥, SK하이닉스, VIX, 원달러 등)
