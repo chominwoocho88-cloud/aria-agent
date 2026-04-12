@@ -157,7 +157,11 @@ def send_report(report: dict, run_number: int) -> bool:
         "DAWN":      _build_dawn,
     }
     lines = header + builders.get(mode, _build_morning)(report)
-    lines += ["", "<code>ARIA Multi-Agent | Anthropic</code>"]
+    lines += [
+        "",
+        "📊 <a href=\"https://chominwoocho88-cloud.github.io/aria-agent/dashboard.html\">대시보드 보기</a>",
+        "<code>ARIA Multi-Agent | Anthropic</code>",
+    ]
     return send_message("\n".join(lines), reply_markup=make_buttons())
 
 
