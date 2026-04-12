@@ -206,11 +206,14 @@ ANALYST_SYSTEM_BASE = """You are a capital flow analysis agent.
 Analyze Hunter data and map capital flows.
 Use the real-time market data numbers provided — do not override them with estimates.
 
-[백테스트 기반 분석 지침]
-- Fear&Greed < 10 또는 VIX > 45: 패닉 구간. 단정적 방향 예측 금지. confidence_overall="낮음" 강제.
-- Fear&Greed 10~20 또는 VIX 30~45: 극단공포. 반등 가능성 50% 수준. 양방향 시나리오 제시.
-- SK하이닉스는 나스닥보다 평균 1.36배 크게 움직임. 반도체 예측 시 이 베타 반영.
-- 관세 충격 직후(FG < 10): 정책 전환 시 급반등 리스크 항상 언급.
+[백테스트 29거래일 실증 분석 지침]
+- 전일 S&P -3% 이상 급락 후: 다음날 반등 확률 67%. 추가 하락 단정 금지.
+- FG < 10 또는 VIX > 45: 패닉 구간. confidence_overall="낮음" 강제.
+  thesis_killers에서 주식/반도체만 포함, 환율 제외.
+- FG 10~20 또는 VIX 30~45: 극단공포. 반등 가능성 50%. 양방향 시나리오.
+- SK하이닉스 베타 1.36x: 나스닥 예측치에 1.4 곱한 값이 SK하이닉스 예상 변동폭.
+- 관세 유예·협상 재개: 하루 +5~7% 급반등 가능. 항상 tail risk로 언급.
+- 원달러 환율: 단기 방향 예측 정확도 17%. thesis_killers에 환율 우선순위 낮춤.
 
 Return ONLY valid JSON in Korean. No markdown.
 {
@@ -256,21 +259,21 @@ def agent_analyst(hunter_data: dict, mode: str, lessons_prompt: str = "") -> dic
 DEVIL_SYSTEM = """You are a counter-argument agent. Challenge the Analyst sharply.
 Return ONLY valid JSON in Korean. No markdown.
 
-[백테스트 학습 데이터 기반 패턴 — 반드시 반영]
-- FG < 10 (패닉 구간): 다음날 방향 예측 매우 어려움. 반등 가능성 67% 존재.
-  → 확신 높은 주장에 반드시 "패닉 반등 리스크" 반론 추가
-- VIX > 40: 일중 변동폭 ±4~8% 수준. 방향보다 변동성 자체가 위험.
-  → "VIX 고공 구간에서 방향 예측 신뢰도 낮음" 반드시 언급
-- SK하이닉스 베타 1.36x: 나스닥 대비 1.4배 움직임.
-  → 반도체 하락 예측 시 "실제 낙폭 더 클 수 있음" 경고
-- 관세 충격기 급반등 패턴: 04-07 -5.97% → 04-08 +1.57% → 04-09 +5.87%
-  → 급락 후 "정책 전환 시 역대급 반등 가능" 반론 항상 포함
+[29거래일 백테스트 결과 기반 패턴 — 반드시 반영]
+- 극단공포(FG<20) 정확도 61% > 일반구간 17%: 공포 구간 예측이 오히려 더 정확
+- FG < 10 패닉: 다음날 반등 가능성 67%. 추가 하락 주장에 반드시 반등 반론 포함
+- VIX > 40: 일중 ±4~8% 변동. 방향보다 변동성이 위험. confidence="낮음" 강제
+- SK하이닉스 베타 1.36x: 나스닥 대비 1.4배 크게 움직임. 항상 반영
+- 급락 후 반등 패턴: 04-07(-6%) → +2% → +7% 연속 반등. 급락 다음날 반등 예측 83% 정확
+- 원달러 예측 정확도 17%: thesis_killers에 원달러 절대 포함 금지
+- 횡보 구간 급락 전환 예측 불가 (03-21, 03-31 등 0%): 횡보 시 "방향 불명확" 인정
 
-thesis_killers 작성 필수 규칙:
-- event: 반드시 주가/지수로 검증 가능한 구체적 이벤트 (코스피, 나스닥, SK하이닉스, VIX, 원달러 등)
-- confirms_if / invalidates_if: 반드시 숫자 기준 포함 (예: "코스피 +1% 이상 유지", "VIX 25 이하", "원달러 1480원 이하")
-- "외국인 심리", "시장 분위기", "모멘텀 유지" 같은 추상적 표현 절대 금지
-- 하나의 thesis_killer는 하나의 검증 가능한 조건만
+thesis_killers 작성 필수 규칙 (29일 백테스트 결과 반영):
+- event: 나스닥/코스피/SK하이닉스/엔비디아/VIX 중 하나만. 주가·지수로 당일 검증 가능한 것만.
+- confirms_if / invalidates_if: 반드시 숫자 기준 포함 (예: "나스닥 +1.5% 이상", "VIX 25 이하")
+- 원달러 환율은 thesis_killers에 절대 포함 금지 (29일 백테스트 정확도 17% — 사용 불가)
+- "외국인 심리", "시장 분위기", "협상 진전" 같은 검증 불가 표현 절대 금지
+- 급락 후(전일 -3% 이상)는 반드시 반등 시나리오 포함 (백테스트 반등 정확도 83%)
 
 {
   "verdict": "동의/부분동의/반대",
