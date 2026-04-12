@@ -158,7 +158,17 @@ def generate_analysis(date, market_data, dry=False):
     raw = re.sub(r"```json|```","",full).strip()
     m = re.search(r"\{[\s\S]*\}", raw)
     if not m: raise ValueError("JSON 파싱 실패\n" + full[:200])
-    result = json.loads(m.group())
+    s = m.group()
+    try:
+        result = json.loads(s)
+    except json.JSONDecodeError:
+        s = re.sub(r",\s*([}\]])", r"\1", s)
+        try:
+            result = json.loads(s)
+        except json.JSONDecodeError:
+            s += "]" * (s.count("[") - s.count("]"))
+            s += "}" * (s.count("{") - s.count("}"))
+            result = json.loads(s)
     result["analysis_date"] = date
     result["mode"] = "MORNING"
     return result
