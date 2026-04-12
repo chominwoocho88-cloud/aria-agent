@@ -30,15 +30,38 @@ client  = anthropic.Anthropic(api_key=API_KEY)
 
 # ── 공통 유틸 ──────────────────────────────────────────────────────────────────
 def parse_json(text: str) -> dict:
-    raw = re.sub(r"```json|```", "", text).strip()
-    m   = re.search(r"\{[\s\S]*\}", raw)
+    """3단계 폴백 JSON 파싱 — Claude 응답이 어떤 형태여도 최대한 복구"""
+    # 1. 코드블록 제거
+    text = re.sub(r"```json|```", "", text).strip()
+
+    # 2. JSON 객체 추출
+    m = re.search(r"\{[\s\S]*\}", text)
     if not m:
         raise ValueError("JSON not found:\n" + text[:300])
     s = m.group()
-    s = re.sub(r",\s*([}\]])", r"\1", s)
-    s += "]" * (s.count("[") - s.count("]"))
-    s += "}" * (s.count("{") - s.count("}"))
-    return json.loads(s)
+
+    # 3-1. 바로 파싱 시도 (가장 안전)
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+
+    # 3-2. trailing comma 제거 후 재시도
+    s2 = re.sub(r",\s*([}\]])", r"\1", s)
+    try:
+        return json.loads(s2)
+    except json.JSONDecodeError:
+        pass
+
+    # 3-3. 괄호 불균형 보정 후 최종 시도
+    s3 = s2
+    s3 += "]" * (s3.count("[") - s3.count("]"))
+    s3 += "}" * (s3.count("{") - s3.count("}"))
+    try:
+        return json.loads(s3)
+    except json.JSONDecodeError as e:
+        print("❌ JSON 파싱 3단계 모두 실패: " + str(e)[:200])
+        raise
 
 
 def call_api(system: str, user: str, use_search=False,
