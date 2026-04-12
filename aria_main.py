@@ -184,6 +184,13 @@ def main():
         update_cost(MODE)
         print(get_monthly_cost_summary())
 
+        # 데이터 품질 불량 시 분석 중단 (핵심 티커 2개 이상 N/A)
+        if market_data.get("_data_quality") == "poor":
+            msg = "⚠️ 핵심 시장 데이터 수집 실패 — 분석 신뢰도 불충분으로 오늘 실행 중단"
+            console.print("[bold red]" + msg + "[/bold red]")
+            send_message("⚠️ <b>ARIA 데이터 오류</b>\n\n" + msg + "\n\nYahoo Finance 응답 불안정. 내일 자동 재시도.")
+            return
+
         # 2. 교훈 로드 (MORNING 전용)
         lessons_prompt = ""
         if MODE == "MORNING":
@@ -245,6 +252,15 @@ def main():
         save_memory(memory, report)
         path = save_report(report)
         console.print("[dim]Saved: " + str(path) + "[/dim]")
+
+        # 대시보드 HTML 생성 (MORNING만)
+        if MODE == "MORNING":
+            try:
+                from aria_dashboard import build_dashboard
+                build_dashboard()
+                console.print("[dim]Dashboard updated[/dim]")
+            except Exception as e:
+                console.print("[yellow]Dashboard 생성 실패: " + str(e) + "[/yellow]")
 
     except Exception as e:
         console.print("[bold red]Error: " + str(e) + "[/bold red]")
