@@ -27,14 +27,15 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: python aria_backtest.py
+        run: |
+          # aria_analysis.py가 있어야 가중치 업데이트 가능
+          python aria_backtest.py
 
       - name: Save learning data
         run: |
           git config user.name "ARIA Bot"
           git config user.email "aria@github-actions"
           git fetch origin main
-          git reset --hard origin/main
           git add memory.json accuracy.json aria_lessons.json aria_weights.json || true
-          git diff --staged --quiet || git commit -m "ARIA: Backtest 학습 데이터 저장 (5거래일)"
+          git diff --staged --quiet || git commit -m "ARIA: Backtest 학습 데이터 저장 (29거래일)"
           git push || (git pull --rebase origin main && git push)
