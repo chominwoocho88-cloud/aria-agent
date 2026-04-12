@@ -34,23 +34,67 @@ def fetch_yahoo_data():
     if core_na>=2: print("⚠️ 핵심 티커 "+str(core_na)+"개 N/A")
     return result
 
-def fetch_fear_greed():
-    result={"value":"N/A","rating":"N/A","prev_close":"N/A"}
+def fetch_fear_greed(yahoo_data: dict = None) -> dict:
+    """CNN/alternative.me API는 GitHub Actions IP에서 403 차단됨.
+    VIX + S&P500 + 나스닥 모멘텀으로 Fear&Greed 지수 직접 계산 (주식시장 기반)."""
+    result = {"value": "N/A", "rating": "N/A", "prev_close": "N/A"}
+
+    # 1. CNN 시도 (운영 환경에서 작동하면 사용)
     try:
-        r=httpx.get("https://production.dataviz.cnn.io/index/fearandgreed/graphdata",headers={"User-Agent":"Mozilla/5.0"},timeout=15)
-        d=r.json(); fg=d.get("fear_and_greed",{})
-        score=fg.get("score",""); rate=fg.get("rating",""); prev=fg.get("previous_close","")
+        r = httpx.get(
+            "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
+            headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.cnn.com/markets/fear-and-greed"},
+            timeout=15
+        )
+        d = r.json(); fg = d.get("fear_and_greed", {})
+        score = fg.get("score", ""); rate = fg.get("rating", ""); prev = fg.get("previous_close", "")
         if score:
-            result.update({"value":str(round(float(score),1)),"rating":rate,"prev_close":str(round(float(prev),1)) if prev else "N/A"})
-            print("  Fear&Greed (CNN): "+result["value"]+" ("+rate+")"); return result
-    except Exception as e: print("  CNN 실패: "+str(e)+" — alt 폴백")
+            result.update({"value": str(round(float(score), 1)), "rating": rate,
+                           "prev_close": str(round(float(prev), 1)) if prev else "N/A"})
+            print("  Fear&Greed (CNN): " + result["value"] + " (" + rate + ")")
+            return result
+    except Exception as e:
+        print("  CNN 실패: " + str(e)[:60])
+
+    # 2. VIX + 시장 모멘텀 기반 자체 계산 (주식시장 기반 → alternative.me 암호화폐 지수보다 정확)
     try:
-        r2=httpx.get("https://api.alternative.me/fng/?limit=2",timeout=10); data=r2.json().get("data",[])
-        if data:
-            val=data[0].get("value",""); cls=data[0].get("value_classification",""); prv=data[1].get("value","N/A") if len(data)>1 else "N/A"
-            if val: result.update({"value":val,"rating":cls+" (alt)","prev_close":prv}); print("  Fear&Greed (alt 폴백): "+val)
-    except Exception as e: print("  alt도 실패: "+str(e))
-    return result
+        d = yahoo_data or {}
+        def _f(k):
+            try: return float(str(d.get(k, "0") or "0").replace("%","").replace("+",""))
+            except: return 0.0
+
+        vix     = _f("vix")
+        sp_chg  = _f("sp500_change")
+        nq_chg  = _f("nasdaq_change")
+        ks_chg  = _f("kospi_change")
+
+        # VIX 기반 기본 점수 (역방향)
+        if vix >= 35:    score = 10
+        elif vix >= 30:  score = 20
+        elif vix >= 25:  score = 30
+        elif vix >= 22:  score = 38
+        elif vix >= 18:  score = 48
+        elif vix >= 15:  score = 58
+        elif vix >= 12:  score = 68
+        else:            score = 78
+
+        # 시장 모멘텀 보정 (-15 ~ +15)
+        momentum = (sp_chg * 2 + nq_chg * 1.5 + ks_chg * 0.5) / 3
+        score = max(0, min(100, round(score + max(-15, min(15, momentum * 3)))))
+
+        if score <= 20:    rate = "Extreme Fear"
+        elif score <= 40:  rate = "Fear"
+        elif score <= 60:  rate = "Neutral"
+        elif score <= 80:  rate = "Greed"
+        else:              rate = "Extreme Greed"
+
+        result.update({"value": str(score), "rating": rate + " (VIX기반)", "prev_close": "N/A"})
+        print("  Fear&Greed (VIX 계산): " + str(score) + " (" + rate + ") | VIX=" + str(vix))
+        return result
+
+    except Exception as e:
+        print("  Fear&Greed 계산 실패: " + str(e))
+        return result
 
 def fetch_korea_news():
     results=[]
@@ -99,7 +143,7 @@ def get_monthly_cost_summary():
 def fetch_all_market_data():
     now=datetime.now(KST)
     print("[Yahoo Finance]"); yahoo=fetch_yahoo_data()
-    print("[Fear & Greed]"); fg=fetch_fear_greed()
+    print("[Fear & Greed]"); fg=fetch_fear_greed(yahoo)  # yahoo 데이터 전달 → VIX 기반 계산
     print("[한국 특수 뉴스]"); kr_n=fetch_korea_news()
     print("[KIS API] 미연결")
     keys=["sp500","sp500_change","nasdaq","nasdaq_change","vix","vix_change","us_10y","kospi","kospi_change","krw_usd","sk_hynix","sk_hynix_change","samsung","samsung_change","kakao","kakao_change","kodex","kodex_change","nvda","nvda_change","avgo","avgo_change","schd","schd_change"]
