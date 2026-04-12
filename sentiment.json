@@ -1,0 +1,96 @@
+{
+  "history": [
+    {
+      "date": "2026-04-12",
+      "score": 40,
+      "level": "공포",
+      "emoji": "😰",
+      "components": {
+        "시장레짐": {
+          "score": 0,
+          "reason": "혼조 – AI 모멘텀 vs 지정학·유가·달러 "
+        },
+        "추세방향": {
+          "score": 0,
+          "reason": "횡보추세"
+        },
+        "변동성지수": {
+          "score": 0,
+          "reason": "Fear&Greed 49.0 (중립)"
+        },
+        "자금흐름": {
+          "score": -9,
+          "reason": "유입2 / 유출4"
+        },
+        "반론강도": {
+          "score": -6,
+          "reason": "고위험2 / 중위험0"
+        },
+        "한국시장": {
+          "score": 3,
+          "reason": "코스피상승"
+        },
+        "숨은시그널": {
+          "score": 2,
+          "reason": "고신뢰1 / 저신뢰0"
+        }
+      },
+      "regime": "혼조 – AI 모멘텀 vs 지정학·유가·달러 강세 교차 압력",
+      "trend": "횡보추세",
+      "vix_level": "중립",
+      "vix_val": 19.23,
+      "vkospi_val": null,
+      "fear_greed": 49.0
+    }
+  ],
+  "current": {
+    "date": "2026-04-12",
+    "score": 40,
+    "level": "공포",
+    "emoji": "😰",
+    "components": {
+      "시장레짐": {
+        "score": 0,
+        "reason": "혼조 – AI 모멘텀 vs 지정학·유가·달러 "
+      },
+      "추세방향": {
+        "score": 0,
+        "reason": "횡보추세"
+      },
+      "변동성지수": {
+        "score": 0,
+        "reason": "Fear&Greed 49.0 (중립)"
+      },
+      "자금흐름": {
+        "score": -9,
+        "reason": "유입2 / 유출4"
+      },
+      "반론강도": {
+        "score": -6,
+        "reason": "고위험2 / 중위험0"
+      },
+      "한국시장": {
+        "score": 3,
+        "reason": "코스피상승"
+      },
+      "숨은시그널": {
+        "score": 2,
+        "reason": "고신뢰1 / 저신뢰0"
+      }
+    },
+    "regime": "혼조 – AI 모멘텀 vs 지정학·유가·달러 강세 교차 압력",
+    "trend": "횡보추세",
+    "vix_level": "중립",
+    "vix_val": 19.23,
+    "vkospi_val": null,
+    "fear_greed": 49.0
+  },
+  "trend": {
+    "direction": "neutral",
+    "change": 0,
+    "avg_7d": 50,
+    "min_30d": 50,
+    "max_30d": 50,
+    "avg_30d": 50
+  }
+}

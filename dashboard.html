@@ -7,377 +7,283 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>ARIA Dashboard</title>
 <style>
-:root {
-  --bg: #f2f1ec;
-  --card: #ffffff;
-  --text: #1a1a18;
-  --muted: #6b6b66;
-  --border: rgba(0,0,0,0.07);
-  --radius: 16px;
-  --green: #1D9E75;
-  --red: #E24B4A;
-  --amber: #BA7517;
-  --blue: #378ADD;
-  --gray: #888780;
-}
-@media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111110;
-    --card: #1c1c1a;
-    --text: #f0efe8;
-    --muted: #888780;
-    --border: rgba(255,255,255,0.07);
+    --bg:     #f5f5f0;
+    --card:   #ffffff;
+    --text:   #1a1a1a;
+    --muted:  #666660;
+    --border: rgba(0,0,0,0.08);
+    --radius: 16px;
+    --grid:   rgba(0,0,0,0.06);
   }
-}
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  max-width: 430px;
-  margin: 0 auto;
-  padding-bottom: env(safe-area-inset-bottom, 24px);
-}
-.header {
-  padding: 56px 20px 16px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-.header h1 { font-size: 28px; font-weight: 700; letter-spacing: -1px; }
-.header-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
-.regime-badge {
-  font-size: 11px; font-weight: 600;
-  padding: 5px 11px; border-radius: 20px; color: #fff;
-  white-space: nowrap; margin-top: 4px;
-}
-.section { padding: 0 14px 14px; }
-.card {
-  background: var(--card);
-  border-radius: var(--radius);
-  border: 0.5px solid var(--border);
-  padding: 16px;
-  margin-bottom: 10px;
-}
-.card-label {
-  font-size: 11px; font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 10px;
-}
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-.metric {
-  background: var(--card);
-  border-radius: 14px;
-  border: 0.5px solid var(--border);
-  padding: 14px;
-}
-.metric-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
-.metric-value { font-size: 28px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; }
-.metric-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
-.summary {
-  background: var(--card);
-  border-radius: var(--radius);
-  border: 0.5px solid var(--border);
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text);
-}
-.chart-wrap { position: relative; width: 100%; }
-.legend {
-  display: flex; flex-wrap: wrap; gap: 10px;
-  margin-bottom: 8px;
-}
-.legend-item {
-  display: flex; align-items: center; gap: 5px;
-  font-size: 11px; color: var(--muted);
-}
-.legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
-.port-row {
-  display: flex; align-items: center;
-  justify-content: space-between;
-  padding: 9px 0;
-  border-bottom: 0.5px solid var(--border);
-  font-size: 14px;
-}
-.port-row:last-child { border-bottom: none; }
-.port-name { font-weight: 500; }
-.port-chg  { font-weight: 700; font-size: 15px; }
-.pos { color: var(--green); }
-.neg { color: var(--red); }
-.neu { color: var(--muted); }
-.cost-row {
-  display: flex; justify-content: space-between;
-  font-size: 13px; padding: 4px 0; color: var(--muted);
-}
-.cost-val { color: var(--text); font-weight: 600; }
-.footer {
-  text-align: center; font-size: 11px;
-  color: var(--muted); padding: 8px 16px 32px;
-}
-.loading {
-  text-align: center; padding: 80px 20px;
-  color: var(--muted); font-size: 14px;
-}
-.no-data { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:     #111110;
+      --card:   #1c1c1a;
+      --text:   #f0efe8;
+      --muted:  #888780;
+      --border: rgba(255,255,255,0.08);
+      --grid:   rgba(255,255,255,0.06);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    max-width: 430px;
+    margin: 0 auto;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  .header {
+    padding: 20px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-left h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+  .header-left p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .regime-badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 20px;
+    color: #fff;
+  }
+  .section { padding: 0 16px 16px; }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .metric {
+    background: var(--card);
+    border-radius: 12px;
+    border: 0.5px solid var(--border);
+    padding: 14px;
+  }
+  .metric-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .metric-value { font-size: 26px; font-weight: 600; letter-spacing: -1px; }
+  .metric-sub   { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .summary-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .summary-text { font-size: 14px; line-height: 1.5; color: var(--text); }
+  .chart-wrap { position: relative; }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .port-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 0.5px solid var(--border);
+    font-size: 14px;
+  }
+  .port-row:last-child { border-bottom: none; }
+  .port-name  { color: var(--text); font-weight: 500; }
+  .port-chg   { font-weight: 600; font-size: 15px; }
+  .pos { color: #1D9E75; }
+  .neg { color: #E24B4A; }
+  .neu { color: var(--muted); }
+  .cost-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    padding: 4px 0;
+    color: var(--muted);
+  }
+  .cost-val { color: var(--text); font-weight: 500; }
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted);
+    padding: 8px 16px 32px;
+  }
 </style>
 </head>
 <body>
 
-<div id="app"><div class="loading">데이터 불러오는 중...</div></div>
+<div class="header">
+  <div class="header-left">
+    <h1>ARIA</h1>
+    <p>2026.04.12 12:31 KST</p>
+  </div>
+  <div class="regime-badge" style="background:#BA7517;">
+    혼조
+  </div>
+</div>
+
+<div class="section">
+
+  <!-- 요약 -->
+  
+
+  <!-- 핵심 지표 -->
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-label">감정지수</div>
+      <div class="metric-value" style="color:#BA7517;">40</div>
+      <div class="metric-sub">😰 공포</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">예측 정확도</div>
+      <div class="metric-value">0%</div>
+      <div class="metric-sub">0/0건</div>
+    </div>
+  </div>
+
+  <!-- 감정지수 추이 -->
+  <div class="card">
+    <div class="card-title">감정지수 30일 추이</div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#1D9E75;"></span>감정지수</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#888780; border-radius:0;height:2px;"></span>중립(50)</span>
+    </div>
+    <div class="chart-wrap" style="height:160px;">
+      <canvas id="sentChart" role="img" aria-label="30일 감정지수 추이">감정지수 40 / 공포</canvas>
+    </div>
+  </div>
+
+  <!-- 예측 정확도 -->
+  
+
+  <!-- 포트폴리오 손익 -->
+  <div class="card">
+    <div class="card-title">포트폴리오 오늘 손익</div>
+    <p style="font-size:13px;color:var(--muted);">데이터 없음</p>
+  </div>
+
+  <!-- 섹터 로테이션 -->
+  <div class="card"><div class="card-title">섹터 자금흐름 (30일 누적)</div><div class="chart-wrap" style="height:256px;"><canvas id="rotChart" role="img" aria-label="섹터 자금흐름">섹터 로테이션</canvas></div></div>
+
+  <!-- 이번 달 비용 -->
+  <div class="card">
+    <div class="card-title">이번 달 API 비용</div>
+    <div class="cost-row">
+      <span>추정 비용</span>
+      <span class="cost-val">$1.20 (약 1,776원)</span>
+    </div>
+    <div class="cost-row">
+      <span>실행 횟수</span>
+      <span class="cost-val">1회</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  분석일: 2026-04-12 · ARIA Multi-Agent
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
-const TC = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.38)';
-const GC = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-
-async function loadJSON(url) {
-  try {
-    const r = await fetch(url + '?t=' + Date.now());
-    if (!r.ok) return null;
-    return await r.json();
-  } catch { return null; }
-}
-
-function pct(s) {
-  try { return parseFloat(String(s||'0').replace('%','').replace('+','')) || 0; }
-  catch { return 0; }
-}
-
-function makeChart(id, config) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  new Chart(el, config);
-}
-
-async function render() {
-  const [sent, acc, rot, market, cost, memory, portfolio] = await Promise.all([
-    loadJSON('sentiment.json'),
-    loadJSON('accuracy.json'),
-    loadJSON('rotation.json'),
-    loadJSON('aria_market_data.json'),
-    loadJSON('aria_cost.json'),
-    loadJSON('memory.json'),
-    loadJSON('portfolio.json'),
-  ]);
-
-  const cur      = sent?.current || {};
-  const hist30   = (sent?.history || []).slice(-30);
-  const latest   = Array.isArray(memory) && memory.length ? memory[memory.length-1] : {};
-  const holdings = portfolio?.holdings || [];
-
-  const score    = cur.score ?? 50;
-  const level    = cur.level || '중립';
-  const emoji    = cur.emoji || '😐';
-  const regime   = latest.market_regime || '데이터 없음';
-  const summary  = latest.one_line_summary || '';
-  const date     = latest.analysis_date || '';
-
-  const accTotal   = acc?.total || 0;
-  const accCorrect = acc?.correct || 0;
-  const accPct     = accTotal > 0 ? Math.round(accCorrect / accTotal * 100) : 0;
-  const byCat      = acc?.by_category || {};
-
-  const month    = new Date().toISOString().slice(0,7);
-  const mRuns    = cost?.monthly_runs?.[month] || {};
-  const costUSD  = mRuns.estimated_usd || 0;
-  const costKRW  = Math.round(costUSD * 1480);
-
-  const sentColor = score <= 30 ? '#E24B4A' : score <= 45 ? '#BA7517' : score <= 60 ? '#888780' : '#1D9E75';
-  const regColor  = regime.includes('선호') ? '#1D9E75' : regime.includes('회피') ? '#E24B4A' : '#BA7517';
-  const regLabel  = regime.includes('선호') ? '위험선호' : regime.includes('회피') ? '위험회피' : '혼조';
-
-  // 포트폴리오 손익
-  let portRows = '';
-  let totalPnl = 0;
-  for (const h of holdings) {
-    if (h.ticker === 'cash') continue;
-    const chg = pct(market?.[h.ticker + '_change']);
-    totalPnl += chg * (h.weight / 100);
-    const cls  = chg > 0 ? 'pos' : chg < 0 ? 'neg' : 'neu';
-    const sign = chg > 0 ? '+' : '';
-    portRows += `<div class="port-row">
-      <span class="port-name">${h.name}</span>
-      <span class="port-chg ${cls}">${sign}${chg.toFixed(2)}%</span>
-    </div>`;
+const tc  = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.40)';
+const gc  = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+const bOpts = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false}},
+  scales:{
+    x:{ticks:{color:tc,font:{size:10}},grid:{color:gc}},
+    y:{ticks:{color:tc,font:{size:10}},grid:{color:gc}}
   }
-  const pnlSign  = totalPnl >= 0 ? '+' : '';
-  const pnlColor = totalPnl >= 0 ? '#1D9E75' : '#E24B4A';
+};
 
-  // 섹터 로테이션
-  const ranking   = rot?.ranking || [];
-  const rotLabels = ranking.slice(0,8).map(r => r[0]);
-  const rotVals   = ranking.slice(0,8).map(r => r[1]);
+// 감정지수
+const sentEl = document.getElementById('sentChart');
+if(sentEl) new Chart(sentEl, {
+  type:'line',
+  data:{
+    labels:["04-12"],
+    datasets:[
+      {data:[40],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',
+        fill:true,tension:0.4,pointRadius:2,borderWidth:2},
+      {data:Array(1).fill(50),borderColor:'#888780',
+        borderDash:[4,3],borderWidth:1.5,pointRadius:0}
+    ]
+  },
+  options:{...bOpts,scales:{
+    x:{ticks:{color:tc,font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:6},grid:{color:gc}},
+    y:{min:0,max:100,ticks:{color:tc,font:{size:10},stepSize:25},grid:{color:gc}}
+  }}
+});
 
-  // 카테고리 정확도
-  const catLabels = Object.keys(byCat);
-  const catPcts   = catLabels.map(k => {
-    const s = byCat[k];
-    return s.total > 0 ? Math.round(s.correct / s.total * 100) : 0;
-  });
+// 정확도
+const accEl = document.getElementById('accChart');
+if(accEl) new Chart(accEl, {
+  type:'bar',
+  data:{
+    labels:[],
+    datasets:[{
+      data:[],
+      backgroundColor:[].map(v => v>=70?'#1D9E75':v<=40?'#E24B4A':'#378ADD'),
+      borderRadius:4,barPercentage:0.6
+    }]
+  },
+  options:{...bOpts,scales:{
+    x:{ticks:{color:tc,font:{size:10}},grid:{display:false}},
+    y:{min:0,max:100,ticks:{color:tc,font:{size:10},callback:v=>v+'%'},grid:{color:gc}}
+  }}
+});
 
-  const sentDates  = hist30.map(h => h.date?.slice(5) || '');
-  const sentScores = hist30.map(h => h.score || 50);
-
-  // 마지막 업데이트 시간
-  const updated = market?.fetched_at || date || '-';
-
-  document.getElementById('app').innerHTML = `
-    <div class="header">
-      <div>
-        <h1>ARIA</h1>
-        <div class="header-sub">${updated}</div>
-      </div>
-      <div class="regime-badge" style="background:${regColor}">${regLabel}</div>
-    </div>
-
-    <div class="section">
-
-      ${summary ? `<div class="summary">💡 ${summary}</div>` : ''}
-
-      <div class="grid2">
-        <div class="metric">
-          <div class="metric-label">감정지수</div>
-          <div class="metric-value" style="color:${sentColor}">${score}</div>
-          <div class="metric-sub">${emoji} ${level}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">예측 정확도</div>
-          <div class="metric-value">${accPct}%</div>
-          <div class="metric-sub">${accCorrect}/${accTotal}건</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">포트 손익</div>
-          <div class="metric-value" style="color:${pnlColor}">${pnlSign}${totalPnl.toFixed(2)}%</div>
-          <div class="metric-sub">오늘 기준</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">이달 비용</div>
-          <div class="metric-value" style="font-size:20px;letter-spacing:-0.5px">$${costUSD.toFixed(1)}</div>
-          <div class="metric-sub">약 ${costKRW.toLocaleString()}원</div>
-        </div>
-      </div>
-
-      ${hist30.length > 0 ? `
-      <div class="card">
-        <div class="card-label">감정지수 추이</div>
-        <div class="legend">
-          <span class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>감정지수</span>
-          <span class="legend-item"><span class="legend-dot" style="background:#888780;border-radius:0;height:2px"></span>중립(50)</span>
-        </div>
-        <div class="chart-wrap" style="height:150px">
-          <canvas id="sentChart" role="img" aria-label="감정지수 추이"></canvas>
-        </div>
-      </div>` : ''}
-
-      ${portRows ? `
-      <div class="card">
-        <div class="card-label">포트폴리오 오늘 손익</div>
-        ${portRows}
-      </div>` : ''}
-
-      ${catLabels.length > 0 ? `
-      <div class="card">
-        <div class="card-label">카테고리별 예측 정확도</div>
-        <div class="chart-wrap" style="height:${Math.max(120, catLabels.length * 36)}px">
-          <canvas id="accChart" role="img" aria-label="카테고리별 정확도"></canvas>
-        </div>
-      </div>` : ''}
-
-      ${rotLabels.length > 0 ? `
-      <div class="card">
-        <div class="card-label">섹터 자금흐름 (30일)</div>
-        <div class="chart-wrap" style="height:${Math.max(120, rotLabels.length * 32)}px">
-          <canvas id="rotChart" role="img" aria-label="섹터 자금흐름"></canvas>
-        </div>
-      </div>` : ''}
-
-      <div class="card">
-        <div class="card-label">이달 API 비용</div>
-        <div class="cost-row"><span>추정 비용</span><span class="cost-val">$${costUSD.toFixed(2)} (약 ${costKRW.toLocaleString()}원)</span></div>
-        <div class="cost-row"><span>실행 횟수</span><span class="cost-val">${mRuns.runs || 0}회</span></div>
-      </div>
-
-    </div>
-    <div class="footer">분석일: ${date} · ARIA Multi-Agent · <a href="https://github.com" style="color:inherit">GitHub</a></div>
-  `;
-
-  // 감정지수 차트
-  if (hist30.length > 0) {
-    makeChart('sentChart', {
-      type: 'line',
-      data: {
-        labels: sentDates,
-        datasets: [
-          { data: sentScores, borderColor:'#1D9E75', backgroundColor:'rgba(29,158,117,0.09)',
-            fill:true, tension:0.4, pointRadius:2, borderWidth:2 },
-          { data: Array(sentScores.length).fill(50), borderColor:'#888780',
-            borderDash:[4,3], borderWidth:1.5, pointRadius:0 }
-        ]
-      },
-      options: {
-        responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{display:false}},
-        scales:{
-          x:{ticks:{color:TC,font:{size:9},maxRotation:0,autoSkip:true,maxTicksLimit:7},grid:{color:GC}},
-          y:{min:0,max:100,ticks:{color:TC,font:{size:9},stepSize:25},grid:{color:GC}}
-        }
-      }
-    });
+// 섹터 로테이션
+const rotEl = document.getElementById('rotChart');
+if(rotEl) new Chart(rotEl, {
+  type:'bar',
+  data:{
+    labels:["반도체/AI", "빅테크", "방산", "헬스케어", "금융", "소비재", "배당/가치주", "원자재"],
+    datasets:[{
+      data:[3, 0, 0, 0, 0, 0, 0, 0],
+      backgroundColor:[3, 0, 0, 0, 0, 0, 0, 0].map(v=>v>=0?'#1D9E75':'#E24B4A'),
+      borderRadius:3,barPercentage:0.65
+    }]
+  },
+  options:{
+    indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{color:tc,font:{size:9}},grid:{color:gc}},
+      y:{ticks:{color:tc,font:{size:10}},grid:{display:false}}
+    }
   }
-
-  // 정확도 차트
-  if (catLabels.length > 0) {
-    makeChart('accChart', {
-      type:'bar',
-      data:{
-        labels: catLabels,
-        datasets:[{
-          data: catPcts,
-          backgroundColor: catPcts.map(v => v>=70?'#1D9E75':v<=40?'#E24B4A':'#378ADD'),
-          borderRadius:4, barPercentage:0.6
-        }]
-      },
-      options:{
-        responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{display:false}},
-        scales:{
-          x:{ticks:{color:TC,font:{size:10}},grid:{display:false}},
-          y:{min:0,max:100,ticks:{color:TC,font:{size:9},callback:v=>v+'%'},grid:{color:GC}}
-        }
-      }
-    });
-  }
-
-  // 섹터 로테이션 차트
-  if (rotLabels.length > 0) {
-    makeChart('rotChart', {
-      type:'bar',
-      data:{
-        labels: rotLabels,
-        datasets:[{
-          data: rotVals,
-          backgroundColor: rotVals.map(v=>v>=0?'#1D9E75':'#E24B4A'),
-          borderRadius:3, barPercentage:0.65
-        }]
-      },
-      options:{
-        indexAxis:'y', responsive:true, maintainAspectRatio:false,
-        plugins:{legend:{display:false}},
-        scales:{
-          x:{ticks:{color:TC,font:{size:9}},grid:{color:GC}},
-          y:{ticks:{color:TC,font:{size:10}},grid:{display:false}}
-        }
-      }
-    });
-  }
-}
-
-render();
+});
 </script>
 </body>
 </html>
