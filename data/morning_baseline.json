@@ -1,52 +1,52 @@
 {
   "date": "2026-04-13",
-  "saved_at": "13:35 KST",
-  "market_regime": "전환중",
+  "saved_at": "17:07 KST",
+  "market_regime": "혼조",
   "trend_phase": "횡보추세",
   "confidence": "보통",
   "one_line_summary": "",
   "thesis_killers": [],
   "key_outflows": [
     {
-      "zone": "한국 반도체 (삼성전자·SK하이닉스)",
-      "severity": "높음"
-    },
-    {
-      "zone": "미국 성장주·기술주",
+      "zone": "에너지 수입 의존 소비재·항공·화학 섹터",
       "severity": "보통"
     },
     {
-      "zone": "미국 은행주 (어닝 시즌 전)",
+      "zone": "미국 헬스케어 섹터",
+      "severity": "보통"
+    },
+    {
+      "zone": "미국 국채 장기물",
       "severity": "보통"
     }
   ],
   "key_inflows": [
     {
-      "zone": "에너지 섹터 (원유 관련주)",
+      "zone": "반도체·AI 섹터 (한국·미국)",
       "momentum": "강함"
     },
     {
-      "zone": "방어주·배당주 (유틸리티·필수소비재)",
+      "zone": "미국 셰일·LNG 수출주·에너지 생산주",
       "momentum": "보통"
     },
     {
-      "zone": "삼성전자·SK하이닉스 (기술적 반등 단기)",
-      "momentum": "약함"
+      "zone": "방산·안보 섹터",
+      "momentum": "보통"
     }
   ],
   "korea_focus": {},
   "volatility": {
-    "vix": "19.23",
-    "vkospi": "N/A",
-    "fear_greed": "60",
-    "level": "중립"
+    "vix": "21.22",
+    "vkospi": "데이터 미제공",
+    "fear_greed": "57 (Neutral)",
+    "level": "공포 구간 하단"
   },
   "market_snapshot": {
     "sp500": "6816.89",
     "nasdaq": "22902.9",
-    "vix": "19.23",
-    "kospi": "5794.54",
-    "krw_usd": "1487.7",
+    "vix": "21.22",
+    "kospi": "5808.62",
+    "krw_usd": "1487.38",
     "nvda": "188.63"
   },
   "actionable_watch": []

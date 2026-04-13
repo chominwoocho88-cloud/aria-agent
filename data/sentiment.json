@@ -44,13 +44,13 @@
     },
     {
       "date": "2026-04-13",
-      "score": 66,
+      "score": 70,
       "level": "탐욕",
       "emoji": "😏",
       "components": {
         "시장레짐": {
-          "score": 5,
-          "reason": "전환중"
+          "score": 0,
+          "reason": "혼조"
         },
         "추세방향": {
           "score": 0,
@@ -58,11 +58,11 @@
         },
         "변동성지수": {
           "score": 14,
-          "reason": "Fear&Greed 60.0 (탐욕)"
+          "reason": "Fear&Greed 57.0 (탐욕)"
         },
         "자금흐름": {
-          "score": 0,
-          "reason": "유입3 / 유출3"
+          "score": 7,
+          "reason": "유입4 / 유출3"
         },
         "반론강도": {
           "score": 0,
@@ -73,27 +73,27 @@
           "reason": "중립"
         },
         "숨은시그널": {
-          "score": -3,
-          "reason": "고신뢰0 / 저신뢰2"
+          "score": -1,
+          "reason": "고신뢰0 / 저신뢰1"
         }
       },
-      "regime": "전환중",
+      "regime": "혼조",
       "trend": "횡보추세",
-      "vix_level": "중립",
-      "vix_val": 19.23,
+      "vix_level": "공포 구간 하단",
+      "vix_val": 21.22,
       "vkospi_val": null,
-      "fear_greed": 60.0
+      "fear_greed": 57.0
     }
   ],
   "current": {
     "date": "2026-04-13",
-    "score": 66,
+    "score": 70,
     "level": "탐욕",
     "emoji": "😏",
     "components": {
       "시장레짐": {
-        "score": 5,
-        "reason": "전환중"
+        "score": 0,
+        "reason": "혼조"
       },
       "추세방향": {
         "score": 0,
@@ -101,11 +101,11 @@
       },
       "변동성지수": {
         "score": 14,
-        "reason": "Fear&Greed 60.0 (탐욕)"
+        "reason": "Fear&Greed 57.0 (탐욕)"
       },
       "자금흐름": {
-        "score": 0,
-        "reason": "유입3 / 유출3"
+        "score": 7,
+        "reason": "유입4 / 유출3"
       },
       "반론강도": {
         "score": 0,
@@ -116,23 +116,23 @@
         "reason": "중립"
       },
       "숨은시그널": {
-        "score": -3,
-        "reason": "고신뢰0 / 저신뢰2"
+        "score": -1,
+        "reason": "고신뢰0 / 저신뢰1"
       }
     },
-    "regime": "전환중",
+    "regime": "혼조",
     "trend": "횡보추세",
-    "vix_level": "중립",
-    "vix_val": 19.23,
+    "vix_level": "공포 구간 하단",
+    "vix_val": 21.22,
     "vkospi_val": null,
-    "fear_greed": 60.0
+    "fear_greed": 57.0
   },
   "trend": {
     "direction": "improving",
-    "change": 24.0,
-    "avg_7d": 54.0,
+    "change": 28.0,
+    "avg_7d": 56.0,
     "min_30d": 42,
-    "max_30d": 66,
-    "avg_30d": 54.0
+    "max_30d": 70,
+    "avg_30d": 56.0
   }
 }

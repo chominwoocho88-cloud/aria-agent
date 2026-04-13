@@ -143,7 +143,7 @@
 <div class="header">
   <div class="header-left">
     <h1>ARIA</h1>
-    <p>2026.04.13 13:35 KST</p>
+    <p>2026.04.13 17:07 KST</p>
   </div>
   <div class="regime-badge" style="background:#BA7517;">
     혼조
@@ -159,7 +159,7 @@
   <div class="metrics">
     <div class="metric">
       <div class="metric-label">감정지수</div>
-      <div class="metric-value" style="color:#1D9E75;">66</div>
+      <div class="metric-value" style="color:#1D9E75;">70</div>
       <div class="metric-sub">😏 탐욕</div>
     </div>
     <div class="metric">
@@ -177,7 +177,7 @@
       <span class="legend-item"><span class="legend-dot" style="background:#888780; border-radius:0;height:2px;"></span>중립(50)</span>
     </div>
     <div class="chart-wrap" style="height:160px;">
-      <canvas id="sentChart" role="img" aria-label="30일 감정지수 추이">감정지수 66 / 탐욕</canvas>
+      <canvas id="sentChart" role="img" aria-label="30일 감정지수 추이">감정지수 70 / 탐욕</canvas>
     </div>
   </div>
 
@@ -201,11 +201,11 @@
     <div class="card-title">이번 달 API 비용</div>
     <div class="cost-row">
       <span>추정 비용</span>
-      <span class="cost-val">$6.00 (약 8,880원)</span>
+      <span class="cost-val">$7.20 (약 10,656원)</span>
     </div>
     <div class="cost-row">
       <span>실행 횟수</span>
-      <span class="cost-val">5회</span>
+      <span class="cost-val">6회</span>
     </div>
   </div>
 
@@ -236,7 +236,7 @@ if(sentEl) new Chart(sentEl, {
   data:{
     labels:["04-12", "04-13"],
     datasets:[
-      {data:[42, 66],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',
+      {data:[42, 70],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',
         fill:true,tension:0.4,pointRadius:2,borderWidth:2},
       {data:Array(2).fill(50),borderColor:'#888780',
         borderDash:[4,3],borderWidth:1.5,pointRadius:0}
@@ -271,10 +271,10 @@ const rotEl = document.getElementById('rotChart');
 if(rotEl) new Chart(rotEl, {
   type:'bar',
   data:{
-    labels:["에너지/원유", "소비재", "배당/가치주", "반도체/AI", "빅테크", "방산", "헬스케어", "금융"],
+    labels:["반도체/AI", "방산", "원자재", "빅테크", "금융", "배당/가치주", "부동산(리츠)", "헬스케어"],
     datasets:[{
-      data:[1, 1, 1, 0, 0, 0, 0, 0],
-      backgroundColor:[1, 1, 1, 0, 0, 0, 0, 0].map(v=>v>=0?'#1D9E75':'#E24B4A'),
+      data:[6, 1, 1, 0, 0, 0, 0, -2],
+      backgroundColor:[6, 1, 1, 0, 0, 0, 0, -2].map(v=>v>=0?'#1D9E75':'#E24B4A'),
       borderRadius:3,barPercentage:0.65
     }]
   },
