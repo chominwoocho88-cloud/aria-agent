@@ -288,7 +288,7 @@ def main():
         # 6. 4-Agent 파이프라인
         send_start_notification()
         hunter  = agent_hunter(today, MODE, market_data)
-        analyst = agent_analyst(hunter, MODE, lessons_prompt + baseline_context)
+        analyst = agent_analyst(hunter, MODE, lessons_prompt + baseline_context, memory=memory)
         devil   = agent_devil(analyst, memory, MODE)
         report  = agent_reporter(hunter, analyst, devil, memory, accuracy, MODE)
 
@@ -330,6 +330,15 @@ def main():
         save_memory(memory, report)
         path = save_report(report)
         console.print("[dim]Saved: " + str(path) + "[/dim]")
+
+        # 패턴 DB 갱신 (메모리 저장 직후 — 비용 0, 로컬 계산)
+        try:
+            from aria_analysis import update_pattern_db
+            updated_memory = load_memory()   # 방금 저장된 메모리 재로드
+            update_pattern_db(updated_memory)
+            console.print("[dim]Pattern DB updated[/dim]")
+        except Exception as e:
+            console.print("[yellow]Pattern DB 갱신 스킵: " + str(e) + "[/yellow]")
 
         # 대시보드 HTML 생성 (MORNING만)
         if MODE == "MORNING":
