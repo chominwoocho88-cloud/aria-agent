@@ -21,14 +21,155 @@ def _fetch_one(ticker,retries=2):
             else: print("  "+ticker+" 실패("+str(retries+1)+"회): "+str(e))
     return "N/A",""
 
-def fetch_yahoo_data():
+def fetch_krx_flow() -> dict:
+    """KRX OpenAPI — 투자자별 매매동향 (외국인·기관·개인 순매수)
+    엔드포인트: data-dbg.krx.co.kr/svc/apis/sto/invstrtrdtrend_stk
+    AUTH_KEY 헤더 방식, basDd=YYYYMMDD 파라미터
+    당일 최종 데이터는 오후 6시 이후 제공 (장중에는 직전 거래일 데이터)
+    """
+    result = {
+        "foreign_net": "N/A", "institution_net": "N/A", "individual_net": "N/A",
+        "foreign_buy": "N/A", "foreign_sell": "N/A",
+        "source": "none", "date": "N/A",
+    }
+    api_key = os.environ.get("KRX_API_KEY", "")
+    if not api_key:
+        print("  KRX API 키 없음 (KRX_API_KEY 미설정)")
+        return result
+
+    now  = datetime.now(KST)
+    # 장중에는 직전 거래일, 오후 6시 이후에는 당일
+    if now.hour < 18:
+        # 직전 거래일
+        d = now
+        for _ in range(5):
+            d = d - timedelta(days=1)
+            if d.weekday() < 5:  # 월~금
+                break
+        date_str = d.strftime("%Y%m%d")
+    else:
+        date_str = now.strftime("%Y%m%d")
+
+    headers = {
+        "AUTH_KEY": api_key.strip(),
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    # 투자자별 거래 실적 — 코스피 전체 시장 기준
+    _CANDIDATE_ENDPOINTS = [
+        "https://data-dbg.krx.co.kr/svc/apis/sto/invstrtrdtrend_stk",  # 1순위
+        "https://data-dbg.krx.co.kr/svc/apis/sto/stk_invsr_trd_krx",   # 2순위
+        "https://data-dbg.krx.co.kr/svc/apis/sto/stk_invstrtrd",        # 3순위
+    ]
+
+    for url in _CANDIDATE_ENDPOINTS:
+        try:
+            r = httpx.post(
+                url,
+                headers=headers,
+                json={"basDd": date_str, "mktId": "STK"},  # STK = 코스피
+                timeout=12,
+            )
+            if r.status_code == 404:
+                continue  # 다음 후보 시도
+            if r.status_code != 200:
+                print("  KRX " + url.split("/")[-1] + " → " + str(r.status_code))
+                continue
+
+            rows = r.json().get("OutBlock_1", [])
+            if not rows:
+                # GET 방식도 시도
+                r2 = httpx.get(url, headers=headers,
+                               params={"basDd": date_str}, timeout=12)
+                rows = r2.json().get("OutBlock_1", []) if r2.status_code == 200 else []
+
+            if not rows:
+                continue
+
+            # 투자자 구분 코드로 외국인·기관·개인 추출
+            # 컬럼명은 API에 따라 다를 수 있으므로 유연하게 파싱
+            def _net(row):
+                """순매수 금액 (매수-매도, 억원 단위)"""
+                for key in ["NETBUY_AMT", "NET_BUY_AMT", "SELN_BUYNG_QTY", "순매수"]:
+                    if key in row:
+                        try: return int(str(row[key]).replace(",",""))
+                        except: pass
+                # 매수 - 매도 직접 계산
+                buy = sell = 0
+                for bk in ["BUY_AMT","BUYNG_AMT","매수"]:
+                    if bk in row:
+                        try: buy = int(str(row[bk]).replace(",","")); break
+                        except: pass
+                for sk in ["SELL_AMT","SELN_AMT","매도"]:
+                    if sk in row:
+                        try: sell = int(str(row[sk]).replace(",","")); break
+                        except: pass
+                return buy - sell
+
+            def _invstr_type(row):
+                for key in ["INVSTR_TP_CD","INVSTR_CD","투자자구분코드","투자자"]:
+                    if key in row: return str(row[key])
+                return ""
+
+            for row in rows:
+                tp = _invstr_type(row)
+                net = _net(row)
+                net_str = ("+" if net >= 0 else "") + str(round(net / 1e8, 1)) + "억"
+
+                # 외국인: 코드 "5000" 또는 이름에 "외국" 포함
+                if tp in ("5000","9000") or "외국" in str(row.get("INVSTR_NM","")):
+                    result["foreign_net"] = net_str
+                    # 매도 별도 저장
+                    for sk in ["SELL_AMT","SELN_AMT"]:
+                        if sk in row:
+                            try:
+                                result["foreign_sell"] = str(round(int(str(row[sk]).replace(",","")) / 1e8, 1)) + "억"
+                            except: pass
+                    for bk in ["BUY_AMT","BUYNG_AMT"]:
+                        if bk in row:
+                            try:
+                                result["foreign_buy"] = str(round(int(str(row[bk]).replace(",","")) / 1e8, 1)) + "억"
+                            except: pass
+
+                # 기관: 코드 "4000" 또는 이름에 "기관" 포함
+                elif tp in ("4000","3000") or "기관" in str(row.get("INVSTR_NM","")):
+                    result["institution_net"] = net_str
+
+                # 개인: 코드 "1000" 또는 이름에 "개인" 포함
+                elif tp == "1000" or "개인" in str(row.get("INVSTR_NM","")):
+                    result["individual_net"] = net_str
+
+            if result["foreign_net"] != "N/A":
+                result["source"] = "krx_api"
+                result["date"]   = date_str
+                print("  KRX 투자자 수급: 외국인 " + result["foreign_net"]
+                      + " | 기관 " + result["institution_net"]
+                      + " | 개인 " + result["individual_net"])
+                return result
+
+        except Exception as e:
+            print("  KRX " + url.split("/")[-1][:30] + " 실패: " + str(e)[:50])
+            continue
+
+    print("  KRX 수급 데이터 없음 (엔드포인트 확인 필요)")
+    return result
     result={}
-    tickers={"^GSPC":"sp500","^IXIC":"nasdaq","^VIX":"vix","^KS11":"kospi","KRW=X":"krw_usd","^TNX":"us_10y",
-             "000660.KS":"sk_hynix","005930.KS":"samsung","035720.KS":"kakao","466920.KS":"kodex",
-             "NVDA":"nvda","AVGO":"avgo","SCHD":"schd"}
+    tickers={
+        "^GSPC":"sp500","^IXIC":"nasdaq","^VIX":"vix","^KS11":"kospi",
+        "KRW=X":"krw_usd","^TNX":"us_10y",
+        "000660.KS":"sk_hynix","005930.KS":"samsung","035720.KS":"kakao",
+        "466920.KS":"kodex",
+        "NVDA":"nvda","AVGO":"avgo","SCHD":"schd",
+        # 외국인 수급 프록시
+        "EWY":"ewy",        # iShares MSCI Korea ETF — 외국인 한국 투자 수요 지표
+        "122630.KS":"kodex_lev",  # KODEX 레버리지 — 국내 수급 활동성
+    }
     for ticker,key in tickers.items():
         val,chg=_fetch_one(ticker); result[key]=val; result[key+"_change"]=chg
-        print("  "+ticker+": "+(val+" ("+chg+")" if val!="N/A" else "데이터 없음")); time.sleep(0.3)
+        if val != "N/A":
+            print("  "+ticker+": "+val+" ("+chg+")")
+        time.sleep(0.3)
     core_na=sum(1 for k in _CORE if result.get(k)=="N/A")
     result["data_quality"]="poor" if core_na>=2 else "ok"
     if core_na>=2: print("⚠️ 핵심 티커 "+str(core_na)+"개 N/A")
@@ -189,15 +330,22 @@ def fetch_all_market_data():
     now=datetime.now(KST)
     market_status, data_label = _get_market_status(now)
     print("[Yahoo Finance] (" + data_label + ")"); yahoo=fetch_yahoo_data()
-    print("[Fear & Greed]"); fg=fetch_fear_greed(yahoo)  # yahoo 데이터 전달 → VIX 기반 계산
+    print("[Fear & Greed]"); fg=fetch_fear_greed(yahoo)
+    print("[KRX 투자자 수급]"); krx_flow=fetch_krx_flow()
     print("[한국 특수 뉴스]"); kr_n=fetch_korea_news()
-    print("[KIS API] 미연결")
     keys=["sp500","sp500_change","nasdaq","nasdaq_change","vix","vix_change","us_10y","kospi","kospi_change","krw_usd","sk_hynix","sk_hynix_change","samsung","samsung_change","kakao","kakao_change","kodex","kodex_change","nvda","nvda_change","avgo","avgo_change","schd","schd_change"]
     data={"fetched_at":now.strftime("%Y-%m-%d %H:%M KST"),"market_status":market_status,"data_label":data_label,"data_quality":yahoo.get("data_quality","ok"),
           **{k:yahoo.get(k,"N/A") for k in keys},
           "fear_greed_value":fg.get("value","N/A"),"fear_greed_rating":fg.get("rating","N/A"),"fear_greed_prev":fg.get("prev_close","N/A"),
           "fear_greed_source":fg.get("source","unknown"),"fear_greed_confidence":fg.get("confidence","낮음"),
-          "korea_special_news":kr_n,"source":"Yahoo Finance + CNN Fear&Greed"}
+          "krx_foreign_net":krx_flow.get("foreign_net","N/A"),
+          "krx_institution_net":krx_flow.get("institution_net","N/A"),
+          "krx_individual_net":krx_flow.get("individual_net","N/A"),
+          "krx_foreign_buy":krx_flow.get("foreign_buy","N/A"),
+          "krx_foreign_sell":krx_flow.get("foreign_sell","N/A"),
+          "krx_flow_source":krx_flow.get("source","none"),
+          "krx_flow_date":krx_flow.get("date","N/A"),
+          "korea_special_news":kr_n,"source":"Yahoo Finance + FearGreedChart + KRX"}
     data["volatility_alert"]=check_volatility_alert(data)
     if data["data_quality"]=="poor":
         try:
@@ -213,45 +361,81 @@ def load_market_data():
 
 def format_for_hunter(data):
     if not data: return ""
-    alerts=data.get("volatility_alert",{}).get("alerts",[])
-    alert_str=("\n⚠️ 경보: "+" | ".join(alerts)) if alerts else ""
-    qual_str="\n⚠️ 데이터 품질 불량" if data.get("data_quality")=="poor" else ""
+    alerts    = data.get("volatility_alert",{}).get("alerts",[])
+    alert_str = ("\n⚠️ 경보: " + " | ".join(alerts)) if alerts else ""
+    qual_str  = "\n⚠️ 데이터 품질 불량" if data.get("data_quality") == "poor" else ""
 
-    # 데이터 신뢰도 경고
     market_status = data.get("market_status", "open")
     data_label    = data.get("data_label", "실시간")
     fg_source_val = data.get("fear_greed_source", "unknown")
     fg_conf_val   = data.get("fear_greed_confidence", "낮음")
-    fg_note       = data.get("fear_greed_note", "")
 
     status_str = ""
     if market_status == "closed":
-        status_str = "\n⚠️ 주의: 현재 시장 휴장 중 — " + data_label + " (최신 데이터 아님)"
+        status_str = "\n⚠️ 주의: 현재 시장 휴장 중 — " + data_label
     elif market_status == "after_hours":
         status_str = "\n📌 " + data_label
 
-    kis_str = "\n⚠️ KIS 미연결: 한국 외국인 수급·VKOSPI 실데이터 없음. 한국 수급 관련 단정 표현 금지."
+    # 외국인 수급 — KRX 실데이터 우선, 없으면 EWY 프록시
+    krx_src = data.get("krx_flow_source", "none")
+    if krx_src == "krx_api":
+        krx_date = data.get("krx_flow_date", "")
+        flow_str = (
+            "\n📊 외국인수급(KRX실데이터 " + krx_date + "):"
+            " 외국인 " + data.get("krx_foreign_net","N/A") +
+            " | 기관 " + data.get("krx_institution_net","N/A") +
+            " | 개인 " + data.get("krx_individual_net","N/A")
+        )
+    else:
+        ewy     = data.get("ewy", "N/A")
+        ewy_chg = data.get("ewy_change", "")
+        if ewy != "N/A":
+            flow_str = ("\n📌 외국인수급프록시: EWY(한국ETF) " + ewy + " (" + ewy_chg + ")"
+                        " — 직접수급 아님, KRX API 연결 확인 필요")
+        else:
+            flow_str = "\n⚠️ 외국인 수급 없음 (KRX API 미연결, EWY도 N/A)"
 
     fg_str2 = ""
     if fg_source_val == "vix_proxy":
-        fg_str2 = f"\n📌 Fear&Greed: VIX+모멘텀 자체계산 (CNN 차단, 공식 지수 아님 · 신뢰도:{fg_conf_val})"
+        fg_str2 = "\n📌 Fear&Greed: VIX+모멘텀 자체계산 (신뢰도:" + fg_conf_val + ")"
+
     try: krw = str(round(float(str(data.get("krw_usd","0")).replace(",","")))) + " KRW/USD"
     except: krw = str(data.get("krw_usd","N/A"))
-    fg=data.get("fear_greed_value","N/A")
-    fg_str=(fg+" / "+data.get("fear_greed_rating","")+" (전일: "+data.get("fear_greed_prev","N/A")+")") if fg!="N/A" else "N/A"
-    kr_n=data.get("korea_special_news",[])
-    kr_str=("\n\n### 한국 특수 뉴스\n"+"".join("- "+n.get("headline","")+"\n" for n in kr_n)) if kr_n else ""
+
+    fg  = data.get("fear_greed_value","N/A")
+    fg_str = (fg + " / " + data.get("fear_greed_rating","") +
+              " (전일: " + data.get("fear_greed_prev","N/A") + ")") if fg != "N/A" else "N/A"
+
+    kr_n   = data.get("korea_special_news",[])
+    kr_str = ("\n\n### 한국 특수 뉴스\n" +
+              "".join("- " + n.get("headline","") + "\n" for n in kr_n)) if kr_n else ""
+
+    lev     = data.get("kodex_lev", "N/A")
+    lev_chg = data.get("kodex_lev_change", "")
+    lev_str = ("\n- KODEX레버리지: " + lev + " (" + lev_chg + ") — 국내 단기 수급 활동성") if lev != "N/A" else ""
+
     def v(k): return data.get(k,"N/A")
     def vc(k): return data.get(k+"_change","")
+
     return (
-        "\n\n## 시장 데이터 ("+data_label+")\n수집: "+v("fetched_at")+qual_str+status_str+kis_str+fg_str2+"\n\n"
-        "### 미국\n- S&P500: "+v("sp500")+" ("+vc("sp500")+")\n- 나스닥: "+v("nasdaq")+" ("+vc("nasdaq")+")\n"
-        "- VIX: "+v("vix")+" ("+vc("vix")+")\n- 미국10Y: "+v("us_10y")+"%\n- Fear&Greed: "+fg_str+"\n\n"
-        "### 한국\n- 코스피: "+v("kospi")+" ("+vc("kospi")+")\n- 원/달러: "+krw+"\n"
-        "- SK하이닉스: "+v("sk_hynix")+" ("+vc("sk_hynix")+")\n- 삼성전자: "+v("samsung")+" ("+vc("samsung")+")\n"
-        "- 카카오: "+v("kakao")+" ("+vc("kakao")+")\n- SOL고배당: "+v("kodex")+" ("+vc("kodex")+")\n\n"
-        "### 포트폴리오\n- 엔비디아: "+v("nvda")+" ("+vc("nvda")+")\n- 브로드컴: "+v("avgo")+" ("+vc("avgo")+")\n"
-        "- SCHD: "+v("schd")+" ("+vc("schd")+")"+alert_str+kr_str
+        "\n\n## 시장 데이터 (" + data_label + ")\n수집: " + v("fetched_at")
+        + qual_str + status_str + flow_str + fg_str2 + "\n\n"
+        "### 미국\n- S&P500: " + v("sp500") + " (" + vc("sp500") + ")\n"
+        "- 나스닥: " + v("nasdaq") + " (" + vc("nasdaq") + ")\n"
+        "- VIX: " + v("vix") + " (" + vc("vix") + ")\n"
+        "- 미국10Y: " + v("us_10y") + "%\n"
+        "- Fear&Greed: " + fg_str + "\n\n"
+        "### 한국\n- 코스피: " + v("kospi") + " (" + vc("kospi") + ")\n"
+        "- 원/달러: " + krw + "\n"
+        "- SK하이닉스: " + v("sk_hynix") + " (" + vc("sk_hynix") + ")\n"
+        "- 삼성전자: " + v("samsung") + " (" + vc("samsung") + ")\n"
+        "- 카카오: " + v("kakao") + " (" + vc("kakao") + ")\n"
+        "- SOL고배당: " + v("kodex") + " (" + vc("kodex") + ")"
+        + lev_str + "\n\n"
+        "### 포트폴리오\n- 엔비디아: " + v("nvda") + " (" + vc("nvda") + ")\n"
+        "- 브로드컴: " + v("avgo") + " (" + vc("avgo") + ")\n"
+        "- SCHD: " + v("schd") + " (" + vc("schd") + ")"
+        + alert_str + kr_str
     )
 
 if __name__=="__main__":
