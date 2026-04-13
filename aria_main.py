@@ -38,6 +38,48 @@ MODE        = os.environ.get("ARIA_MODE", "MORNING")
 console     = Console()
 
 
+def sanitize_korea_claims(report: dict, market_data: dict) -> dict:
+    """KIS 미연결 시 한국 수급 단정 표현을 완화 — 파이프라인 공통 후처리
+    메모리 저장, 텔레그램 전송, 콘솔 출력 모두 동일 기준 적용
+    """
+    import re
+    # KIS 연결 여부: 현재는 항상 미연결
+    kis_connected = False
+
+    if kis_connected:
+        return report
+
+    # 단정 표현 → 완화 표현 매핑
+    SOFTEN_MAP = {
+        r"외국인\s*\d+[개월주일]+\s*연속\s*순매도": "외국인 순매도 흐름 지속 추정(수급 미확인)",
+        r"외국인\s*\d+[개월주일]+\s*연속\s*순매수": "외국인 순매수 흐름 추정(수급 미확인)",
+        r"외국인\s*누적\s*[+-]?\d+": "외국인 누적 흐름 추정(직접 데이터 미확인)",
+        r"기관\s*\d+[조억만]+\s*원\s*순[매도수]": "기관 수급 추정(직접 데이터 미확인)",
+        r"수급\s*(악화|개선)\s*확정": "수급 추정",
+        r"외국인\s*이탈\s*가속": "외국인 이탈 압력 추정",
+        r"(확정|확인됨)(?=.*수급)": "가능성",
+    }
+
+    def soften_text(text: str) -> str:
+        if not isinstance(text, str):
+            return text
+        for pattern, replacement in SOFTEN_MAP.items():
+            text = re.sub(pattern, replacement, text)
+        return text
+
+    def soften_recursive(obj):
+        """dict/list/str 재귀 순회하며 완화 적용"""
+        if isinstance(obj, str):
+            return soften_text(obj)
+        if isinstance(obj, list):
+            return [soften_recursive(i) for i in obj]
+        if isinstance(obj, dict):
+            return {k: soften_recursive(v) for k, v in obj.items()}
+        return obj
+
+    return soften_recursive(report)
+
+
 def _now() -> datetime:
     return datetime.now(KST)
 
@@ -261,6 +303,9 @@ def main():
         drift = get_regime_drift(report.get("market_regime", ""))
         if drift and drift != "STABLE":
             console.print("[yellow]Regime drift: " + drift + "[/yellow]")
+
+        # 7-1. 공통 후처리 — KIS 미연결 시 한국 수급 단정 표현 완화
+        report = sanitize_korea_claims(report, market_data)
 
         # 8. 출력 및 전송
         print_report(report, len(memory) + 1)
