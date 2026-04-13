@@ -265,12 +265,65 @@ def _get_market_status(now):
     return "open", "실시간"
 
 
+def fetch_fred_indicators() -> dict:
+    """FRED API — 4개 매크로 지표 수집
+    - VIXCLS:       VIX 공식 일별 (Yahoo보다 정확한 종가)
+    - BAMLH0A0HYM2: 하이일드 스프레드 (CNN F&G 구성요소)
+    - T10Y2Y:       장단기 금리차 (경기침체 선행지표)
+    - UMCSENT:      미시간 소비자심리지수
+    """
+    result = {
+        "vix_fred":      None,
+        "hy_spread":     None,   # 하이일드 스프레드 (높을수록 공포)
+        "yield_curve":   None,   # 장단기 금리차 (음수=침체 신호)
+        "consumer_sent": None,   # 미시간 소비자심리 (높을수록 낙관)
+        "fred_source":   False,
+    }
+    api_key = os.environ.get("FRED_API_KEY", "")
+    if not api_key:
+        print("  FRED API 키 없음 (FRED_API_KEY 미설정)")
+        return result
+
+    SERIES = {
+        "VIXCLS":          "vix_fred",
+        "BAMLH0A0HYM2":    "hy_spread",
+        "T10Y2Y":          "yield_curve",
+        "UMCSENT":         "consumer_sent",
+    }
+    base = "https://api.stlouisfed.org/fred/series/observations"
+    success = 0
+    for series_id, key in SERIES.items():
+        try:
+            r = httpx.get(base, params={
+                "series_id":  series_id,
+                "api_key":    api_key,
+                "sort_order": "desc",
+                "limit":      5,       # 최근 5개 중 유효값 사용
+                "file_type":  "json",
+            }, timeout=8)
+            if r.status_code != 200:
+                print("  FRED " + series_id + " → " + str(r.status_code))
+                continue
+            obs = [o for o in r.json().get("observations", []) if o.get("value","") != "."]
+            if obs:
+                val = round(float(obs[0]["value"]), 2)
+                result[key] = val
+                print("  FRED " + series_id + ": " + str(val))
+                success += 1
+        except Exception as e:
+            print("  FRED " + series_id + " 실패: " + str(e)[:50])
+
+    result["fred_source"] = success >= 2
+    return result
+
+
 def fetch_all_market_data():
     now=datetime.now(KST)
     market_status, data_label = _get_market_status(now)
     print("[Yahoo Finance] (" + data_label + ")"); yahoo=fetch_yahoo_data()
     print("[Fear & Greed]"); fg=fetch_fear_greed(yahoo)
     print("[KRX 투자자 수급]"); krx_flow=fetch_krx_flow()
+    print("[FRED 매크로지표]"); fred=fetch_fred_indicators()
     print("[한국 특수 뉴스]"); kr_n=fetch_korea_news()
     keys=["sp500","sp500_change","nasdaq","nasdaq_change","vix","vix_change","us_10y","kospi","kospi_change","krw_usd","sk_hynix","sk_hynix_change","samsung","samsung_change","kakao","kakao_change","kodex","kodex_change","nvda","nvda_change","avgo","avgo_change","schd","schd_change"]
     data={"fetched_at":now.strftime("%Y-%m-%d %H:%M KST"),"market_status":market_status,"data_label":data_label,"data_quality":yahoo.get("data_quality","ok"),
@@ -284,7 +337,12 @@ def fetch_all_market_data():
           "krx_foreign_sell":krx_flow.get("foreign_sell","N/A"),
           "krx_flow_source":krx_flow.get("source","none"),
           "krx_flow_date":krx_flow.get("date","N/A"),
-          "korea_special_news":kr_n,"source":"Yahoo Finance + FearGreedChart + KRX"}
+          "fred_vix":         fred.get("vix_fred"),
+          "fred_hy_spread":   fred.get("hy_spread"),
+          "fred_yield_curve": fred.get("yield_curve"),
+          "fred_consumer":    fred.get("consumer_sent"),
+          "fred_source":      fred.get("fred_source", False),
+          "korea_special_news":kr_n,"source":"Yahoo Finance + FearGreedChart + KRX + FRED"}
     data["volatility_alert"]=check_volatility_alert(data)
     if data["data_quality"]=="poor":
         try:
