@@ -143,7 +143,7 @@
 <div class="header">
   <div class="header-left">
     <h1>ARIA</h1>
-    <p>2026.04.13 12:02 KST</p>
+    <p>2026.04.13 13:35 KST</p>
   </div>
   <div class="regime-badge" style="background:#BA7517;">
     혼조
@@ -159,8 +159,8 @@
   <div class="metrics">
     <div class="metric">
       <div class="metric-label">감정지수</div>
-      <div class="metric-value" style="color:#888780;">54</div>
-      <div class="metric-sub">😐 중립</div>
+      <div class="metric-value" style="color:#1D9E75;">66</div>
+      <div class="metric-sub">😏 탐욕</div>
     </div>
     <div class="metric">
       <div class="metric-label">종합 / 방향 정확도</div>
@@ -177,7 +177,7 @@
       <span class="legend-item"><span class="legend-dot" style="background:#888780; border-radius:0;height:2px;"></span>중립(50)</span>
     </div>
     <div class="chart-wrap" style="height:160px;">
-      <canvas id="sentChart" role="img" aria-label="30일 감정지수 추이">감정지수 54 / 중립</canvas>
+      <canvas id="sentChart" role="img" aria-label="30일 감정지수 추이">감정지수 66 / 탐욕</canvas>
     </div>
   </div>
 
@@ -236,7 +236,7 @@ if(sentEl) new Chart(sentEl, {
   data:{
     labels:["04-12", "04-13"],
     datasets:[
-      {data:[42, 54],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',
+      {data:[42, 66],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',
         fill:true,tension:0.4,pointRadius:2,borderWidth:2},
       {data:Array(2).fill(50),borderColor:'#888780',
         borderDash:[4,3],borderWidth:1.5,pointRadius:0}
@@ -271,10 +271,10 @@ const rotEl = document.getElementById('rotChart');
 if(rotEl) new Chart(rotEl, {
   type:'bar',
   data:{
-    labels:["반도체/AI", "빅테크", "방산", "헬스케어", "금융", "소비재", "배당/가치주", "원자재"],
+    labels:["에너지/원유", "소비재", "배당/가치주", "반도체/AI", "빅테크", "방산", "헬스케어", "금융"],
     datasets:[{
-      data:[4, 0, 0, 0, 0, 0, 0, 0],
-      backgroundColor:[4, 0, 0, 0, 0, 0, 0, 0].map(v=>v>=0?'#1D9E75':'#E24B4A'),
+      data:[1, 1, 1, 0, 0, 0, 0, 0],
+      backgroundColor:[1, 1, 1, 0, 0, 0, 0, 0].map(v=>v>=0?'#1D9E75':'#E24B4A'),
       borderRadius:3,barPercentage:0.65
     }]
   },
