@@ -260,9 +260,9 @@ body{{
 .tag{{font-size:11px;color:var(--mu);background:var(--s3);padding:3px 9px;border-radius:6px;}}
 .tag-devil{{font-size:11px;color:var(--am);background:rgba(255,181,71,.1);padding:3px 9px;border-radius:6px;border:.5px solid rgba(255,181,71,.2);}}
 .summ{{font-size:14px;line-height:1.65;letter-spacing:-.1px;}}
-.action-bar{{background:rgba(20,232,122,.09);border-top:.5px solid rgba(20,232,122,.18);padding:12px 18px;display:flex;gap:9px;align-items:flex-start;}}
+.action-bar{{background:rgba(13,174,107,.08);border-top:.5px solid rgba(13,174,107,.2);padding:12px 18px;display:flex;gap:9px;align-items:flex-start;}}
 .ai{{color:var(--gr);font-size:12px;flex-shrink:0;margin-top:2px;font-weight:700;}}
-.at{{font-size:13px;line-height:1.55;color:rgba(237,233,223,.85);}}
+.at{{font-size:13px;line-height:1.55;color:var(--tx);}}
 
 /* ── KPI */
 .kw{{padding:12px 16px 0;}}
@@ -334,9 +334,9 @@ body{{
 .ritem{{background:var(--s1);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:.5px solid var(--bd);border-left-width:3px;}}
 .rtitle{{font-size:12px;font-weight:700;margin-bottom:4px;}}
 .rdesc{{font-size:12px;color:var(--mu);line-height:1.45;}}
-.cbar{{background:rgba(255,181,71,.06);border:.5px solid rgba(255,181,71,.18);border-radius:12px;padding:11px 16px;display:flex;gap:9px;align-items:flex-start;}}
+.cbar{{background:rgba(217,138,0,.07);border:.5px solid rgba(217,138,0,.2);border-radius:12px;padding:11px 16px;display:flex;gap:9px;align-items:flex-start;}}
 .ci{{font-size:14px;flex-shrink:0;}}
-.ct{{font-size:12px;line-height:1.55;color:rgba(237,233,223,.78);}}
+.ct{{font-size:12px;line-height:1.55;color:var(--tx);}}
 
 /* ── 패턴 */
 .patg{{display:grid;grid-template-columns:1fr 1fr;gap:8px;}}
