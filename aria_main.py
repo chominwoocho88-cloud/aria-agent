@@ -32,8 +32,7 @@ from aria_data     import (
 )
 
 KST         = timezone(timedelta(hours=9))
-MEMORY_FILE = Path("memory.json")
-REPORTS_DIR = Path("reports")
+from aria_paths import MEMORY_FILE, REPORTS_DIR
 MODE        = os.environ.get("ARIA_MODE", "MORNING")
 console     = Console()
 
