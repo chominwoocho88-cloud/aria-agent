@@ -164,6 +164,7 @@ def fetch_all_market_data():
     data={"fetched_at":now.strftime("%Y-%m-%d %H:%M KST"),"market_status":market_status,"data_label":data_label,"data_quality":yahoo.get("data_quality","ok"),
           **{k:yahoo.get(k,"N/A") for k in keys},
           "fear_greed_value":fg.get("value","N/A"),"fear_greed_rating":fg.get("rating","N/A"),"fear_greed_prev":fg.get("prev_close","N/A"),
+          "fear_greed_source":fg.get("source","unknown"),"fear_greed_confidence":fg.get("confidence","낮음"),
           "korea_special_news":kr_n,"source":"Yahoo Finance + CNN Fear&Greed"}
     data["volatility_alert"]=check_volatility_alert(data)
     if data["data_quality"]=="poor":
@@ -187,7 +188,8 @@ def format_for_hunter(data):
     # 데이터 신뢰도 경고
     market_status = data.get("market_status", "open")
     data_label    = data.get("data_label", "실시간")
-    fg_source     = data.get("fear_greed_rating", "")
+    fg_source_val = data.get("fear_greed_source", "unknown")
+    fg_conf_val   = data.get("fear_greed_confidence", "낮음")
     fg_note       = data.get("fear_greed_note", "")
 
     status_str = ""
@@ -199,9 +201,8 @@ def format_for_hunter(data):
     kis_str = "\n⚠️ KIS 미연결: 한국 외국인 수급·VKOSPI 실데이터 없음. 한국 수급 관련 단정 표현 금지."
 
     fg_str2 = ""
-    if "vix_proxy" in str(data.get("fear_greed_source","")) or "VIX" in str(fg_source):
-        fg_str2 = "\n📌 Fear&Greed: CNN 미연결 — VIX+모멘텀 자체계산값 (공식 지수 아님, 참고용)"
-    krw=data.get("krw_usd","N/A")
+    if fg_source_val == "vix_proxy":
+        fg_str2 = f"\n📌 Fear&Greed: VIX+모멘텀 자체계산 (CNN 차단, 공식 지수 아님 · 신뢰도:{fg_conf_val})"
     try: krw=str(round(float(krw)))+" KRW/USD"
     except: pass
     fg=data.get("fear_greed_value","N/A")
