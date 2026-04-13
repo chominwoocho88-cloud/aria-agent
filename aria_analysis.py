@@ -247,34 +247,91 @@ def calculate_sentiment(report: dict, market_data: dict = None) -> dict:
     internal_raw = 50 + sum(c["score"] for c in comps.values())
     internal_raw = max(0, min(100, internal_raw))
 
-    if fg_raw is not None:
-        # ── Proportional scaling: 외부 F&G를 앵커로, 내부 신호를 ±20 이내로 반영
-        # 내부 신호가 아무리 강해도 외부 지수에서 ±20 이상 벗어날 수 없음
-        # FG=57, internal=100 → 57 + min(20, (100-50)*0.4) = 57 + 20 = 77 (탐욕)
-        # FG=57, internal=50  → 57 + 0 = 57 (중립)
-        # FG=20, internal=10  → 20 + (10-50)*0.4 = 20 - 16 = 4 → max(5) = 5 (극단공포)
-        adjustment = (internal_raw - 50) * 0.4
-        adjustment = max(-20, min(20, adjustment))   # ±20 이내 제한
-        score      = round(fg_raw + adjustment)
+    # ── FRED 4개 지표로 보조 감정지수 계산 ────────────────────────────────
+    fred_score = None
+    fred_indicators = {}
+    if market_data:
+        hy    = market_data.get("fred_hy_spread")     # 하이일드 스프레드 (높=공포)
+        yc    = market_data.get("fred_yield_curve")   # 장단기 금리차 (음=침체)
+        cs    = market_data.get("fred_consumer")      # 미시간 소비자심리 (높=낙관)
+        fv    = market_data.get("fred_vix")           # FRED VIX 공식값
 
-        # VIX 극단 구간 오버라이드 (시장 패닉은 외부 지수보다 더 빠르게 반영)
-        if vix_val and vix_val >= 50: score = min(score, 20)
-        elif vix_val and vix_val >= 40: score = min(score, 30)
-        elif vix_val and vix_val >= 25: score = min(score, 60)
+        components_fred = []
+        # 하이일드 스프레드: 정상 3~4%, 위기 8%+
+        if hy is not None:
+            if hy >= 8:    hy_s = 10
+            elif hy >= 6:  hy_s = 25
+            elif hy >= 5:  hy_s = 40
+            elif hy >= 4:  hy_s = 55
+            elif hy >= 3:  hy_s = 70
+            else:          hy_s = 85
+            components_fred.append(hy_s)
+            fred_indicators["hy_spread"] = str(hy) + "% → " + str(hy_s)
 
+        # 장단기 금리차: 양수=정상, 음수=침체경고
+        if yc is not None:
+            if yc <= -1.0:  yc_s = 15
+            elif yc <= -0.5: yc_s = 28
+            elif yc <= 0:    yc_s = 42
+            elif yc <= 0.5:  yc_s = 57
+            elif yc <= 1.0:  yc_s = 68
+            else:            yc_s = 78
+            components_fred.append(yc_s)
+            fred_indicators["yield_curve"] = str(yc) + "% → " + str(yc_s)
+
+        # 미시간 소비자심리: 50이하=비관, 80이상=낙관, 역사 평균 ~85
+        if cs is not None:
+            if cs <= 50:   cs_s = 15
+            elif cs <= 60: cs_s = 28
+            elif cs <= 70: cs_s = 42
+            elif cs <= 80: cs_s = 57
+            elif cs <= 90: cs_s = 68
+            else:          cs_s = 80
+            components_fred.append(cs_s)
+            fred_indicators["consumer_sent"] = str(cs) + " → " + str(cs_s)
+
+        if components_fred:
+            fred_score = round(sum(components_fred) / len(components_fred))
+            print("  FRED 보조감정지수: " + str(fred_score)
+                  + " | " + " | ".join(k + "=" + v for k, v in fred_indicators.items()))
+
+    # ── 동적 가중치 블렌딩 ────────────────────────────────────────────────
+    # VIX 레벨에 따라 신뢰도 조정:
+    #   VIX 낮음(안정)  → F&G 신뢰도 ↑, 내부 신호 보조
+    #   VIX 높음(급변)  → 내부·FRED 신뢰도 ↑ (F&G 1일 지연 보정)
+    vix_now = vix_val or 18
+    if vix_now >= 30:
+        w_fg, w_internal, w_fred = 0.25, 0.50, 0.25   # 급변: 실시간 지표 우선
+    elif vix_now >= 22:
+        w_fg, w_internal, w_fred = 0.45, 0.35, 0.20   # 경계: 균형
     else:
-        # F&G 없으면 내부 계산 + VIX 캡만 적용
+        w_fg, w_internal, w_fred = 0.60, 0.25, 0.15   # 안정: F&G 신뢰
+
+    if fg_raw is not None and fred_score is not None:
+        score = round(fg_raw * w_fg + internal_raw * w_internal + fred_score * w_fred)
+    elif fg_raw is not None:
+        # FRED 없으면 F&G + 내부만
+        wf = w_fg / (w_fg + w_internal)
+        wi = w_internal / (w_fg + w_internal)
+        score = round(fg_raw * wf + internal_raw * wi)
+    elif fred_score is not None:
+        # F&G 없으면 FRED + 내부만
+        score = round(fred_score * 0.55 + internal_raw * 0.45)
+    else:
         score = internal_raw
-        if vix_val and vix_val >= 50:  score = min(score, 20)
-        elif vix_val and vix_val >= 40: score = min(score, 30)
-        elif vix_val and vix_val >= 25: score = min(score, 60)
+
+    # VIX 극단 하드캡 (패닉은 모든 지표보다 우선)
+    if vix_val:
+        if vix_val >= 50:   score = min(score, 20)
+        elif vix_val >= 40: score = min(score, 30)
+        elif vix_val >= 30: score = min(score, 55)
 
     if vkospi_val and vkospi_val >= 40: score = min(score, 55)
     score = max(0, min(100, score))
 
-    # ── Divergence 감지 (외부 F&G와 내부 신호 간 괴리 경고)
-    divergence = abs(internal_raw - (fg_raw or 50))
-    divergence_flag = divergence >= 25  # 25pt 이상 벌어지면 경고
+    # ── Divergence 감지 ───────────────────────────────────────────────────
+    divergence      = abs(internal_raw - (fg_raw or 50))
+    divergence_flag = divergence >= 25
 
     if score <= 20:   level, emoji = "극단공포", "😱"
     elif score <= 40: level, emoji = "공포",     "😰"
@@ -288,6 +345,7 @@ def calculate_sentiment(report: dict, market_data: dict = None) -> dict:
         "vix_level": vi.get("level", ""), "vix_val": vix_val,
         "vkospi_val": vkospi_val, "fear_greed": fg_raw,
         "internal_raw": internal_raw, "divergence": divergence_flag,
+        "fred_score": fred_score, "fred_indicators": fred_indicators,
     }
 
 
