@@ -35,11 +35,43 @@ def fetch_yahoo_data():
     return result
 
 def fetch_fear_greed(yahoo_data: dict = None) -> dict:
-    """CNN/alternative.me API는 GitHub Actions IP에서 403 차단됨.
-    VIX + S&P500 + 나스닥 모멘텀으로 Fear&Greed 지수 직접 계산 (주식시장 기반)."""
+    """Fear&Greed 지수 수집 — 소스 우선순위:
+    1. FearGreedChart.com (무료·무인증·주식시장 기반)
+    2. CNN 직접 API (GitHub Actions에서 대부분 차단)
+    3. VIX+모멘텀 자체계산 (항상 작동하는 폴백)
+    """
     result = {"value": "N/A", "rating": "N/A", "prev_close": "N/A"}
 
-    # 1. CNN 시도 (운영 환경에서 작동하면 사용)
+    # 1. FearGreedChart.com — 무료·무인증·주식시장 기반
+    try:
+        r = httpx.get(
+            "https://feargreedchart.com/api/?action=all",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10
+        )
+        d = r.json()
+        score = d.get("score", {}).get("score")
+        if score is not None:
+            score = int(score)
+            if score <= 20:    rate = "Extreme Fear"
+            elif score <= 40:  rate = "Fear"
+            elif score <= 60:  rate = "Neutral"
+            elif score <= 80:  rate = "Greed"
+            else:              rate = "Extreme Greed"
+            # 전일 값: history 마지막 2개에서 계산
+            prev = "N/A"
+            hist = d.get("recent", [])
+            if len(hist) >= 2:
+                prev = str(hist[-2].get("score", "N/A"))
+            result.update({"value": str(score), "rating": rate,
+                           "prev_close": prev,
+                           "source": "feargreedchart", "confidence": "높음"})
+            print("  Fear&Greed (FearGreedChart.com): " + str(score) + " (" + rate + ")")
+            return result
+    except Exception as e:
+        print("  FearGreedChart 실패: " + str(e)[:60])
+
+    # 2. CNN 직접 API (GitHub Actions에서 대부분 차단됨)
     try:
         r = httpx.get(
             "https://production.dataviz.cnn.io/index/fearandgreed/graphdata",
