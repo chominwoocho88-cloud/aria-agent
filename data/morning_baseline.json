@@ -1,49 +1,53 @@
 {
   "date": "2026-04-13",
-  "saved_at": "22:32 KST",
+  "saved_at": "22:44 KST",
   "market_regime": "혼조",
-  "trend_phase": "상승추세",
+  "trend_phase": "횡보추세",
   "confidence": "낮음",
-  "one_line_summary": "2026-04-13 혼조 / 상승추세 | 신뢰도:낮음",
+  "one_line_summary": "골드만삭스 FICC 실적 쇼크로 금융주 약세 예상되나 TSMC·SK하이닉스 반도체 강세와 코스피 외국인 대규모 순매수(4.997조)가 맞서며 혼조 국면 지속, VIX 20.61 중립권",
   "thesis_killers": [],
   "key_outflows": [
     {
-      "zone": "에너지·정유·소비재",
+      "zone": "미국 금융주 (Goldman Sachs 등 대형은행)",
       "severity": "높음"
     },
     {
-      "zone": "S&P500 에너지 상류 기업",
-      "severity": "보통"
+      "zone": "항공·여행 섹터",
+      "severity": "높음"
     },
     {
-      "zone": "미국 장기국채",
+      "zone": "미국 장기채 (10년물 포지션)",
       "severity": "보통"
     }
   ],
   "key_inflows": [
     {
-      "zone": "반도체·AI 인프라",
+      "zone": "반도체·AI 섹터 (TSMC, SK하이닉스 등)",
       "momentum": "강함"
     },
     {
-      "zone": "나스닥·대형 기술주",
+      "zone": "에너지 섹터 (정유·가스 관련)",
       "momentum": "보통"
+    },
+    {
+      "zone": "코스피 (외국인 자금 복귀)",
+      "momentum": "강함"
     }
   ],
   "korea_focus": {},
   "volatility": {
-    "vix": "20.82",
-    "vkospi": "KOSPI 5,808 기준 추정 21~23 구간",
+    "vix": "20.61",
+    "vkospi": "미제공",
     "fear_greed": "57 (Neutral)",
     "level": "중립"
   },
   "market_snapshot": {
-    "sp500": "6816.89",
-    "nasdaq": "22902.9",
-    "vix": "20.82",
+    "sp500": "6796.32",
+    "nasdaq": "22831.75",
+    "vix": "20.61",
     "kospi": "5808.62",
-    "krw_usd": "1486.86",
-    "nvda": "188.63"
+    "krw_usd": "1485.68",
+    "nvda": "186.93"
   },
   "actionable_watch": []
 }
