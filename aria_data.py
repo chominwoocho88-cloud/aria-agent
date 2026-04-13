@@ -136,11 +136,15 @@ def fetch_put_call_ratio() -> dict:
                     pcr = round(total_put / total_call, 3)
                     pcrs.append(pcr)
                     result["pcr_" + ticker.lower()] = pcr
-                    time.sleep(0.5)
+                    time.sleep(1.0)   # rate limit 방지용 대기 늘림
                 else:
                     print("  PCR " + ticker + ": 옵션 거래량 0 (장 마감 후 or 데이터 없음)")
             except Exception as e:
-                print("  PCR " + ticker + " 실패: " + str(e)[:70])
+                err = str(e)
+                if "Rate" in err or "429" in err or "Too Many" in err:
+                    print("  PCR " + ticker + ": Rate limit — 다음 실행에서 재시도")
+                else:
+                    print("  PCR " + ticker + " 실패: " + err[:70])
 
         if pcrs:
             avg = round(sum(pcrs) / len(pcrs), 3)
