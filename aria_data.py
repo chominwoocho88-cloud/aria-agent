@@ -317,6 +317,103 @@ def fetch_fred_indicators() -> dict:
     return result
 
 
+def fetch_fsc_data() -> dict:
+    """금융위원회 공공데이터 API — 테스트 확인된 오퍼레이션만 사용
+    - getStockPriceInfo:  삼성전자·SK하이닉스 종가 (Yahoo 백업)
+    - getGoldPriceInfo:   금시세 (안전자산 흐름)
+    - getOilPriceInfo:    국내 유류가 (경유·휘발유, 에너지 비용 지표)
+
+    ※ KRX 투자자 수급 (외국인/기관) — stub, 나중에 연결
+    """
+    result = {
+        "samsung_fsc": None, "sk_hynix_fsc": None,
+        "gold_price": None, "oil_price_diesel": None, "oil_price_gasoline": None,
+        "fsc_source": False,
+    }
+    api_key = os.environ.get("FSCAPI_KEY", "")
+    if not api_key:
+        print("  FSC API 키 없음 (FSCAPI_KEY 미설정)")
+        return result
+
+    BASE = "https://apis.data.go.kr/1160100/service"
+    now  = datetime.now(KST)
+    # 전일 거래일 계산
+    d = now - timedelta(days=1)
+    for _ in range(7):
+        if d.weekday() < 5:
+            break
+        d -= timedelta(days=1)
+    date_str = d.strftime("%Y%m%d")
+
+    def _get(endpoint, params):
+        try:
+            r = httpx.get(BASE + endpoint, params={
+                "serviceKey": api_key.strip(), "numOfRows": "5",
+                "pageNo": "1", "resultType": "json", **params,
+            }, timeout=8)
+            if r.status_code != 200:
+                return []
+            items = r.json().get("response",{}).get("body",{}).get("items",{})
+            item  = items.get("item",[]) if isinstance(items, dict) else []
+            return item if isinstance(item, list) else [item]
+        except Exception as e:
+            print("  FSC 실패: " + str(e)[:50])
+            return []
+
+    success = 0
+
+    # ── 1. 삼성전자·SK하이닉스 종가 (Yahoo 백업용) ─────────────────────
+    for code, key in [("005930", "samsung_fsc"), ("000660", "sk_hynix_fsc")]:
+        rows = _get("/GetStockSecuritiesInfoService/getStockPriceInfo",
+                    {"likeSrtnCd": code, "basDd": date_str})
+        if rows:
+            clpr = rows[0].get("clpr","")
+            if clpr:
+                result[key] = str(clpr)
+                success += 1
+
+    # ── 2. 금시세 ───────────────────────────────────────────────────────
+    rows = _get("/GetGeneralProductInfoService/getGoldPriceInfo", {"basDd": date_str})
+    if rows:
+        # 금 99.99 1kg 행 찾기
+        for row in rows:
+            if "99.99" in str(row.get("itmsNm","")) and "1kg" in str(row.get("itmsNm","")):
+                result["gold_price"] = str(row.get("clpr",""))
+                success += 1
+                break
+        if not result["gold_price"] and rows:
+            result["gold_price"] = str(rows[0].get("clpr",""))
+            success += 1
+
+    # ── 3. 국내 유류가 ──────────────────────────────────────────────────
+    rows = _get("/GetGeneralProductInfoService/getOilPriceInfo", {"basDd": date_str})
+    for row in rows:
+        ctg = str(row.get("oilCtg",""))
+        prc = str(row.get("wtAvgPrcCptn","") or row.get("clpr",""))
+        if "경유" in ctg and prc and prc != "0":
+            result["oil_price_diesel"] = prc
+        elif "휘발유" in ctg and prc and prc != "0":
+            result["oil_price_gasoline"] = prc
+
+    # ── 4. KRX 투자자 수급 — stub (나중에 연결) ─────────────────────────
+    # TODO: 외국인/기관/개인 순매수 연결 예정
+    # result["krx_foreign_net_fsc"]   = None
+    # result["krx_institution_net_fsc"] = None
+
+    result["fsc_source"] = success >= 2
+    if result["fsc_source"]:
+        parts = []
+        if result["samsung_fsc"]:    parts.append("삼성전자 " + result["samsung_fsc"] + "원")
+        if result["sk_hynix_fsc"]:   parts.append("SK하이닉스 " + result["sk_hynix_fsc"] + "원")
+        if result["gold_price"]:     parts.append("금 " + result["gold_price"] + "원/kg")
+        if result["oil_price_diesel"]: parts.append("경유 " + result["oil_price_diesel"] + "원/L")
+        print("  FSC: " + " | ".join(parts))
+    else:
+        print("  FSC 데이터 부족 (success=" + str(success) + ")")
+
+    return result
+
+
 def fetch_all_market_data():
     now=datetime.now(KST)
     market_status, data_label = _get_market_status(now)
@@ -324,6 +421,7 @@ def fetch_all_market_data():
     print("[Fear & Greed]"); fg=fetch_fear_greed(yahoo)
     print("[KRX 투자자 수급]"); krx_flow=fetch_krx_flow()
     print("[FRED 매크로지표]"); fred=fetch_fred_indicators()
+    print("[FSC 금융위 API]"); fsc=fetch_fsc_data()
     print("[한국 특수 뉴스]"); kr_n=fetch_korea_news()
     keys=["sp500","sp500_change","nasdaq","nasdaq_change","vix","vix_change","us_10y","kospi","kospi_change","krw_usd","sk_hynix","sk_hynix_change","samsung","samsung_change","kakao","kakao_change","kodex","kodex_change","nvda","nvda_change","avgo","avgo_change","schd","schd_change"]
     data={"fetched_at":now.strftime("%Y-%m-%d %H:%M KST"),"market_status":market_status,"data_label":data_label,"data_quality":yahoo.get("data_quality","ok"),
@@ -342,7 +440,13 @@ def fetch_all_market_data():
           "fred_yield_curve": fred.get("yield_curve"),
           "fred_consumer":    fred.get("consumer_sent"),
           "fred_source":      fred.get("fred_source", False),
-          "korea_special_news":kr_n,"source":"Yahoo Finance + FearGreedChart + KRX + FRED"}
+          "fsc_samsung":      fsc.get("samsung_fsc"),
+          "fsc_sk_hynix":     fsc.get("sk_hynix_fsc"),
+          "fsc_gold":         fsc.get("gold_price"),
+          "fsc_oil_diesel":   fsc.get("oil_price_diesel"),
+          "fsc_oil_gasoline": fsc.get("oil_price_gasoline"),
+          "fsc_source":       fsc.get("fsc_source", False),
+          "korea_special_news":kr_n,"source":"Yahoo Finance + FearGreedChart + KRX + FRED + FSC"}
     data["volatility_alert"]=check_volatility_alert(data)
     if data["data_quality"]=="poor":
         try:
@@ -411,6 +515,19 @@ def format_for_hunter(data):
     lev_chg = data.get("kodex_lev_change", "")
     lev_str = ("\n- KODEX레버리지: " + lev + " (" + lev_chg + ") — 국내 단기 수급 활동성") if lev != "N/A" else ""
 
+    # FSC 금시세·유류가
+    fsc_str = ""
+    if data.get("fsc_source"):
+        parts = []
+        if data.get("fsc_gold"):
+            parts.append("금시세 " + str(data["fsc_gold"]) + "원/kg")
+        if data.get("fsc_oil_diesel"):
+            parts.append("경유 " + str(data["fsc_oil_diesel"]) + "원/L")
+        if data.get("fsc_oil_gasoline"):
+            parts.append("휘발유 " + str(data["fsc_oil_gasoline"]) + "원/L")
+        if parts:
+            fsc_str = "\n- " + " | ".join(parts)
+
     def v(k): return data.get(k,"N/A")
     def vc(k): return data.get(k+"_change","")
 
@@ -428,7 +545,7 @@ def format_for_hunter(data):
         "- 삼성전자: " + v("samsung") + " (" + vc("samsung") + ")\n"
         "- 카카오: " + v("kakao") + " (" + vc("kakao") + ")\n"
         "- SOL고배당: " + v("kodex") + " (" + vc("kodex") + ")"
-        + lev_str + "\n\n"
+        + lev_str + fsc_str + "\n\n"
         "### 포트폴리오\n- 엔비디아: " + v("nvda") + " (" + vc("nvda") + ")\n"
         "- 브로드컴: " + v("avgo") + " (" + vc("avgo") + ")\n"
         "- SCHD: " + v("schd") + " (" + vc("schd") + ")"
