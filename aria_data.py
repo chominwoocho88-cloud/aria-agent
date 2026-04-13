@@ -30,7 +30,7 @@ def fetch_yahoo_data():
         val,chg=_fetch_one(ticker); result[key]=val; result[key+"_change"]=chg
         print("  "+ticker+": "+(val+" ("+chg+")" if val!="N/A" else "데이터 없음")); time.sleep(0.3)
     core_na=sum(1 for k in _CORE if result.get(k)=="N/A")
-    result["_data_quality"]="poor" if core_na>=2 else "ok"
+    result["data_quality"]="poor" if core_na>=2 else "ok"
     if core_na>=2: print("⚠️ 핵심 티커 "+str(core_na)+"개 N/A")
     return result
 
@@ -161,7 +161,7 @@ def fetch_all_market_data():
     print("[한국 특수 뉴스]"); kr_n=fetch_korea_news()
     print("[KIS API] 미연결")
     keys=["sp500","sp500_change","nasdaq","nasdaq_change","vix","vix_change","us_10y","kospi","kospi_change","krw_usd","sk_hynix","sk_hynix_change","samsung","samsung_change","kakao","kakao_change","kodex","kodex_change","nvda","nvda_change","avgo","avgo_change","schd","schd_change"]
-    data={"fetched_at":now.strftime("%Y-%m-%d %H:%M KST"),"market_status":market_status,"data_label":data_label,"data_quality":yahoo.get("_data_quality","ok"),
+    data={"fetched_at":now.strftime("%Y-%m-%d %H:%M KST"),"market_status":market_status,"data_label":data_label,"data_quality":yahoo.get("data_quality","ok"),
           **{k:yahoo.get(k,"N/A") for k in keys},
           "fear_greed_value":fg.get("value","N/A"),"fear_greed_rating":fg.get("rating","N/A"),"fear_greed_prev":fg.get("prev_close","N/A"),
           "korea_special_news":kr_n,"source":"Yahoo Finance + CNN Fear&Greed"}
