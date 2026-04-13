@@ -755,20 +755,24 @@ def _parse_chg(s) -> float | None:
 
 
 def _get_dynamic_threshold(market_data: dict) -> dict:
-    """Fear&Greed / VIX 기반 동적 임계값 — 극단공포 시 임계값 상향"""
+    """Fear&Greed / VIX 기반 동적 임계값 — 60거래일 백테스트 기반 조정"""
     try:
         fg  = float(str(market_data.get("fear_greed_value","50")).replace("%","").replace("+",""))
         vix = float(str(market_data.get("vix","20")))
     except Exception:
         fg, vix = 50.0, 20.0
 
-    if fg < 10 or vix >= 45:       # 패닉
+    if fg < 10 or vix >= 45:       # 패닉 — 임계값 높임 (큰 변동만 의미있음)
         return {"stock": 2.0, "semi": 4.0, "kospi": 2.0}
     elif fg < 20 or vix >= 30:     # 극단공포
         return {"stock": 1.5, "semi": 3.0, "kospi": 1.5}
     elif fg < 30 or vix >= 25:     # 공포
         return {"stock": 1.0, "semi": 2.0, "kospi": 1.0}
-    else:                           # 중립 이상
+    elif fg < 45 or vix >= 20:     # 공포 우위 — unclear 줄이기 위해 임계값 낮춤
+        return {"stock": 0.7, "semi": 1.2, "kospi": 0.7}
+    elif fg < 65:                   # 중립 — 60일 unclear 48% 문제, 임계값 최소화
+        return {"stock": 0.5, "semi": 1.0, "kospi": 0.5}
+    else:                           # 탐욕 이상
         return {"stock": 0.8, "semi": 1.5, "kospi": 0.8}
 
 
@@ -1069,12 +1073,15 @@ def get_active_lessons(max_lessons: int = 8) -> list:
 
 
 def build_lessons_prompt() -> str:
-    """오답 교훈(최대 4개) + 강점(최대 2개) 각 50자 이내 — 프롬프트 토큰 최소화"""
+    """오답 교훈(최대 4개) + 강점(최대 2개) 각 50자 이내 — 프롬프트 토큰 최소화
+    호출될 때마다 사용된 교훈의 applied 카운트를 증가시킴
+    """
     all_lessons = get_active_lessons(max_lessons=10)
     if not all_lessons: return ""
 
     mistakes   = [l for l in all_lessons if l.get("type") != "strength"][:4]
     strengths  = [l for l in all_lessons if l.get("type") == "strength"][:2]
+    used        = mistakes + strengths
 
     lines = []
 
@@ -1090,6 +1097,23 @@ def build_lessons_prompt() -> str:
         for l in strengths:
             lesson = l["lesson"][:50] + ("…" if len(l["lesson"]) > 50 else "")
             lines.append("✓ [" + l["category"] + "] " + lesson)
+
+    # applied 카운트 업데이트 — 실제로 프롬프트에 사용된 교훈 추적
+    if used:
+        try:
+            lf = Path("aria_lessons.json")
+            if lf.exists():
+                data = json.loads(lf.read_text(encoding="utf-8"))
+                used_lessons = set(l.get("lesson","") for l in used)
+                updated = False
+                for lesson_item in data.get("lessons", []):
+                    if lesson_item.get("lesson","") in used_lessons:
+                        lesson_item["applied"] = lesson_item.get("applied", 0) + 1
+                        updated = True
+                if updated:
+                    lf.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
 
     return "\n".join(lines)
 
