@@ -21,7 +21,7 @@ API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 MODEL_HUNTER        = "claude-haiku-4-5-20251001"
 MODEL_ANALYST       = "claude-sonnet-4-6"
 MODEL_DEVIL         = "claude-sonnet-4-6"
-MODEL_REPORTER_FULL = "claude-opus-4-6"    # MORNING 풀 리포트 전용
+MODEL_REPORTER_FULL = "claude-sonnet-4-6"    # MORNING 리포트 (Opus→Sonnet, 비용 35% 절감)
 MODEL_REPORTER_LITE = "claude-sonnet-4-6"  # AFTERNOON/EVENING/DAWN — 비용 40% 절감
 
 console = Console()
@@ -206,14 +206,19 @@ ANALYST_SYSTEM_BASE = """You are a capital flow analysis agent.
 Analyze Hunter data and map capital flows.
 Use the real-time market data numbers provided — do not override them with estimates.
 
-[백테스트 29거래일 실증 분석 지침]
-- 전일 S&P -3% 이상 급락 후: 다음날 반등 확률 67%. 추가 하락 단정 금지.
-- FG < 10 또는 VIX > 45: 패닉 구간. confidence_overall="낮음" 강제.
-  thesis_killers에서 주식/반도체만 포함, 환율 제외.
-- FG 10~20 또는 VIX 30~45: 극단공포. 반등 가능성 50%. 양방향 시나리오.
-- SK하이닉스 베타 1.36x: 나스닥 예측치에 1.4 곱한 값이 SK하이닉스 예상 변동폭.
-- 관세 유예·협상 재개: 하루 +5~7% 급반등 가능. 항상 tail risk로 언급.
-- 원달러 환율: 단기 방향 예측 정확도 17%. thesis_killers에 환율 우선순위 낮춤.
+[백테스트 60거래일 실증 분석 지침 — 2026-01-13~04-11]
+- 주식 예측 정확도 51% / VIX 32% / 환율 0%
+  → thesis_killers는 주식/반도체만. VIX 단독 검증 금지. 환율 절대 금지.
+- 블랙스완 패턴 (DeepSeek·관세·FOMC 쇼크): 3일+ 연속 상승 직후 갑작스런 급락
+  → 상승 모멘텀 3일 이상 지속 중이면 반드시 "블랙스완 리스크" 언급
+- 급락(-3%+) 다음날 반등 확률 83%: confidence_overall="낮음" + 반등 바이어스 포함
+- 급등 후 반전 경고 (60일 신규 발견): FG>=40 구간에서 S&P 이틀 합산 +3% 이상이면 다음날 반전 확률 높음
+  대표: 01-24(FG70상승)→DeepSeek-17%, 02-07(FG52상승)→관세충격, 03-21→엔비디아-13%, 04-09(+7.5%)→04-10 -4.3%
+  → 이 조건 해당 시 반드시 "급등 후 되돌림 리스크" 반론 필수 포함
+- FG<20 정확도 61%: 방향 판단 가능. FG>=20 정확도 17%: "방향 불명확" 인정
+- SK하이닉스 나스닥 대비 1.36배 변동폭 → 반도체 예측에 베타 반영
+- 원달러 thesis_killers 생성 절대 금지 (60일 정확도 0%)
+- VIX thesis_killers 최소화 (60일 정확도 32%)
 
 Return ONLY valid JSON in Korean. No markdown.
 {
@@ -259,21 +264,24 @@ def agent_analyst(hunter_data: dict, mode: str, lessons_prompt: str = "") -> dic
 DEVIL_SYSTEM = """You are a counter-argument agent. Challenge the Analyst sharply.
 Return ONLY valid JSON in Korean. No markdown.
 
-[29거래일 백테스트 결과 기반 패턴 — 반드시 반영]
-- 극단공포(FG<20) 정확도 61% > 일반구간 17%: 공포 구간 예측이 오히려 더 정확
-- FG < 10 패닉: 다음날 반등 가능성 67%. 추가 하락 주장에 반드시 반등 반론 포함
-- VIX > 40: 일중 ±4~8% 변동. 방향보다 변동성이 위험. confidence="낮음" 강제
-- SK하이닉스 베타 1.36x: 나스닥 대비 1.4배 크게 움직임. 항상 반영
-- 급락 후 반등 패턴: 04-07(-6%) → +2% → +7% 연속 반등. 급락 다음날 반등 예측 83% 정확
-- 원달러 예측 정확도 17%: thesis_killers에 원달러 절대 포함 금지
-- 횡보 구간 급락 전환 예측 불가 (03-21, 03-31 등 0%): 횡보 시 "방향 불명확" 인정
+[60거래일 백테스트 실증 패턴 — 반드시 반영]
+- 주식 51% / VIX 32% / 환율 0%: VIX·환율 thesis_killer 절대 금지
+- 블랙스완 6회 (DeepSeek·관세·FOMC): 상승 3일+ 후 충격 → 연속 상승 시 가장 강한 반론
+- 급락(-3%+) 다음날 반등 83%: 하락 예측에 반드시 "기술적 반등 리스크" 반론
+- FG<20 정확도 61%: 방향 확신 가능. FG>=20 정확도 17%: "방향 불명확, 관망" 권고
+- SK하이닉스 베타 1.36x: 나스닥 예측치 × 1.4 = 반도체 예상 낙폭
+- [핵심] 전날 예측 100% 적중 + 위험선호 → 다음날 급반전 7/60일 발생 (FOMC·DeepSeek·CPI):
+  Analyst가 상승 지속 예측하면 반드시 "전날 강세 이후 반전 리스크" 반론 필수
+  이런 날은 confidence_overall="낮음" 권고, thesis_killers에 하락 시나리오 반드시 포함
 
-thesis_killers 작성 필수 규칙 (29일 백테스트 결과 반영):
-- event: 나스닥/코스피/SK하이닉스/엔비디아/VIX 중 하나만. 주가·지수로 당일 검증 가능한 것만.
-- confirms_if / invalidates_if: 반드시 숫자 기준 포함 (예: "나스닥 +1.5% 이상", "VIX 25 이하")
-- 원달러 환율은 thesis_killers에 절대 포함 금지 (29일 백테스트 정확도 17% — 사용 불가)
-- "외국인 심리", "시장 분위기", "협상 진전" 같은 검증 불가 표현 절대 금지
-- 급락 후(전일 -3% 이상)는 반드시 반등 시나리오 포함 (백테스트 반등 정확도 83%)
+
+thesis_killers 작성 필수 규칙 (60일 백테스트 기반):
+- event: 나스닥/코스피/SK하이닉스/삼성전자/엔비디아 중 하나만 (주가·지수)
+- confirms_if / invalidates_if: 반드시 숫자 포함 (예: "나스닥 +1% 이상", "코스피 -1% 이하")
+- VIX, 원달러/환율 절대 금지 (VIX 32%, 환율 0% — 노이즈만 추가)
+- "외국인 심리", "협상 분위기", "모멘텀 유지" 등 검증 불가 표현 절대 금지
+- 급락 후(전일 -3% 이상): 반등 시나리오 thesis_killer 반드시 포함 (83% 적중)
+- 블랙스완 경보 (연속 상승 3일+): "갑작스런 충격" 가능성 thesis_killer 추가
 
 {
   "verdict": "동의/부분동의/반대",
