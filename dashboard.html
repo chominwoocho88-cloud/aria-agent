@@ -143,7 +143,7 @@
 <div class="header">
   <div class="header-left">
     <h1>ARIA</h1>
-    <p>2026.04.13 18:00 KST</p>
+    <p>2026.04.13 18:18 KST</p>
   </div>
   <div class="regime-badge" style="background:#1D9E75;">
     위험선호
@@ -153,13 +153,13 @@
 <div class="section">
 
   <!-- 요약 -->
-  
+  <div class="summary-card"><p class="summary-text">💡 2026-04-13 위험선호 경계 (레짐 신뢰도 낮음) / 상승추세 | 신뢰도:낮음</p></div>
 
   <!-- 핵심 지표 -->
   <div class="metrics">
     <div class="metric">
       <div class="metric-label">감정지수</div>
-      <div class="metric-value" style="color:#1D9E75;">62</div>
+      <div class="metric-value" style="color:#1D9E75;">75</div>
       <div class="metric-sub">😏 탐욕</div>
     </div>
     <div class="metric">
@@ -177,7 +177,7 @@
       <span class="legend-item"><span class="legend-dot" style="background:#888780; border-radius:0;height:2px;"></span>중립(50)</span>
     </div>
     <div class="chart-wrap" style="height:160px;">
-      <canvas id="sentChart" role="img" aria-label="30일 감정지수 추이">감정지수 62 / 탐욕</canvas>
+      <canvas id="sentChart" role="img" aria-label="30일 감정지수 추이">감정지수 75 / 탐욕</canvas>
     </div>
   </div>
 
@@ -201,11 +201,11 @@
     <div class="card-title">이번 달 API 비용</div>
     <div class="cost-row">
       <span>추정 비용</span>
-      <span class="cost-val">$10.80 (약 15,984원)</span>
+      <span class="cost-val">$12.00 (약 17,760원)</span>
     </div>
     <div class="cost-row">
       <span>실행 횟수</span>
-      <span class="cost-val">9회</span>
+      <span class="cost-val">10회</span>
     </div>
   </div>
 
@@ -236,7 +236,7 @@ if(sentEl) new Chart(sentEl, {
   data:{
     labels:["04-12", "04-13"],
     datasets:[
-      {data:[42, 62],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',
+      {data:[42, 75],borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.08)',
         fill:true,tension:0.4,pointRadius:2,borderWidth:2},
       {data:Array(2).fill(50),borderColor:'#888780',
         borderDash:[4,3],borderWidth:1.5,pointRadius:0}
@@ -271,10 +271,10 @@ const rotEl = document.getElementById('rotChart');
 if(rotEl) new Chart(rotEl, {
   type:'bar',
   data:{
-    labels:["반도체/AI", "금융", "빅테크", "방산", "소비재", "배당/가치주", "원자재", "부동산(리츠)"],
+    labels:["반도체/AI", "빅테크", "방산", "금융", "소비재", "배당/가치주", "원자재", "부동산(리츠)"],
     datasets:[{
-      data:[6, 1, 0, 0, 0, 0, 0, 0],
-      backgroundColor:[6, 1, 0, 0, 0, 0, 0, 0].map(v=>v>=0?'#1D9E75':'#E24B4A'),
+      data:[6, 0, 0, 0, 0, 0, 0, 0],
+      backgroundColor:[6, 0, 0, 0, 0, 0, 0, 0].map(v=>v>=0?'#1D9E75':'#E24B4A'),
       borderRadius:3,barPercentage:0.65
     }]
   },

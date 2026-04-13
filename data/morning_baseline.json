@@ -1,48 +1,54 @@
 {
   "date": "2026-04-13",
-  "saved_at": "18:00 KST",
-  "market_regime": "위험선호",
+  "saved_at": "18:18 KST",
+  "market_regime": "위험선호 경계 (레짐 신뢰도 낮음)",
   "trend_phase": "상승추세",
-  "confidence": "보통",
-  "one_line_summary": "",
+  "confidence": "낮음",
+  "one_line_summary": "2026-04-13 위험선호 경계 (레짐 신뢰도 낮음) / 상승추세 | 신뢰도:낮음",
   "thesis_killers": [],
   "key_outflows": [
     {
-      "zone": "에너지 섹터",
+      "zone": "에너지 섹터 (미국)",
       "severity": "높음"
     },
     {
-      "zone": "헬스케어 섹터",
-      "severity": "보통"
+      "zone": "항공·여행 섹터",
+      "severity": "높음"
     },
     {
-      "zone": "미국 장기 채권",
+      "zone": "헬스케어 섹터 (미국)",
       "severity": "보통"
     }
   ],
   "key_inflows": [
     {
-      "zone": "한국 반도체 (삼성전자·SK하이닉스)",
+      "zone": "반도체·AI 섹터 (한국·대만·미국)",
       "momentum": "강함"
     },
     {
-      "zone": "코스피 대형주 (금융·반도체 중심)",
+      "zone": "코스피 (외국인 수급 주도)",
       "momentum": "보통"
     }
   ],
-  "korea_focus": {},
+  "korea_focus": {
+    "krw_usd": "1487.44",
+    "kospi_flow": "외국인 4월 순매수 +4.997조원 (순매수 전환 확인)",
+    "sk_hynix": "반도체 수출 +152% YoY 역대 최고 수혜 기대, 나스닥 낙폭 ×1.4 베타 리스크 상존 (-3% 이하 시 위험회피 신호)",
+    "samsung": "Q1 영업이익 5.72조원, YoY +755% 서프라이즈 확인 — 단기 주가 반영 여부 모니터링 필요",
+    "assessment": "반도체 펀더멘털은 역대 최강이나 원/달러 1487.44원의 고환율이 외국인 수익률 환산 매력도를 제한. 코스피 5808.62pt는 외국인 순매수 지속 시 추가 상승 여력 있으나, 나스닥 급락 시 베타 1.4 하방 리스크 우선 점검 필요"
+  },
   "volatility": {
-    "vix": "21.31",
+    "vix": "21.28",
     "vkospi": "N/A",
-    "fear_greed": "48 (Neutral)",
+    "fear_greed": "57 (Neutral)",
     "level": "중립"
   },
   "market_snapshot": {
     "sp500": "6816.89",
     "nasdaq": "22902.9",
-    "vix": "21.31",
+    "vix": "21.28",
     "kospi": "5808.62",
-    "krw_usd": "1485.86",
+    "krw_usd": "1487.44",
     "nvda": "188.63"
   },
   "actionable_watch": []
