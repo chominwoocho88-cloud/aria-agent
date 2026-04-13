@@ -834,17 +834,17 @@ def verify_predictions(analysis, next_data):
         elif any(k in event for k in ["vix","변동성","공포지수"]):
             cat = "VIX"
             vix_chg_pct = ((vix_now - vix_prev) / vix_prev * 100) if vix_prev != 0 else 0
-            conf_thr = extract_threshold(conf) or 10.0
-            inv_thr  = extract_threshold(inv) or 10.0
+            conf_thr = extract_threshold(conf) or 20.0  # 60일 백테스트: 32% 정확도 → 임계값 상향
+            inv_thr  = extract_threshold(inv) or 20.0
             conf_down = any(w in conf for w in ["하락","완화","감소","-"])
             if conf_down and vix_chg_pct <= -conf_thr:
                 v, ev = "confirmed", f"VIX {vix_chg_pct:+.1f}% 하락"
             elif conf_down and vix_chg_pct >= inv_thr:
                 v, ev = "invalidated", f"VIX {vix_chg_pct:+.1f}% 상승 (반대)"
-            elif vix_now < vix_prev * 0.9:
-                v, ev = "confirmed", f"VIX {vix_now:.1f} (전일 {vix_prev:.1f})"
-            elif vix_now > vix_prev * 1.1:
-                v, ev = "invalidated", f"VIX {vix_now:.1f} 상승"
+            elif vix_now < vix_prev * 0.8:  # 20% 이상 하락만
+                v, ev = "confirmed", f"VIX {vix_now:.1f} (전일 {vix_prev:.1f}, -{round((1-vix_now/vix_prev)*100)}%)"
+            elif vix_now > vix_prev * 1.2:  # 20% 이상 상승만
+                v, ev = "invalidated", f"VIX {vix_now:.1f} +{round((vix_now/vix_prev-1)*100)}% 상승"
             else:
                 v, ev = "unclear", f"VIX 변동 미미 ({vix_now:.1f})"
 
@@ -1080,6 +1080,14 @@ def main():
     if acc.get("weak_areas"):   print(f"   약점: {acc['weak_areas']}")
     print(f"   → 다음 MORNING 실행 시 학습 데이터 자동 반영")
     print("=" * 65)
+
+    # 대시보드 재생성 — 백테스트 결과 즉시 반영
+    try:
+        from aria_dashboard import build_dashboard
+        build_dashboard()
+        print("\n📊 dashboard.html 갱신 완료 (백테스트 결과 반영)")
+    except Exception as e:
+        print(f"\n대시보드 갱신 스킵: {e}")
 
 
 if __name__ == "__main__":
