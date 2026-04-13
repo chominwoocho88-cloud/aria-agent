@@ -117,25 +117,28 @@ jobs:
           from datetime import datetime
           from zoneinfo import ZoneInfo
           import subprocess, os, sys
+          from pathlib import Path
 
-          # 현재 미국 동부 시간 (EDT/EST 자동 적용)
+          # ── 1. ET 시간 체크 (서머타임 자동)
           et  = ZoneInfo("America/New_York")
           now = datetime.now(et)
           h, m = now.hour, now.minute
-
-          # 09:00 ET ±10분 범위일 때만 실행 (서머타임 무관하게 정확)
           target_ok = (h == 8 and m >= 50) or (h == 9 and m <= 10)
-
-          print("현재 ET: " + str(h) + ":" + str(m).zfill(2)
-                + " " + now.strftime("%Z") + " — " + ("실행" if target_ok else "스킵"))
-
+          print("현재 ET: " + str(h) + ":" + str(m).zfill(2) + " " + now.strftime("%Z")
+                + " — " + ("실행" if target_ok else "스킵(시간 외)"))
           if not target_ok:
+              sys.exit(0)
+
+          # ── 2. 오늘 EVENING 리포트 중복 실행 방어
+          today = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y-%m-%d")
+          report_path = Path("reports") / (today + "_evening.json")
+          if report_path.exists():
+              print("⚠️ 오늘 EVENING 리포트 이미 존재 — 스킵: " + str(report_path))
               sys.exit(0)
 
           env = dict(os.environ)
           env["ARIA_MODE"] = "EVENING"
           subprocess.run(["python", "aria_main.py"], check=True, env=env)
-          # GITHUB_ENV에 ARIA_MODE 기록 (커밋 메시지용)
           import os as _os
           with open(_os.environ.get("GITHUB_ENV", "/dev/null"), "a") as f:
               f.write("ARIA_MODE=EVENING\n")
