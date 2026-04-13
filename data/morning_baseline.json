@@ -1,49 +1,49 @@
 {
   "date": "2026-04-14",
-  "saved_at": "00:14 KST",
-  "market_regime": "위험선호 (스태그플레이션 전환 경계)",
+  "saved_at": "00:49 KST",
+  "market_regime": "위험선호 (스태그플레이션 전환 리스크 상존)",
   "trend_phase": "상승추세",
   "confidence": "낮음",
-  "one_line_summary": "S&P500 6826·나스닥 22990 사상최고권이나 EPS 51개사 하향·유가 $102 스태그플레이션 리스크로 위험선호 낙관론에 강한 반론, 어닝시즌 개막 분기점",
+  "one_line_summary": "나스닥 22973 사상최고권이나 Q1 EPS 추정 12.6%로 하향·Exxon 가이던스 -31% 쇼크·LNG +80% 스태그플레이션 압력 동시 작동, 어닝시즌 첫 주 반전 리스크 고조",
   "thesis_killers": [],
   "key_outflows": [
     {
-      "zone": "에너지 섹터 (S&P500 내)",
-      "severity": "보통"
+      "zone": "에너지 섹터 (글로벌 에너지주)",
+      "severity": "높음"
     },
     {
-      "zone": "헬스케어 섹터",
-      "severity": "보통"
+      "zone": "LNG·카타르 공급망 연계 자산",
+      "severity": "높음"
     },
     {
-      "zone": "소비재·내수 섹터",
+      "zone": "S&P500 Q1 어닝 기대치",
       "severity": "보통"
     }
   ],
   "key_inflows": [
     {
-      "zone": "AI반도체·메모리 (SK하이닉스·삼성전자)",
+      "zone": "반도체·AI 섹터 (글로벌·한국)",
       "momentum": "강함"
     },
     {
-      "zone": "나스닥·S&P500 대형 기술주",
+      "zone": "미국 금융주 (JPMorgan·골드만삭스)",
       "momentum": "보통"
     }
   ],
   "korea_focus": {},
   "volatility": {
-    "vix": "19.83",
+    "vix": "19.99",
     "vkospi": "N/A",
     "fear_greed": "59 (Neutral)",
     "level": "중립"
   },
   "market_snapshot": {
-    "sp500": "6826.32",
-    "nasdaq": "22990.2",
-    "vix": "19.83",
+    "sp500": "6819.69",
+    "nasdaq": "22973.76",
+    "vix": "19.99",
     "kospi": "5808.62",
-    "krw_usd": "1485.88",
-    "nvda": "189.48"
+    "krw_usd": "1487.08",
+    "nvda": "188.47"
   },
   "actionable_watch": []
 }

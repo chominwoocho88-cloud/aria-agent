@@ -6,157 +6,120 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>ARIA</title>
 <style>
+/* ─── 팔레트: 화이트 ─── */
 :root{
-  --bg:#18160F;       /* 다크 에스프레소 */
-  --s1:#211E16;       /* 카드 1레벨 */
-  --s2:#2A271E;       /* 카드 2레벨 */
-  --s3:#332F24;       /* 인풋/배지 */
-  --tx:#EDE9DF;       /* 메인 텍스트 */
-  --mu:#7A7669;       /* 뮤트 텍스트 */
-  --gr:#14E87A;       /* 그린 */
-  --rd:#FF5252;       /* 레드 */
-  --am:#FFB547;       /* 앰버 */
-  --bd:rgba(255,255,255,.06); /* 보더 */
-  --r:16px;
+  --bg:  #F2F1ED;   /* 연한 웜 화이트 배경 */
+  --s1:  #FFFFFF;   /* 카드 */
+  --s2:  #F0EFEB;   /* 카드 2레벨 */
+  --s3:  #E8E7E2;   /* 강조 배경 */
+  --tx:  #18181A;   /* 메인 텍스트 */
+  --mu:  #6A6A6D;   /* 뮤트 텍스트 */
+  --gr:  #0DAE6B;
+  --rd:  #E03030;
+  --am:  #D98A00;
+  --bd:  rgba(0,0,0,.08);
+  --r:   16px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{
   font-family:-apple-system,'Helvetica Neue',sans-serif;
   background:var(--bg);color:var(--tx);
   max-width:430px;margin:0 auto;
-  padding-bottom:calc(env(safe-area-inset-bottom)+40px);
+  padding-bottom:calc(env(safe-area-inset-bottom)+44px);
   -webkit-font-smoothing:antialiased;
 }
 
 /* ── 헤더 */
-.hdr{
-  padding:20px 18px 0;
-  display:flex;align-items:center;justify-content:space-between;
-}
+.hdr{padding:20px 18px 0;display:flex;align-items:center;justify-content:space-between;}
 .brand{font-size:11px;font-weight:800;letter-spacing:3.5px;color:var(--mu);text-transform:uppercase;}
 .hdr-time{font-size:11px;color:var(--mu);margin-top:3px;}
-.regime-badge{
-  font-size:12px;font-weight:700;
-  padding:7px 16px;border-radius:100px;
-  color:#0A0A08;letter-spacing:.3px;
-}
+.regime-badge{font-size:12px;font-weight:700;padding:7px 16px;border-radius:100px;color:#fff;letter-spacing:.3px;}
 
 /* ── 결론 패널 */
-.summary-panel{
-  margin:14px 16px 0;
-  background:var(--s1);
-  border-radius:var(--r);
-  border:.5px solid var(--bd);
-  overflow:hidden;
-}
+.sp{margin:14px 16px 0;background:var(--s1);border-radius:var(--r);border:.5px solid var(--bd);overflow:hidden;}
 .sp-top{padding:16px 18px 14px;}
 .sp-meta{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap;}
 .conf-pill{font-size:11px;font-weight:700;padding:3px 10px;border-radius:100px;}
-.trend-pill{font-size:11px;color:var(--mu);background:var(--s3);padding:3px 9px;border-radius:6px;}
-.devil-pill{font-size:11px;color:var(--am);background:rgba(255,181,71,.1);padding:3px 9px;border-radius:6px;border:.5px solid rgba(255,181,71,.2);}
-.summ-txt{font-size:14px;line-height:1.65;color:var(--tx);letter-spacing:-.1px;}
-.action-bar{
-  background:rgba(20,232,122,.08);
-  border-top:.5px solid rgba(20,232,122,.15);
-  padding:12px 18px;
-  display:flex;gap:8px;align-items:flex-start;
-}
-.action-icon{color:var(--gr);font-size:12px;flex-shrink:0;margin-top:2px;}
-.action-txt{font-size:13px;line-height:1.55;color:rgba(237,233,223,.85);}
+.tag{font-size:11px;color:var(--mu);background:var(--s3);padding:3px 9px;border-radius:6px;}
+.tag-devil{font-size:11px;color:var(--am);background:rgba(255,181,71,.1);padding:3px 9px;border-radius:6px;border:.5px solid rgba(255,181,71,.2);}
+.summ{font-size:14px;line-height:1.65;letter-spacing:-.1px;}
+.action-bar{background:rgba(20,232,122,.09);border-top:.5px solid rgba(20,232,122,.18);padding:12px 18px;display:flex;gap:9px;align-items:flex-start;}
+.ai{color:var(--gr);font-size:12px;flex-shrink:0;margin-top:2px;font-weight:700;}
+.at{font-size:13px;line-height:1.55;color:rgba(237,233,223,.85);}
 
-/* ── KPI 섹션 */
-.kpi-wrap{padding:12px 16px 0;}
-.kpi-row1{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
-.kpi-row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+/* ── KPI */
+.kw{padding:12px 16px 0;}
+.kg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
 .kpi{
-  background:var(--s1);border-radius:var(--r);
-  border:.5px solid var(--bd);
-  padding:15px 16px 13px;
-  position:relative;overflow:hidden;
+  background:var(--s1);border-radius:var(--r);border:.5px solid var(--bd);
+  padding:15px 14px 13px;position:relative;overflow:hidden;
+  min-width:0;   /* 중요: 그리드 오버플로우 방지 */
 }
-.kpi::before{
-  content:'';position:absolute;
-  top:0;left:0;right:0;height:2.5px;
-}
-.kpi.gr::before{background:var(--gr);}
-.kpi.rd::before{background:var(--rd);}
-.kpi.am::before{background:var(--am);}
-.kpi-lbl{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.9px;margin-bottom:9px;}
-.kpi-num{font-size:34px;font-weight:800;letter-spacing:-2px;line-height:1;margin-bottom:5px;}
-.kpi-sub{font-size:11px;color:var(--mu);line-height:1.3;}
-.kpi-mid{font-size:18px;letter-spacing:-.5px;line-height:1.2;padding-top:4px;margin-bottom:5px;}
-.kpi-risk{font-size:13px;letter-spacing:-.2px;line-height:1.3;padding-top:3px;margin-bottom:5px;}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2.5px;border-radius:var(--r) var(--r) 0 0;}
+.kpi.gr::before{background:var(--gr);} .kpi.rd::before{background:var(--rd);} .kpi.am::before{background:var(--am);}
+.kl{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.8px;margin-bottom:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kn{font-size:32px;font-weight:800;letter-spacing:-2px;line-height:1;margin-bottom:5px;}
+.ks{font-size:10px;color:var(--mu);line-height:1.35;word-break:break-all;}
+.km{font-size:17px;font-weight:800;letter-spacing:-.3px;line-height:1.2;padding-top:2px;margin-bottom:5px;word-break:break-word;}
+.kr{font-size:12px;font-weight:600;line-height:1.3;padding-top:2px;margin-bottom:5px;word-break:break-word;}
 
-/* ── 섹션 공통 */
+/* ── 섹션 */
 .sec{padding:20px 16px 0;}
-.sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
-.sec-title{font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.9px;}
-.sec-note{font-size:11px;color:var(--mu);opacity:.7;}
-.card{background:var(--s1);border-radius:var(--r);border:.5px solid var(--bd);padding:16px;margin-bottom:10px;}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.st{font-size:11px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.8px;}
+.sn{font-size:11px;color:var(--mu);opacity:.65;}
+.card{background:var(--s1);border-radius:var(--r);border:.5px solid var(--bd);padding:16px;}
 
-/* ── 자금 흐름 */
-.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.fcard{background:var(--s1);border-radius:var(--r);border:.5px solid var(--bd);padding:14px;}
-.fhead{display:flex;align-items:center;gap:7px;margin-bottom:12px;}
-.fdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
-.fhlbl{font-size:12px;font-weight:700;}
-.frow{display:flex;align-items:center;gap:6px;padding:4px 0;}
-.fn{font-size:11px;color:var(--tx);font-weight:500;width:48px;flex-shrink:0;line-height:1.2;}
+/* ── 자금흐름 */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fc{background:var(--s1);border-radius:var(--r);border:.5px solid var(--bd);padding:14px;min-width:0;}
+.fh{display:flex;align-items:center;gap:7px;margin-bottom:11px;}
+.fd{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.fhl{font-size:12px;font-weight:700;}
+.frow{display:flex;align-items:center;gap:5px;padding:3.5px 0;}
+.fn{font-size:11px;font-weight:500;width:44px;flex-shrink:0;line-height:1.2;overflow:hidden;white-space:nowrap;}
 .fbg{flex:1;height:4px;background:var(--s3);border-radius:2px;overflow:hidden;}
 .fb{height:100%;border-radius:2px;}
-.fv{font-size:11px;font-weight:700;width:32px;text-align:right;flex-shrink:0;}
+.fv{font-size:11px;font-weight:800;width:30px;text-align:right;flex-shrink:0;}
 .fe{font-size:12px;color:var(--mu);padding:4px 0;}
 
 /* ── 차트 */
-.chart-card{background:var(--s1);border-radius:var(--r);border:.5px solid var(--bd);padding:16px 16px 12px;margin-bottom:10px;}
-.ch{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
+.cc{background:var(--s1);border-radius:var(--r);border:.5px solid var(--bd);padding:16px 16px 12px;}
+.ch2{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;}
 .cht{font-size:14px;font-weight:700;}
-.chs{font-size:11px;color:var(--mu);}
-.chart-wrap{position:relative;}
+.chs{font-size:13px;color:var(--mu);}
+.cw{position:relative;}
 
 /* ── 정확도 카테고리 */
 .arow{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:.5px solid var(--bd);}
 .arow:last-child{border-bottom:none;}
-.am{display:flex;flex-direction:column;width:54px;flex-shrink:0;}
+.am2{display:flex;flex-direction:column;width:52px;flex-shrink:0;}
 .albl{font-size:12px;font-weight:700;}
 .asub{font-size:10px;color:var(--mu);margin-top:2px;}
 .abg{flex:1;height:5px;background:var(--s3);border-radius:3px;overflow:hidden;}
 .afill{height:100%;border-radius:3px;}
-.apct{font-size:13px;font-weight:800;width:36px;text-align:right;flex-shrink:0;}
+.apct{font-size:13px;font-weight:800;width:38px;text-align:right;flex-shrink:0;}
 
-/* ── 시장상태 그리드 */
-.stgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.sti{background:var(--s2);border-radius:10px;padding:12px;border:.5px solid var(--bd);}
-.stlbl{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
-.stval{font-size:15px;font-weight:800;line-height:1.2;}
+/* ── 시장상태 */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.si{background:var(--s2);border-radius:10px;padding:12px;border:.5px solid var(--bd);}
+.sl{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+.sv{font-size:15px;font-weight:800;line-height:1.2;}
 
 /* ── 거시지표 */
-.mrow{display:flex;flex-wrap:wrap;gap:8px;}
-.mchip{background:var(--s2);border-radius:10px;padding:10px 13px;border:.5px solid var(--bd);min-width:72px;}
-.mlbl{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px;}
+.mr{display:flex;flex-wrap:wrap;gap:8px;}
+.mchip{background:var(--s2);border-radius:10px;padding:10px 13px;border:.5px solid var(--bd);min-width:70px;}
+.mlbl{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
 .mval{font-size:15px;font-weight:800;line-height:1.2;}
-.mval small{font-size:10px;font-weight:500;opacity:.75;}
+.msub{font-size:10px;color:var(--mu);margin-top:3px;}
 
 /* ── 리스크 */
-.ritem{
-  background:var(--s1);border-radius:12px;
-  padding:12px 14px;margin-bottom:8px;
-  border:.5px solid var(--bd);
-  border-left-width:3px;
-}
-.rtitle{font-size:12px;font-weight:700;margin-bottom:5px;}
+.ritem{background:var(--s1);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:.5px solid var(--bd);border-left-width:3px;}
+.rtitle{font-size:12px;font-weight:700;margin-bottom:4px;}
 .rdesc{font-size:12px;color:var(--mu);line-height:1.45;}
-
-/* ── 경고 배너 */
-.caution-bar{
-  background:rgba(255,181,71,.06);
-  border:.5px solid rgba(255,181,71,.2);
-  border-radius:12px;
-  padding:12px 16px;
-  display:flex;gap:10px;align-items:flex-start;
-}
-.cb-icon{font-size:14px;flex-shrink:0;}
-.cb-txt{font-size:12px;line-height:1.55;color:rgba(237,233,223,.8);}
+.cbar{background:rgba(255,181,71,.06);border:.5px solid rgba(255,181,71,.18);border-radius:12px;padding:11px 16px;display:flex;gap:9px;align-items:flex-start;}
+.ci{font-size:14px;flex-shrink:0;}
+.ct{font-size:12px;line-height:1.55;color:rgba(237,233,223,.78);}
 
 /* ── 패턴 */
 .patg{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -170,8 +133,10 @@ body{
 .prow:last-child{border-bottom:none;}
 .pname{font-size:14px;font-weight:600;}
 .pval{font-size:17px;font-weight:800;}
-.pempty{display:flex;flex-direction:column;align-items:center;padding:22px;gap:6px;color:var(--mu);font-size:13px;}
-.pempty span:first-child{font-size:26px;}
+.pempty{display:flex;flex-direction:column;align-items:center;padding:24px;gap:6px;}
+.pe-icon{font-size:26px;}
+.pe-txt{font-size:14px;font-weight:600;color:var(--mu);}
+.pe-sub{font-size:11px;color:var(--mu);opacity:.6;}
 
 /* ── 비용 */
 .crow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:.5px solid var(--bd);font-size:13px;}
@@ -179,10 +144,9 @@ body{
 .clbl{color:var(--mu);}
 .cval{font-weight:700;}
 
-/* ── 공통 */
+/* ── 유틸 */
 .pos{color:var(--gr);} .neg{color:var(--rd);} .neu{color:var(--mu);}
-.no-data{font-size:12px;color:var(--mu);padding:6px 0;}
-.footer{text-align:center;font-size:11px;color:var(--mu);padding:20px 16px 8px;line-height:1.7;opacity:.7;}
+.footer{text-align:center;font-size:11px;color:var(--mu);padding:20px 16px 8px;line-height:1.75;opacity:.6;}
 </style>
 </head>
 <body>
@@ -191,163 +155,142 @@ body{
 <div class="hdr">
   <div>
     <div class="brand">ARIA</div>
-    <div class="hdr-time">2026.04.14 00:14 KST</div>
+    <div class="hdr-time">2026.04.14 00:49 KST</div>
   </div>
   <div class="regime-badge" style="background:#14E87A;">위험선호</div>
 </div>
 
 <!-- ② 결론 패널 -->
-<div class="summary-panel">
+<div class="sp">
   <div class="sp-top">
     <div class="sp-meta">
       <span class="conf-pill" style="background:rgba(255,82,82,.15);color:#FF5252;">신뢰도 낮음</span>
-      <span class="trend-pill">상승추세</span>
+      <span class="tag">상승추세</span>
       
     </div>
-    <p class="summ-txt">S&amp;P500 6826·나스닥 22990 사상최고권이나 EPS 51개사 하향·유가 $102 스태그플레이션 리스크로 위험선호 낙관론에 강한 반론, 어닝시즌 개막 분기점</p>
+    <p class="summ">나스닥 22973 사상최고권이나 Q1 EPS 추정 12.6%로 하향·Exxon 가이던스 -31% 쇼크·LNG +80% 스태그플레이션 압력 동시 작동, 어닝시즌 첫 주 반전 리스크 고조</p>
   </div>
-  <div class="action-bar"><span class="action-icon">▶</span><span class="action-txt">추세 추종 유지하되 비중 축소 대기 — AI반도체·메모리 섹터 기존 포지션 유지, 신규 추격 매수 자제. 어닝시즌 실적 확인 후 방향성 재설정</span></div>
+  <div class="action-bar"><span class="ai">▶</span><span class="at">반도체·AI 섹터 단기 모멘텀 추종 가능하나 포지션 축소 유지. JPMorgan·골드만삭스 등 4/14 어닝 결과 확인 후 방향성 재판단. 에너지 섹터는 Exxon 가이던스 쇼크 감안해 비중 축소 검토</span></div>
 </div>
 
-<!-- ③ KPI -->
-<div class="kpi-wrap">
-  <div class="kpi-row1">
+<!-- ③ KPI 4개 (라벨 짧게 고정) -->
+<div class="kw">
+  <div class="kg">
     <div class="kpi gr">
-      <div class="kpi-lbl">감정지수</div>
-      <div class="kpi-num" style="color:#14E87A;">71</div>
-      <div class="kpi-sub">😏 탐욕</div>
+      <div class="kl">감정지수</div>
+      <div class="kn" style="color:#14E87A;">67</div>
+      <div class="ks">😏 탐욕</div>
     </div>
     <div class="kpi am">
-      <div class="kpi-lbl">예측 정확도</div>
-      <div class="kpi-num">48.9%</div>
-      <div class="kpi-sub">방향 0% · 65/133건</div>
+      <div class="kl">정확도</div>
+      <div class="kn">48.9%</div>
+      <div class="ks">방향 0% · 65/133건</div>
     </div>
   </div>
-  <div class="kpi-row2">
+  <div class="kg">
     <div class="kpi gr">
-      <div class="kpi-lbl">자금유입 1위</div>
-      <div class="kpi-mid" style="color:var(--gr);">반도체/AI</div>
-      <div class="kpi-sub">30일 누적 선두</div>
+      <div class="kl">유입 1위 섹터</div>
+      <div class="km" style="color:var(--gr);">반도체/AI</div>
+      <div class="ks">30일 누적 선두</div>
     </div>
     <div class="kpi am">
-      <div class="kpi-lbl">주요 리스크</div>
-      <div class="kpi-risk" style="color:var(--am);">—</div>
-      <div class="kpi-sub">Devil 분석</div>
+      <div class="kl">주요 리스크</div>
+      <div class="kr" style="color:var(--am);">—</div>
+      <div class="ks">Devil 분석</div>
     </div>
   </div>
 </div>
 
 <!-- ④ 자금 흐름 -->
 <div class="sec">
-  <div class="sec-hdr"><span class="sec-title">자금 흐름</span><span class="sec-note">30일 누적</span></div>
-  <div class="fgrid">
-    <div class="fcard">
-      <div class="fhead"><div class="fdot" style="background:var(--gr);"></div><span class="fhlbl">유입</span></div>
-      <div class="frow"><div class="fn">반도체/AI</div><div class="fbg"><div class="fb" style="width:85%;background:#14E87A;opacity:.85;"></div></div><span class="fv" style="color:#14E87A;">+9</span></div><div class="frow"><div class="fn">금융</div><div class="fbg"><div class="fb" style="width:14%;background:#14E87A;opacity:.85;"></div></div><span class="fv" style="color:#14E87A;">+1</span></div>
+  <div class="sh"><span class="st">자금 흐름</span><span class="sn">30일 누적</span></div>
+  <div class="fg">
+    <div class="fc">
+      <div class="fh"><div class="fd" style="background:var(--gr);"></div><span class="fhl">유입</span></div>
+      <div class="frow"><div class="fn">반도체</div><div class="fbg"><div class="fb" style="width:80%;background:#14E87A;"></div></div><span class="fv" style="color:#14E87A;">+9</span></div><div class="frow"><div class="fn">금융</div><div class="fbg"><div class="fb" style="width:24%;background:#14E87A;"></div></div><span class="fv" style="color:#14E87A;">+2</span></div>
     </div>
-    <div class="fcard">
-      <div class="fhead"><div class="fdot" style="background:var(--rd);"></div><span class="fhlbl">유출</span></div>
-      <div class="frow"><div class="fn">에너지/원유</div><div class="fbg"><div class="fb" style="width:85%;background:#FF5252;opacity:.85;"></div></div><span class="fv" style="color:#FF5252;">-7</span></div><div class="frow"><div class="fn">소비재</div><div class="fbg"><div class="fb" style="width:56%;background:#FF5252;opacity:.85;"></div></div><span class="fv" style="color:#FF5252;">-4</span></div><div class="frow"><div class="fn">헬스케어</div><div class="fbg"><div class="fb" style="width:28%;background:#FF5252;opacity:.85;"></div></div><span class="fv" style="color:#FF5252;">-2</span></div>
+    <div class="fc">
+      <div class="fh"><div class="fd" style="background:var(--rd);"></div><span class="fhl">유출</span></div>
+      <div class="frow"><div class="fn">에너지</div><div class="fbg"><div class="fb" style="width:80%;background:#FF5252;"></div></div><span class="fv" style="color:#FF5252;">-8</span></div><div class="frow"><div class="fn">소비재</div><div class="fbg"><div class="fb" style="width:24%;background:#FF5252;"></div></div><span class="fv" style="color:#FF5252;">-2</span></div>
     </div>
   </div>
 </div>
 
 <!-- ⑤ 감정지수 추이 -->
 <div class="sec">
-  <div class="sec-hdr"><span class="sec-title">감정지수 추이</span><span class="sec-note">30일</span></div>
-  <div class="chart-card">
-    <div class="ch"><span class="cht">현재 71 · 탐욕</span><span class="chs">😏</span></div>
-    <div class="chart-wrap" style="height:125px;"><canvas id="sentChart"></canvas></div>
+  <div class="sh"><span class="st">감정지수 추이</span><span class="sn">30일</span></div>
+  <div class="cc">
+    <div class="ch2"><span class="cht">현재 67 · 탐욕</span><span class="chs">😏</span></div>
+    <div class="cw" style="height:125px;"><canvas id="sentChart"></canvas></div>
   </div>
 </div>
 
 <!-- ⑥ 정확도 상세 -->
 <div class="sec">
-  <div class="sec-hdr"><span class="sec-title">예측 정확도</span><span class="sec-note">카테고리 · 샘플 수</span></div>
-  <div class="card" style="padding:8px 16px;"><div class="arow">
-  <div class="am"><div class="albl">주식</div><div class="asub">57/109건</div></div>
-  <div class="abg"><div class="afill" style="width:52%;background:#FFB547;"></div></div>
-  <span class="apct" style="color:#FFB547;">52%</span>
-</div><div class="arow">
-  <div class="am"><div class="albl">VIX</div><div class="asub">7/22건</div></div>
-  <div class="abg"><div class="afill" style="width:32%;background:#FF5252;"></div></div>
-  <span class="apct" style="color:#FF5252;">32%</span>
-</div><div class="arow">
-  <div class="am"><div class="albl">기타</div><div class="asub">1/1건</div></div>
-  <div class="abg"><div class="afill" style="width:100%;background:#14E87A;"></div></div>
-  <span class="apct" style="color:#14E87A;">100%</span>
-</div><div class="arow">
-  <div class="am"><div class="albl">환율</div><div class="asub">0/1건</div></div>
-  <div class="abg"><div class="afill" style="width:0%;background:#FF5252;"></div></div>
-  <span class="apct" style="color:#FF5252;">0%</span>
-</div></div>
+  <div class="sh"><span class="st">예측 정확도</span><span class="sn">카테고리 · 샘플 수</span></div>
+  <div class="card" style="padding:8px 16px;"><div class="arow"><div class="am2"><div class="albl">주식</div><div class="asub">57/109건</div></div><div class="abg"><div class="afill" style="width:52%;background:#FFB547;"></div></div><span class="apct" style="color:#FFB547;">52%</span></div><div class="arow"><div class="am2"><div class="albl">VIX</div><div class="asub">7/22건</div></div><div class="abg"><div class="afill" style="width:32%;background:#FF5252;"></div></div><span class="apct" style="color:#FF5252;">32%</span></div><div class="arow"><div class="am2"><div class="albl">기타</div><div class="asub">1/1건</div></div><div class="abg"><div class="afill" style="width:100%;background:#14E87A;"></div></div><span class="apct" style="color:#14E87A;">100%</span></div><div class="arow"><div class="am2"><div class="albl">환율</div><div class="asub">0/1건</div></div><div class="abg"><div class="afill" style="width:0%;background:#FF5252;"></div></div><span class="apct" style="color:#FF5252;">0%</span></div></div>
 </div>
 
-<!-- ⑦ 시장 상태 해석 -->
+<!-- ⑦ 시장 상태 -->
 <div class="sec">
-  <div class="sec-hdr"><span class="sec-title">시장 상태</span></div>
+  <div class="sh"><span class="st">시장 상태</span></div>
   <div class="card" style="padding:12px;">
-    <div class="stgrid">
-      <div class="sti"><div class="stlbl">레짐</div><div class="stval" style="color:#14E87A;">위험선호</div></div>
-      <div class="sti"><div class="stlbl">추세</div><div class="stval">상승추세</div></div>
-      <div class="sti"><div class="stlbl">확신도</div><div class="stval" style="color:#FF5252;">낮음</div></div>
-      <div class="sti"><div class="stlbl">반론 강도</div><div class="stval" style="color:var(--gr);">약(0)</div></div>
+    <div class="sg">
+      <div class="si"><div class="sl">레짐</div><div class="sv" style="color:#14E87A;">위험선호</div></div>
+      <div class="si"><div class="sl">추세</div><div class="sv">상승추세</div></div>
+      <div class="si"><div class="sl">확신도</div><div class="sv" style="color:#FF5252;">낮음</div></div>
+      <div class="si"><div class="sl">반론 강도</div><div class="sv" style="color:#14E87A;">약(0)</div></div>
     </div>
   </div>
 </div>
 
 <!-- ⑧ 거시지표 -->
-<div class="sec"><div class="sec-hdr"><span class="sec-title">거시지표</span></div><div class="card" style="padding:12px;"><div class="mrow"><div class="mchip"><div class="mlbl">역레포</div><div class="mval">0.51조$</div></div><div class="mchip"><div class="mlbl">달러지수</div><div class="mval">120.66</div></div><div class="mchip"><div class="mlbl">HY스프레드</div><div class="mval" style="color:#909090;">2.94%</div></div><div class="mchip"><div class="mlbl">공포탐욕</div><div class="mval">59</div></div></div></div></div>
+<div class="sec"><div class="sh"><span class="st">거시지표</span></div><div class="card" style="padding:12px;"><div class="mr"><div class="mchip"><div class="mlbl">역레포</div><div class="mval">0.51조$</div></div><div class="mchip"><div class="mlbl">달러지수</div><div class="mval">120.66</div></div><div class="mchip"><div class="mlbl">HY스프레드</div><div class="mval" style="color:#909090;">2.94%</div></div><div class="mchip"><div class="mlbl">공포탐욕</div><div class="mval">59</div></div></div></div></div>
 
-<!-- ⑨ 경고/리스크 -->
+<!-- ⑨ 경고 -->
 <div class="sec">
-  <div class="sec-hdr"><span class="sec-title">오늘의 경고</span></div>
-  <div class="ritem"><div class="rtitle" style="color:#14E87A;">⬤ 특이 리스크 없음</div><div class="rdesc">주요 지표 정상 범위</div></div>
-  <div class="caution-bar"><span class="cb-icon">⚠️</span><span class="cb-txt">나스닥 3일+ 연속 상승 누적 피로 구간 — 어닝 미스 또는 가이던스 하향 시 -2% 이상 급락 시나리오 경계. 유가 $102 현실화 및 FOMC 매파 발언 돌발 리스크 주시</span></div>
+  <div class="sh"><span class="st">오늘의 경고</span></div>
+  <div class="ritem" style="border-left-color:#14E87A;"><div class="rtitle" style="color:#14E87A;">⬤ 특이 리스크 없음</div><div class="rdesc">주요 지표 정상 범위</div></div>
+  <div class="cbar"><span class="ci">⚠️</span><span class="ct">나스닥 22990 사상최고권 3일+ 연속 상승 구간 진입 — 어닝 미스 1~2건만으로 -3%+ 급락 트리거 가능. LNG +80% 충격발 제조업 원가 상승이 비에너지 섹터 마진까지 압박하는 복합 리</span></div>
 </div>
 
-<!-- ⑩ 섹터 차트 -->
-<div class="sec">
-  <div class="sec-hdr"><span class="sec-title">섹터 자금흐름</span><span class="sec-note">30일 누적</span></div>
-  <div class="chart-card">
-    <div class="chart-wrap" style="height:256px;"><canvas id="rotChart"></canvas></div>
-  </div>
-</div>
+<!-- ⑩ 섹터 자금흐름 차트 -->
+<div class="sec"><div class="sh"><span class="st">섹터 자금흐름</span><span class="sn">30일 누적</span></div><div class="cc"><div class="cw" style="height:256px;"><canvas id="rotChart"></canvas></div></div></div>
 
 <!-- ⑪ 레짐 전환 패턴 -->
-<div class="sec"><div class="sec-hdr"><span class="sec-title">레짐 전환 패턴</span></div><div class="card" style="padding:12px;"><div class="patg"><div class="pchip"><div class="plbl">혼조+횡보: 18회</div><div class="ppr">유지22%/전환78%</div></div><div class="pchip"><div class="plbl">선호+상승: 11회</div><div class="ppr">유지55%/전환45%</div></div><div class="pchip"><div class="plbl">선호+횡보: 4회</div><div class="ppr">유지75%/전환25%</div></div><div class="pchip"><div class="plbl">회피+하락: 24회</div><div class="ppr">유지46%/전환54%</div></div><div class="pchip pswan"><div class="plbl">🦢 블랙스완</div><div class="ppr">1회 · 평균 8.0일</div></div></div></div></div>
+<div class="sec"><div class="sh"><span class="st">레짐 전환 패턴</span></div><div class="card" style="padding:12px;"><div class="patg"><div class="pchip"><div class="plbl">혼조+횡보: 18회</div><div class="ppr">유지22%/전환78%</div></div><div class="pchip"><div class="plbl">선호+상승: 11회</div><div class="ppr">유지55%/전환45%</div></div><div class="pchip"><div class="plbl">선호+횡보: 4회</div><div class="ppr">유지75%/전환25%</div></div><div class="pchip"><div class="plbl">회피+하락: 24회</div><div class="ppr">유지46%/전환54%</div></div><div class="pchip pswan"><div class="plbl">🦢 블랙스완</div><div class="ppr">1회 · 평균 8.0일</div></div></div></div></div>
 
 <!-- ⑫ 포트폴리오 -->
 <div class="sec">
-  <div class="sec-hdr"><span class="sec-title">포트폴리오</span><span class="sec-note">오늘 손익</span></div>
-  <div class="card" style="padding:0;"><div class="pempty"><span>📊</span><span>포트폴리오 미연동</span></div></div>
+  <div class="sh"><span class="st">포트폴리오</span><span class="sn">오늘 손익</span></div>
+  <div class="card" style="padding:0;"><div class="pempty"><div class="pe-icon">📊</div><div class="pe-txt">포트폴리오 미연동</div><div class="pe-sub">연동 시 오늘 손익·비중 표시</div></div></div>
 </div>
 
 <!-- ⑬ 비용 -->
 <div class="sec">
-  <div class="sec-hdr"><span class="sec-title">이번 달 비용</span></div>
+  <div class="sh"><span class="st">이번 달 비용</span></div>
   <div class="card" style="padding:6px 16px;">
-    <div class="crow"><span class="clbl">추정 비용</span><span class="cval">$22.80 · 약 33,744원</span></div>
-    <div class="crow"><span class="clbl">실행 횟수</span><span class="cval">19회</span></div>
+    <div class="crow"><span class="clbl">추정 비용</span><span class="cval">$24.00 · 약 35,520원</span></div>
+    <div class="crow"><span class="clbl">실행 횟수</span><span class="cval">20회</span></div>
   </div>
 </div>
 
 <div class="footer">
-  분석일 2026-04-14 · ARIA Multi-Agent v4<br>
+  분석일 2026-04-14 · ARIA Multi-Agent v4.1<br>
   Yahoo Finance · FRED · FSC · FearGreedChart · PCR
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const tc='rgba(122,118,105,.55)',gc='rgba(255,255,255,.05)';
-const tip={backgroundColor:'rgba(33,30,22,.97)',titleColor:'#EDE9DF',bodyColor:'#7A7669',
-  borderColor:'rgba(255,255,255,.08)',borderWidth:1,padding:10,cornerRadius:8};
+const tc='rgba(0,0,0,.35)',gc='rgba(0,0,0,.06)';
+const tip={backgroundColor:'rgba(255,255,255,.97)',titleColor:'#18181A',bodyColor:'#6A6A6D',
+  borderColor:'rgba(0,0,0,.1)',borderWidth:1,padding:10,cornerRadius:8};
 const sEl=document.getElementById('sentChart');
 if(sEl)new Chart(sEl,{type:'line',
   data:{labels:["04-12", "04-13", "04-14"],datasets:[
-    {data:[42, 60, 71],borderColor:'#14E87A',backgroundColor:'rgba(20,232,122,.06)',
+    {data:[42, 60, 67],borderColor:'#0DAE6B',backgroundColor:'rgba(13,174,107,.08)',
      fill:true,tension:.4,pointRadius:0,pointHoverRadius:5,borderWidth:2.5},
-    {data:Array(3).fill(50),borderColor:'rgba(122,118,105,.3)',borderDash:[4,3],borderWidth:1.5,pointRadius:0}
+    {data:Array(3).fill(50),borderColor:'rgba(0,0,0,.2)',borderDash:[4,3],borderWidth:1.5,pointRadius:0}
   ]},
   options:{responsive:true,maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,...tip}},
@@ -359,9 +302,9 @@ if(sEl)new Chart(sEl,{type:'line',
 });
 const rEl=document.getElementById('rotChart');
 if(rEl)new Chart(rEl,{type:'bar',
-  data:{labels:["반도체/AI", "금융", "빅테크", "방산", "배당/가치주", "원자재", "부동산(리츠)", "헬스케어"],datasets:[{
-    data:[9, 1, 0, 0, 0, 0, 0, -2],
-    backgroundColor:[9, 1, 0, 0, 0, 0, 0, -2].map(v=>v>=0?'rgba(20,232,122,.7)':'rgba(255,82,82,.65)'),
+  data:{labels:["반도체/AI", "금융", "빅테크", "방산", "헬스케어", "배당/가치주", "원자재", "부동산(리츠)"],datasets:[{
+    data:[9, 2, 0, 0, 0, 0, 0, 0],
+    backgroundColor:[9, 2, 0, 0, 0, 0, 0, 0].map(v=>v>=0?'rgba(20,232,122,.72)':'rgba(255,82,82,.68)'),
     borderRadius:4,barPercentage:.6
   }]},
   options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
