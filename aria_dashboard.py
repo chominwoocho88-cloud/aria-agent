@@ -38,6 +38,7 @@ def build_dashboard():
     rotation = _load(ROTATION_FILE,  {"ranking": [], "today_flows": {}})
     memory   = _load(MEMORY_FILE,    [])
     cost     = _load(COST_FILE,      {})
+    pattern  = _load(Path("pattern_db.json"), {})
 
     current  = sent.get("current", {})
     hist_30  = sent.get("history", [])[-30:]
@@ -54,10 +55,15 @@ def build_dashboard():
     acc_total   = acc.get("total", 0)
     acc_correct = acc.get("correct", 0)
     acc_pct     = round(acc_correct / acc_total * 100, 1) if acc_total > 0 else 0
+    dir_pct     = acc.get("dir_accuracy_pct", 0)          # 방향 정확도 (신규)
     by_cat      = acc.get("by_category", {})
     cat_labels  = list(by_cat.keys())
     cat_pcts    = [round(v["correct"] / v["total"] * 100) if v["total"] > 0 else 0
                    for v in by_cat.values()]
+
+    # ── 패턴 DB
+    pat_summary = pattern.get("summary", [])[:4]          # 상위 4개 패턴
+    blackswan   = pattern.get("blackswan", {})
 
     # ── 섹터 로테이션
     ranking = rotation.get("ranking", [])
@@ -268,9 +274,9 @@ def build_dashboard():
       <div class="metric-sub">{sent_emoji} {sent_level}</div>
     </div>
     <div class="metric">
-      <div class="metric-label">예측 정확도</div>
+      <div class="metric-label">종합 / 방향 정확도</div>
       <div class="metric-value">{acc_pct}%</div>
-      <div class="metric-sub">{acc_correct}/{acc_total}건</div>
+      <div class="metric-sub">방향 {dir_pct}% · {acc_correct}/{acc_total}건</div>
     </div>
   </div>
 
@@ -288,6 +294,9 @@ def build_dashboard():
 
   <!-- 예측 정확도 -->
   {'<div class="card"><div class="card-title">카테고리별 예측 정확도</div><div class="chart-wrap" style="height:' + str(max(120, len(cat_labels)*36)) + 'px;"><canvas id="accChart" role="img" aria-label="카테고리별 예측 정확도">정확도 차트</canvas></div></div>' if cat_labels else ''}
+
+  <!-- 패턴 통계 -->
+  {'<div class="card"><div class="card-title">레짐 전환 패턴</div>' + ''.join(['<div class="cost-row"><span style="font-size:12px;color:var(--text);">' + p + '</span></div>' for p in pat_summary]) + ('<div class="cost-row" style="margin-top:6px;"><span>블랙스완 전례</span><span class="cost-val">' + str(blackswan.get("reversal_count",0)) + '회 (평균 ' + str(blackswan.get("avg_streak_before_reversal",0)) + '일 연속 후 반전)</span></div>' if blackswan.get("reversal_count",0) > 0 else '') + '</div>' if pat_summary else ''}
 
   <!-- 포트폴리오 손익 -->
   <div class="card">
