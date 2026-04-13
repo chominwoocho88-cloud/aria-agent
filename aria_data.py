@@ -4,7 +4,8 @@ from pathlib import Path
 os.environ["PYTHONIOENCODING"] = "utf-8"
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
-KST=timezone(timedelta(hours=9)); COST_FILE=Path("aria_cost.json"); DATA_FILE=Path("aria_market_data.json")
+KST=timezone(timedelta(hours=9))
+from aria_paths import COST_FILE, DATA_FILE
 _CORE={"sp500","nasdaq","vix","kospi"}
 
 def _fetch_one(ticker,retries=2):
@@ -157,6 +158,7 @@ def fetch_krx_flow() -> dict:
 
 
 def fetch_yahoo_data():
+    result={}
     tickers={
         "^GSPC":"sp500","^IXIC":"nasdaq","^VIX":"vix","^KS11":"kospi",
         "KRW=X":"krw_usd","^TNX":"us_10y",
