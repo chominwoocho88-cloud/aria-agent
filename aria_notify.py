@@ -17,11 +17,10 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 KST = timezone(timedelta(hours=9))
 
-MEMORY_FILE    = Path("memory.json")
-ACCURACY_FILE  = Path("accuracy.json")
-SENTIMENT_FILE = Path("sentiment.json")
-ROTATION_FILE  = Path("rotation.json")
-BREAKING_FILE  = Path("breaking_sent.json")
+from aria_paths import (
+    MEMORY_FILE, ACCURACY_FILE, SENTIMENT_FILE,
+    ROTATION_FILE, BREAKING_FILE,
+)
 
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
