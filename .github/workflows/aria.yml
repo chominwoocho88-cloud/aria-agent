@@ -94,6 +94,8 @@ jobs:
           GH_TOKEN:          ${{ secrets.GH_TOKEN }}
           GH_REPO:           ${{ secrets.GH_REPO }}
           KRX_API_KEY:       ${{ secrets.KRX_API_KEY }}
+        run: |
+          python aria_main.py
           echo "ARIA_MODE=MORNING" >> $GITHUB_ENV
 
       # ── EVENING (미장 30분 전 — 서머타임 자동 대응) ─────────────────────────
