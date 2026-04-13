@@ -46,7 +46,7 @@
       "category": "주식",
       "lesson": "나스닥 방향성 (급등 이후 지속 vs 되돌림) 오판 — 실제 -4.31% (예측 반대)",
       "severity": "high",
-      "applied": 20,
+      "applied": 23,
       "reinforced": 0
     },
     {
@@ -64,7 +64,7 @@
       "category": "주식",
       "lesson": "엔비디아·반도체 섹터 방향성 오판 — 실제 -6.38% (예측 반대)",
       "severity": "high",
-      "applied": 20,
+      "applied": 23,
       "reinforced": 0
     },
     {
@@ -73,7 +73,7 @@
       "category": "주식",
       "lesson": "SK하이닉스 국내 반도체 추종 강도 오판 — 실제 -4.03% (예측 반대)",
       "severity": "high",
-      "applied": 20,
+      "applied": 23,
       "reinforced": 0
     },
     {
@@ -82,7 +82,7 @@
       "category": "주식",
       "lesson": "코스피 외국인 수급 방향성 오판 — 실제 -1.49% (예측 반대)",
       "severity": "high",
-      "applied": 13,
+      "applied": 15,
       "reinforced": 0
     },
     {
@@ -91,7 +91,7 @@
       "category": "레짐판단",
       "lesson": "FG 7.0(극단공포)인데 위험선호 판단 — 공포 구간 낙관 과잉",
       "severity": "high",
-      "applied": 7,
+      "applied": 8,
       "reinforced": 0
     },
     {
@@ -150,7 +150,7 @@
       "category": "레짐판단",
       "lesson": "FG 4.0 + S&P -6.0% — 극단공포 폭락기, 반등 타이밍 연구 필요",
       "severity": "high",
-      "applied": 7,
+      "applied": 8,
       "reinforced": 0
     },
     {
@@ -199,7 +199,7 @@
       "category": "주식",
       "lesson": "코스피 방향성 (아시아 패닉 지속 여부) 오판 — 실제 -5.57% (예측 반대)",
       "severity": "high",
-      "applied": 7,
+      "applied": 8,
       "reinforced": 0
     },
     {
@@ -208,7 +208,7 @@
       "category": "주식",
       "lesson": "SK하이닉스 반도체 모멘텀 지속 여부 오판 — 실제 -8.11% (예측 반대)",
       "severity": "high",
-      "applied": 7,
+      "applied": 8,
       "reinforced": 0
     },
     {
@@ -236,7 +236,7 @@
       "category": "레짐판단",
       "lesson": "FG 5.0 + S&P -4.1% — 극단공포 폭락기, 반등 타이밍 연구 필요",
       "severity": "high",
-      "applied": 7,
+      "applied": 8,
       "reinforced": 0
     },
     {
@@ -255,7 +255,7 @@
       "category": "주식",
       "lesson": "나스닥 기술주 추가 하락 여부 오판 — 실제 -4.88% (예측 반대)",
       "severity": "high",
-      "applied": 7,
+      "applied": 8,
       "reinforced": 0
     },
     {
@@ -264,7 +264,7 @@
       "category": "주식",
       "lesson": "코스피 낙폭 확대 여부 오판 — 실제 -2.25% (예측 반대)",
       "severity": "high",
-      "applied": 4,
+      "applied": 5,
       "reinforced": 0
     },
     {
@@ -273,7 +273,7 @@
       "category": "주식",
       "lesson": "반도체 섹터 (SK하이닉스) 패닉 지속 여부 오판 — 실제 -3.18% (예측 반대)",
       "severity": "high",
-      "applied": 4,
+      "applied": 5,
       "reinforced": 0
     },
     {
@@ -291,7 +291,7 @@
       "category": "레짐판단",
       "lesson": "FG 8.0 + S&P -5.5% — 극단공포 폭락기, 반등 타이밍 연구 필요",
       "severity": "high",
-      "applied": 4,
+      "applied": 5,
       "reinforced": 0
     },
     {
@@ -300,7 +300,7 @@
       "category": "주식",
       "lesson": "나스닥 기술주 방향성 (관세 발표 선반영 여부) 오판 — 실제 -5.82% (예측 반대)",
       "severity": "high",
-      "applied": 4,
+      "applied": 5,
       "reinforced": 0
     },
     {

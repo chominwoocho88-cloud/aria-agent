@@ -44,21 +44,21 @@
     },
     {
       "date": "2026-04-13",
-      "score": 100,
-      "level": "극단탐욕",
-      "emoji": "🤑",
+      "score": 62,
+      "level": "탐욕",
+      "emoji": "😏",
       "components": {
         "시장레짐": {
           "score": 20,
-          "reason": "위험선호 경계 (혼조 전환 리스크 상존)"
+          "reason": "위험선호"
         },
         "추세방향": {
           "score": 12,
           "reason": "상승추세"
         },
         "변동성지수": {
-          "score": 14,
-          "reason": "Fear&Greed 57.0 (탐욕)"
+          "score": 0,
+          "reason": "Fear&Greed 48.0 (중립)"
         },
         "자금흐름": {
           "score": -2,
@@ -73,35 +73,37 @@
           "reason": "중립"
         },
         "숨은시그널": {
-          "score": 6,
-          "reason": "고신뢰3 / 저신뢰0"
+          "score": 4,
+          "reason": "고신뢰2 / 저신뢰0"
         }
       },
-      "regime": "위험선호 경계 (혼조 전환 리스크 상존)",
+      "regime": "위험선호",
       "trend": "상승추세",
-      "vix_level": "공포 완화 중",
-      "vix_val": 21.11,
+      "vix_level": "중립",
+      "vix_val": 21.31,
       "vkospi_val": null,
-      "fear_greed": 57.0
+      "fear_greed": 48.0,
+      "internal_raw": 84,
+      "divergence": true
     }
   ],
   "current": {
     "date": "2026-04-13",
-    "score": 100,
-    "level": "극단탐욕",
-    "emoji": "🤑",
+    "score": 62,
+    "level": "탐욕",
+    "emoji": "😏",
     "components": {
       "시장레짐": {
         "score": 20,
-        "reason": "위험선호 경계 (혼조 전환 리스크 상존)"
+        "reason": "위험선호"
       },
       "추세방향": {
         "score": 12,
         "reason": "상승추세"
       },
       "변동성지수": {
-        "score": 14,
-        "reason": "Fear&Greed 57.0 (탐욕)"
+        "score": 0,
+        "reason": "Fear&Greed 48.0 (중립)"
       },
       "자금흐름": {
         "score": -2,
@@ -116,23 +118,25 @@
         "reason": "중립"
       },
       "숨은시그널": {
-        "score": 6,
-        "reason": "고신뢰3 / 저신뢰0"
+        "score": 4,
+        "reason": "고신뢰2 / 저신뢰0"
       }
     },
-    "regime": "위험선호 경계 (혼조 전환 리스크 상존)",
+    "regime": "위험선호",
     "trend": "상승추세",
-    "vix_level": "공포 완화 중",
-    "vix_val": 21.11,
+    "vix_level": "중립",
+    "vix_val": 21.31,
     "vkospi_val": null,
-    "fear_greed": 57.0
+    "fear_greed": 48.0,
+    "internal_raw": 84,
+    "divergence": true
   },
   "trend": {
     "direction": "improving",
-    "change": 58.0,
-    "avg_7d": 71.0,
+    "change": 20.0,
+    "avg_7d": 52.0,
     "min_30d": 42,
-    "max_30d": 100,
-    "avg_30d": 71.0
+    "max_30d": 62,
+    "avg_30d": 52.0
   }
 }
