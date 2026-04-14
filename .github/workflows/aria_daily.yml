@@ -180,10 +180,8 @@ jobs:
     permissions:
       contents: write
 
-    # MORNING 또는 수동 실행 때만 Jackal 학습
-    if: >
-      github.event.schedule == '30 22 * * 0-4' ||
-      github.event_name == 'workflow_dispatch'
+    # ARIA가 중복 실행으로 skip해도 Jackal은 항상 실행
+    if: always()
 
     steps:
       - name: Checkout
@@ -212,22 +210,16 @@ jobs:
           git config user.name  "Jackal Bot"
           git config user.email "jackal@aria-agent"
 
-          git add \
-            jackal/skills/ \
-            jackal/lessons/ \
-            jackal/jackal_weights.json \
-            jackal/compact_log.json || true
+          git add jackal/skills/ jackal/lessons/ jackal/jackal_weights.json || true
+          git add jackal/compact_log.json 2>/dev/null || true
 
           git stash
           git fetch origin main
           git reset --hard origin/main
           git stash pop || true
 
-          git add \
-            jackal/skills/ \
-            jackal/lessons/ \
-            jackal/jackal_weights.json \
-            jackal/compact_log.json || true
+          git add jackal/skills/ jackal/lessons/ jackal/jackal_weights.json || true
+          git add jackal/compact_log.json 2>/dev/null || true
 
           git diff --cached --quiet || \
             git commit -m "🦊 Jackal: $(date +'%Y-%m-%d %H:%M') 학습 완료 [skip ci]"
