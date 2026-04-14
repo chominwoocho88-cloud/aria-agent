@@ -24,6 +24,7 @@ if hasattr(sys.stdout, "reconfigure"):
 from jackal_shield    import JackalShield
 from jackal_compact   import JackalCompact
 from jackal_scanner   import run_scan
+from jackal_hunter    import run_hunt
 from jackal_evolution import JackalEvolution
 
 _BASE = Path(__file__).parent
@@ -61,11 +62,15 @@ class JackalCore:
         else:
             log.info("  이상 없음 ✅")
 
-        # 2. Scanner (Claude Haiku 타점 분석)
-        log.info("📡 Scanner 실행...")
+        # 2. Scanner — 포트폴리오 모니터링
+        log.info("📡 Scanner 실행 (포트폴리오)...")
         scan = run_scan(force=force_scan)
 
-        # 3. Compact
+        # 3. Hunter — ARIA 뉴스 기반 스윙 기회 탐색
+        log.info("🎯 Hunter 실행 (ARIA 스윙 탐색)...")
+        hunt = run_hunt(force=force_scan)
+
+        # 4. Compact
         compact = self.compact.check_and_compact(context_tokens)
         if compact.get("compacted"):
             log.info(f"📦 Compact: {compact['saved_tokens']:,} 토큰 절약")
@@ -93,6 +98,7 @@ class JackalCore:
             "status":  "ok",
             "elapsed": elapsed,
             "scan":    scan,
+            "hunt":    hunt,
             "evolution": {
                 "ran":     bool(evolve),
                 "learned": evolve.get("scan_learned", 0),
@@ -117,6 +123,7 @@ class JackalCore:
         print("=" * 54)
         print(f"  소요      : {elapsed}s")
         print(f"  Scanner   : 분석 {scan['scanned']}종목 | 알림 {scan['alerted']}건")
+        print(f"  Hunter    : 분석 {hunt.get('hunted',0)}종목 | 알림 {hunt.get('alerted',0)}건")
         if evolve:
             print(f"  Evolution : 학습 {evolve.get('scan_learned',0)}건 | "
                   f"Skill {len(evolve.get('new_skills',[]))}개")
