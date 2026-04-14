@@ -12,9 +12,6 @@ on:
 
 jobs:
 
-  # ════════════════════════════════════════════════════════════════
-  # ARIA 메인 파이프라인
-  # ════════════════════════════════════════════════════════════════
   run-aria:
     runs-on: ubuntu-latest
     permissions:
@@ -30,9 +27,11 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: python -m pip install anthropic rich httpx yfinance requests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install anthropic rich httpx yfinance requests
+          python -c "import rich; print('rich OK:', rich.__version__)"
 
-      # ── DAWN (04:30 KST) ──────────────────────────────────────────
       - name: Run ARIA DAWN
         if: github.event.schedule == '30 19 * * 0-4'
         env:
@@ -45,7 +44,6 @@ jobs:
           GH_REPO:           ${{ secrets.GH_REPO }}
         run: python aria_main.py
 
-      # ── MORNING (07:30 KST) ───────────────────────────────────────
       - name: Run ARIA MORNING
         if: >
           github.event.schedule == '30 22 * * 0-4' ||
@@ -60,7 +58,6 @@ jobs:
           GH_REPO:           ${{ secrets.GH_REPO }}
         run: python aria_main.py
 
-      # ── AFTERNOON (14:30 KST) ─────────────────────────────────────
       - name: Run ARIA AFTERNOON
         if: github.event.schedule == '30 5 * * 1-5'
         env:
@@ -73,7 +70,6 @@ jobs:
           GH_REPO:           ${{ secrets.GH_REPO }}
         run: python aria_main.py
 
-      # ── EVENING (20:30 KST) ───────────────────────────────────────
       - name: Run ARIA EVENING
         if: github.event.schedule == '30 11 * * 1-5'
         env:
@@ -86,7 +82,6 @@ jobs:
           GH_REPO:           ${{ secrets.GH_REPO }}
         run: python aria_main.py
 
-      # ── 주간 리포트 (일요일 07:00 KST) ───────────────────────────
       - name: Run ARIA Weekly
         if: github.event.schedule == '0 22 * * 0'
         env:
@@ -95,12 +90,11 @@ jobs:
           TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          python3 << 'EOF'
+          python3 -c "
           from aria_notify import send_weekly_report
           send_weekly_report()
-          EOF
+          "
 
-      # ── 월간 리포트 (매월 1일 06:00 KST) ─────────────────────────
       - name: Run ARIA Monthly
         if: github.event.schedule == '0 21 1 * *'
         env:
@@ -109,46 +103,36 @@ jobs:
           TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
-          python3 << 'EOF'
+          python3 -c "
           import json
           from pathlib import Path
           from aria_notify import send_monthly_report
           from aria_analysis import extract_monthly_lessons
-
           send_monthly_report()
-          memory   = json.loads(Path("memory.json").read_text(encoding="utf-8")) if Path("memory.json").exists() else []
-          accuracy = json.loads(Path("accuracy.json").read_text(encoding="utf-8")) if Path("accuracy.json").exists() else {}
+          memory   = json.loads(Path('memory.json').read_text(encoding='utf-8')) if Path('memory.json').exists() else []
+          accuracy = json.loads(Path('accuracy.json').read_text(encoding='utf-8')) if Path('accuracy.json').exists() else {}
           extract_monthly_lessons(memory, accuracy)
-          EOF
+          "
 
-      # ── 저장 ──────────────────────────────────────────────────────
       - name: Save memory
         env:
           ARIA_MODE: ${{ env.ARIA_MODE }}
         run: |
           git config user.name  "ARIA Bot"
           git config user.email "aria@github-actions"
-
           git add memory.json reports/ sentiment.json accuracy.json \
                   rotation.json aria_weights.json aria_lessons.json \
                   aria_cost.json aria_market_data.json morning_baseline.json || true
-
           git stash
-
           git fetch origin main
           git reset --hard origin/main
-
           git stash pop || true
-
           git add memory.json reports/ sentiment.json accuracy.json \
                   rotation.json aria_weights.json aria_lessons.json \
                   aria_cost.json aria_market_data.json morning_baseline.json || true
           git diff --staged --quiet || git commit -m "ARIA: $(date +'%Y-%m-%d %H:%M') [${ARIA_MODE:-AUTO}] 저장"
           git push
 
-  # ════════════════════════════════════════════════════════════════
-  # Jackal 자동 성장 엔진 (ARIA 완료 후 독립 실행)
-  # ════════════════════════════════════════════════════════════════
   run-jackal:
     needs: run-aria
     runs-on: ubuntu-latest
@@ -165,7 +149,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: python -m pip install anthropic rich httpx yfinance requests
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install anthropic rich httpx yfinance requests
+          python -c "import rich; print('rich OK:', rich.__version__)"
 
       - name: Run Jackal
         env:
@@ -180,16 +167,11 @@ jobs:
         run: |
           git config user.name  "Jackal Bot"
           git config user.email "jackal@aria-agent"
-
           git add jackal/skills/ jackal/lessons/ jackal/jackal_weights.json jackal/compact_log.json 2>/dev/null || true
-
           git stash
-
           git fetch origin main
           git reset --hard origin/main
-
           git stash pop || true
-
           git add jackal/skills/ jackal/lessons/ jackal/jackal_weights.json jackal/compact_log.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "🦊 Jackal: $(date +'%Y-%m-%d %H:%M') 학습 완료 [skip ci]"
           git push
