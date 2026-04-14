@@ -1,7 +1,9 @@
-name: Jackal Scanner
+name: Jackal Hunter
 
 # Jackal 전용 워크플로우 — ARIA와 완전 독립
-# 역할: 매시간 타점 스캔 + 텔레그램 알림 + 자체 학습
+# 역할: 매시간 ARIA 뉴스 기반 스윙 종목 탐색 + 텔레그램 알림 + 자체 학습
+# 포트폴리오 모니터링 X — 항상 새 종목만 발굴
+# 포트폴리오 분석은 ARIA daily가 담당
 on:
   schedule:
     # 한국장 (UTC 00:30~06:00, 월~금)
@@ -23,8 +25,8 @@ on:
 
   workflow_dispatch:
     inputs:
-      force_scan:
-        description: "장 마감 무시 강제 스캔 (true 입력 시 지금 당장 전 종목 스캔)"
+      force_hunt:
+        description: "장 마감 무시 강제 실행 (true 입력 시 지금 당장 ARIA 기반 스윙 종목 탐색)"
         required: false
         default: "false"
       force_evolve:
@@ -65,7 +67,7 @@ jobs:
           FSCAPI_KEY:          ${{ secrets.FSCAPI_KEY }}
         run: |
           ARGS=""
-          [ "${{ github.event.inputs.force_scan }}"   = "true" ] && ARGS="$ARGS --force-scan"
+          [ "${{ github.event.inputs.force_hunt }}"   = "true" ] && ARGS="$ARGS --force-hunt"
           [ "${{ github.event.inputs.force_evolve }}" = "true" ] && ARGS="$ARGS --force-evolve"
           python jackal/jackal_core.py $ARGS
 
@@ -74,20 +76,22 @@ jobs:
           git config user.name  "Jackal Bot"
           git config user.email "jackal@aria-agent"
 
-          git add jackal/scan_log.json jackal/scan_cooldown.json \
+          git add jackal/hunt_log.json jackal/hunt_cooldown.json \
                   jackal/jackal_weights.json jackal/skills/ \
                   jackal/lessons/ || true
           git add jackal/compact_log.json jackal/.last_evolve 2>/dev/null || true
+          git add data/jackal_watchlist.json data/jackal_news.json 2>/dev/null || true
 
           git stash
           git fetch origin main
           git reset --hard origin/main
           git stash pop || true
 
-          git add jackal/scan_log.json jackal/scan_cooldown.json \
+          git add jackal/hunt_log.json jackal/hunt_cooldown.json \
                   jackal/jackal_weights.json jackal/skills/ \
                   jackal/lessons/ || true
           git add jackal/compact_log.json jackal/.last_evolve 2>/dev/null || true
+          git add data/jackal_watchlist.json data/jackal_news.json 2>/dev/null || true
 
           git diff --cached --quiet || \
             git commit -m "🦊 Jackal: $(date +'%Y-%m-%d %H:%M') [skip ci]"
