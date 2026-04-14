@@ -1,0 +1,7 @@
+{
+  "name": "market_volatility_detector",
+  "description": "변동성 급증 시점에서 안전한 진입/청산 타이밍을 파악하는 스킬",
+  "trigger": "일중 변동률 > 3% 또는 VIX > 25",
+  "action": "RSI와 볼린저밴드 조합으로 과매수/과매도 확인 후 역추세 매매 신호 생성",
+  "created_at": "2026-04-14T04:49:08.138057"
+}
