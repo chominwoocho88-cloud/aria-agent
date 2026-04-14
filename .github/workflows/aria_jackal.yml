@@ -1,0 +1,77 @@
+name: ARIA + Jackal Daily Run
+
+on:
+  schedule:
+    # 매일 오전 8:00 KST (UTC 23:00 전날) 실행
+    - cron: "0 23 * * *"
+  workflow_dispatch:
+    inputs:
+      force_evolve:
+        description: "Jackal Evolution 강제 실행"
+        required: false
+        default: "false"
+      force_compact:
+        description: "Jackal Compact 강제 실행"
+        required: false
+        default: "false"
+
+jobs:
+  aria-run:
+    runs-on: ubuntu-latest
+
+    env:
+      # ── 비용 절감 핵심 4줄 ──────────────────────────────────────
+      ANTHROPIC_MODEL: "claude-sonnet-4-20250514"       # Sonnet (60% 절감)
+      MAX_THINKING_TOKENS: "10000"                       # thinking 제한 (추가 절감)
+      SUBAGENT_MODEL: "claude-haiku-4-5-20251001"       # Devil/Reporter → Haiku (80% 절감)
+      JACKAL_AUTOCOMPACT: "true"                         # Jackal 자동 압축 활성화
+      # ────────────────────────────────────────────────────────────
+      JACKAL_DAILY_BUDGET: "500000"                      # 일일 토큰 예산
+      JACKAL_COMPACT_THRESHOLD: "60000"                  # Compact 트리거 토큰 수
+      JACKAL_SPIKE_MULTIPLIER: "3.0"                     # 급증 감지 배율
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install anthropic python-telegram-bot requests
+
+      - name: Run ARIA + Jackal
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python aria_main.py
+
+      # ── Evolution 강제 실행 옵션 ──────────────────────────────────
+      - name: Force Jackal Evolution (optional)
+        if: ${{ github.event.inputs.force_evolve == 'true' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python jackal/jackal_core.py --force-evolve
+
+      # ── Compact 강제 실행 옵션 ────────────────────────────────────
+      - name: Force Jackal Compact (optional)
+        if: ${{ github.event.inputs.force_compact == 'true' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python jackal/jackal_compact.py --force
+
+      - name: Commit Jackal artifacts
+        run: |
+          git config user.name "Jackal Bot"
+          git config user.email "jackal@aria-agent"
+          git add jackal/skills/ jackal/lessons/ jackal/jackal_weights.json jackal/compact_log.json || true
+          git diff --cached --quiet || git commit -m "🦊 Jackal: auto-update skills/lessons/weights [skip ci]"
+          git push
