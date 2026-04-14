@@ -95,13 +95,13 @@
     },
     {
       "date": "2026-04-14",
-      "score": 67,
-      "level": "탐욕",
-      "emoji": "😏",
+      "score": 55,
+      "level": "중립",
+      "emoji": "😐",
       "components": {
         "시장레짐": {
           "score": 20,
-          "reason": "위험선호 위장 — 고점 경계권 혼조"
+          "reason": "위험선호 위장 스태그플레이션 초입 가능성"
         },
         "추세방향": {
           "score": 12,
@@ -109,11 +109,11 @@
         },
         "변동성지수": {
           "score": 14,
-          "reason": "Fear&Greed 62.0 (탐욕)"
+          "reason": "Fear&Greed 65.0 (탐욕)"
         },
         "자금흐름": {
           "score": -7,
-          "reason": "유입3 / 유출4"
+          "reason": "유입2 / 유출3"
         },
         "반론강도": {
           "score": 0,
@@ -124,36 +124,35 @@
           "reason": "중립"
         },
         "숨은시그널": {
-          "score": 0,
-          "reason": "고신뢰0 / 저신뢰0"
+          "score": -1,
+          "reason": "고신뢰0 / 저신뢰1"
         }
       },
-      "regime": "위험선호 위장 — 고점 경계권 혼조",
+      "regime": "위험선호 위장 스태그플레이션 초입 가능성",
       "trend": "상승추세",
-      "vix_level": "중립~탐욕 경계",
-      "vix_val": 19.12,
-      "vkospi_val": null,
-      "fear_greed": 62.0,
-      "internal_raw": 91,
+      "vix_level": "탐욕",
+      "vix_val": 18.55,
+      "vkospi_val": 5967.75,
+      "fear_greed": 65.0,
+      "internal_raw": 90,
       "divergence": true,
-      "fred_score": 48,
+      "fred_score": null,
       "fred_indicators": {
         "hy_spread": "2.94% → 85",
         "yield_curve": "0.52% → 68",
-        "consumer_sent": "56.6 → 28",
-        "pcr": "1.333 → 10"
+        "consumer_sent": "56.6 → 28"
       }
     }
   ],
   "current": {
     "date": "2026-04-14",
-    "score": 67,
-    "level": "탐욕",
-    "emoji": "😏",
+    "score": 55,
+    "level": "중립",
+    "emoji": "😐",
     "components": {
       "시장레짐": {
         "score": 20,
-        "reason": "위험선호 위장 — 고점 경계권 혼조"
+        "reason": "위험선호 위장 스태그플레이션 초입 가능성"
       },
       "추세방향": {
         "score": 12,
@@ -161,11 +160,11 @@
       },
       "변동성지수": {
         "score": 14,
-        "reason": "Fear&Greed 62.0 (탐욕)"
+        "reason": "Fear&Greed 65.0 (탐욕)"
       },
       "자금흐름": {
         "score": -7,
-        "reason": "유입3 / 유출4"
+        "reason": "유입2 / 유출3"
       },
       "반론강도": {
         "score": 0,
@@ -176,32 +175,31 @@
         "reason": "중립"
       },
       "숨은시그널": {
-        "score": 0,
-        "reason": "고신뢰0 / 저신뢰0"
+        "score": -1,
+        "reason": "고신뢰0 / 저신뢰1"
       }
     },
-    "regime": "위험선호 위장 — 고점 경계권 혼조",
+    "regime": "위험선호 위장 스태그플레이션 초입 가능성",
     "trend": "상승추세",
-    "vix_level": "중립~탐욕 경계",
-    "vix_val": 19.12,
-    "vkospi_val": null,
-    "fear_greed": 62.0,
-    "internal_raw": 91,
+    "vix_level": "탐욕",
+    "vix_val": 18.55,
+    "vkospi_val": 5967.75,
+    "fear_greed": 65.0,
+    "internal_raw": 90,
     "divergence": true,
-    "fred_score": 48,
+    "fred_score": null,
     "fred_indicators": {
       "hy_spread": "2.94% → 85",
       "yield_curve": "0.52% → 68",
-      "consumer_sent": "56.6 → 28",
-      "pcr": "1.333 → 10"
+      "consumer_sent": "56.6 → 28"
     }
   },
   "trend": {
     "direction": "improving",
-    "change": 21.5,
-    "avg_7d": 56.3,
+    "change": 15.5,
+    "avg_7d": 52.3,
     "min_30d": 42,
-    "max_30d": 67,
-    "avg_30d": 56.3
+    "max_30d": 60,
+    "avg_30d": 52.3
   }
 }

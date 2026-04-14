@@ -1,52 +1,48 @@
 {
   "date": "2026-04-14",
-  "saved_at": "16:24 KST",
-  "market_regime": "위험선호 위장 — 고점 경계권 혼조",
+  "saved_at": "18:26 KST",
+  "market_regime": "위험선호 위장 스태그플레이션 초입 가능성",
   "trend_phase": "상승추세",
   "confidence": "낮음",
-  "one_line_summary": "TSMC 서프라이즈 소화 완료 후 나스닥 23183 고점권, 유가 $99·PCE +2.7% 인플레 재점화·호르무즈 실물 봉쇄 삼중 악재 미반영 — '위험선호 위장 스태그플레이션 초입' 경고",
+  "one_line_summary": "나스닥 23183·S&P 6886 고점권 위험선호 외관이나, TSMC 서프라이즈 소화 완료·에너지 EPS -31% 컷·FICC 미달로 추가 상승 촉매 부재 — 블랙스완 급반전 경계 구간",
   "thesis_killers": [],
   "key_outflows": [
     {
-      "zone": "에너지 소비 섹터 (항공·운송·화학)",
+      "zone": "에너지 섹터 (S&P500 내)",
       "severity": "높음"
     },
     {
-      "zone": "채권·장기 듀레이션 자산",
+      "zone": "헬스케어 섹터",
       "severity": "보통"
     },
     {
-      "zone": "에너지 섹터 (정유사 EPS 추정)",
+      "zone": "FICC·채권 트레이딩",
       "severity": "보통"
     }
   ],
   "key_inflows": [
     {
-      "zone": "반도체·AI 섹터 (단기 모멘텀)",
-      "momentum": "단기 강함(소화 완료 이후 지속 여부 불확실)"
+      "zone": "반도체·AI 섹터 (TSMC, 엔비디아, SK하이닉스)",
+      "momentum": "약화"
     },
     {
-      "zone": "금융·소프트웨어 섹터",
-      "momentum": "단기 양호"
-    },
-    {
-      "zone": "달러 강세 수혜 (단기 안전자산 일부)",
-      "momentum": "보통"
+      "zone": "미국 대형 금융주 (골드만삭스 등)",
+      "momentum": "약화"
     }
   ],
   "korea_focus": {},
   "volatility": {
-    "vix": "19.12",
-    "vkospi": "데이터 미제공",
-    "fear_greed": "62 (Greed)",
-    "level": "중립~탐욕 경계"
+    "vix": "18.55",
+    "vkospi": "코스피 5967.75 반영 (별도 수치 미제공)",
+    "fear_greed": "65",
+    "level": "탐욕"
   },
   "market_snapshot": {
     "sp500": "6886.24",
     "nasdaq": "23183.74",
-    "vix": "19.12",
+    "vix": "18.55",
     "kospi": "5967.75",
-    "krw_usd": "1477.18",
+    "krw_usd": "1471.18",
     "nvda": "189.31"
   },
   "actionable_watch": []
