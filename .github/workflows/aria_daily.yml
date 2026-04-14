@@ -1,0 +1,234 @@
+name: ARIA Daily Report
+
+# ── 하루 2회 주력 리포트 ──────────────────────────────────────────
+# MORNING 07:30 KST : 한국장 개장 직전 브리핑 (미국 전일 마감 + 오늘 전략)
+# EVENING 21:00 KST : 미국 프리마켓 직전 총정리 (한국장 마감 + 오늘 밤 이벤트)
+# WEEKLY  일요일 08:00 KST
+# MONTHLY 매월 1일 07:00 KST
+on:
+  schedule:
+    - cron: "30 22 * * 0-4"   # MORNING  07:30 KST (전날 UTC 22:30)
+    - cron: "0  12 * * 1-5"   # EVENING  21:00 KST (UTC 12:00)
+    - cron: "0  23 * * 6"     # WEEKLY   일요일 08:00 KST
+    - cron: "0  22 1 * *"     # MONTHLY  매월 1일 07:00 KST
+
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "실행 모드 (MORNING / EVENING / WEEKLY / MONTHLY)"
+        required: false
+        default: "MORNING"
+
+jobs:
+  # ══════════════════════════════════════════════════════════════════
+  # ARIA 메인 분석 파이프라인
+  # ══════════════════════════════════════════════════════════════════
+  run-aria:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ── MORNING 07:30 KST ─────────────────────────────────────
+      # • 미국 전일 마감 총정리
+      # • 오늘 한국장 진입 레벨 + 주목 종목
+      # • 어제 예측 채점 (accuracy 갱신)
+      # • Morning Baseline 저장
+      - name: MORNING Report
+        if: >
+          github.event.schedule == '30 22 * * 0-4' ||
+          (github.event_name == 'workflow_dispatch' &&
+           github.event.inputs.mode == 'MORNING')
+        env:
+          PYTHONIOENCODING:    utf-8
+          ARIA_MODE:           MORNING
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN:      ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN:            ${{ secrets.GH_TOKEN }}
+          GH_REPO:             ${{ secrets.GH_REPO }}
+          ANTHROPIC_MODEL:     "claude-sonnet-4-20250514"
+          MAX_THINKING_TOKENS: "8000"
+          SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
+        run: python aria_main.py
+
+      # ── EVENING 21:00 KST ─────────────────────────────────────
+      # • 한국장 마감 수급 분석
+      # • 미국 오늘 밤 주요 이벤트 (실적발표, 경제지표)
+      # • 내일 MORNING 대비 시나리오
+      - name: EVENING Report
+        if: >
+          github.event.schedule == '0 12 * * 1-5' ||
+          (github.event_name == 'workflow_dispatch' &&
+           github.event.inputs.mode == 'EVENING')
+        env:
+          PYTHONIOENCODING:    utf-8
+          ARIA_MODE:           EVENING
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN:      ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN:            ${{ secrets.GH_TOKEN }}
+          GH_REPO:             ${{ secrets.GH_REPO }}
+          ANTHROPIC_MODEL:     "claude-sonnet-4-20250514"
+          MAX_THINKING_TOKENS: "8000"
+          SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
+        run: python aria_main.py
+
+      # ── WEEKLY 일요일 08:00 KST ───────────────────────────────
+      - name: WEEKLY Report
+        if: >
+          github.event.schedule == '0 23 * * 6' ||
+          (github.event_name == 'workflow_dispatch' &&
+           github.event.inputs.mode == 'WEEKLY')
+        env:
+          PYTHONIOENCODING:  utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python3 -c "
+          from aria_notify import send_weekly_report
+          send_weekly_report()
+          "
+
+      # ── MONTHLY 매월 1일 07:00 KST ────────────────────────────
+      - name: MONTHLY Report
+        if: >
+          github.event.schedule == '0 22 1 * *' ||
+          (github.event_name == 'workflow_dispatch' &&
+           github.event.inputs.mode == 'MONTHLY')
+        env:
+          PYTHONIOENCODING:  utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN:    ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID:  ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python3 -c "
+          import json
+          from pathlib import Path
+          from aria_notify import send_monthly_report
+          from aria_analysis import extract_monthly_lessons
+          send_monthly_report()
+          memory   = json.loads(Path('data/memory.json').read_text()) if Path('data/memory.json').exists() else []
+          accuracy = json.loads(Path('data/accuracy.json').read_text()) if Path('data/accuracy.json').exists() else {}
+          extract_monthly_lessons(memory, accuracy)
+          "
+
+      # ── 데이터 저장 ───────────────────────────────────────────
+      - name: Save ARIA state
+        env:
+          ARIA_MODE: ${{ env.ARIA_MODE }}
+        run: |
+          git config user.name  "ARIA Bot"
+          git config user.email "aria@github-actions"
+
+          # 저장 대상 파일
+          git add \
+            data/memory.json \
+            data/accuracy.json \
+            data/sentiment.json \
+            data/rotation.json \
+            data/aria_weights.json \
+            data/aria_lessons.json \
+            data/aria_cost.json \
+            data/aria_market_data.json \
+            data/morning_baseline.json \
+            reports/ \
+            dashboard.html || true
+
+          # 충돌 방지: 원격 최신 상태로 rebase 후 push
+          git stash
+          git fetch origin main
+          git reset --hard origin/main
+          git stash pop || true
+
+          git add \
+            data/memory.json \
+            data/accuracy.json \
+            data/sentiment.json \
+            data/rotation.json \
+            data/aria_weights.json \
+            data/aria_lessons.json \
+            data/aria_cost.json \
+            data/aria_market_data.json \
+            data/morning_baseline.json \
+            reports/ \
+            dashboard.html || true
+
+          git diff --staged --quiet || \
+            git commit -m "ARIA: $(date +'%Y-%m-%d %H:%M') [${ARIA_MODE:-AUTO}] 저장"
+          git push
+
+  # ══════════════════════════════════════════════════════════════════
+  # Jackal 자동 학습 (MORNING 리포트 완료 후만 실행 — 비용 절감)
+  # ══════════════════════════════════════════════════════════════════
+  run-jackal:
+    needs: run-aria
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    # MORNING 또는 수동 실행 때만 Jackal 학습
+    if: >
+      github.event.schedule == '30 22 * * 0-4' ||
+      github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install anthropic
+
+      - name: Run Jackal
+        env:
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_MODEL:     "claude-sonnet-4-20250514"
+          SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
+          JACKAL_AUTOCOMPACT:  "true"
+          JACKAL_DAILY_BUDGET: "500000"
+        run: python jackal/jackal_core.py
+
+      - name: Save Jackal artifacts
+        run: |
+          git config user.name  "Jackal Bot"
+          git config user.email "jackal@aria-agent"
+
+          git add \
+            jackal/skills/ \
+            jackal/lessons/ \
+            jackal/jackal_weights.json \
+            jackal/compact_log.json || true
+
+          git stash
+          git fetch origin main
+          git reset --hard origin/main
+          git stash pop || true
+
+          git add \
+            jackal/skills/ \
+            jackal/lessons/ \
+            jackal/jackal_weights.json \
+            jackal/compact_log.json || true
+
+          git diff --cached --quiet || \
+            git commit -m "🦊 Jackal: $(date +'%Y-%m-%d %H:%M') 학습 완료 [skip ci]"
+          git push
