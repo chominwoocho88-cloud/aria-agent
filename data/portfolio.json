@@ -1,0 +1,54 @@
+{
+  "last_updated": "2026-04-14",
+  "note": "이 파일을 직접 수정해서 포트폴리오를 관리하세요. ARIA와 Jackal이 함께 읽습니다.",
+  "holdings": [
+    {
+      "ticker":   "NVDA",
+      "name":     "엔비디아",
+      "avg_cost": 182.99,
+      "market":   "US",
+      "currency": "$",
+      "memo":     "AI 반도체 핵심 포지션"
+    },
+    {
+      "ticker":   "AVGO",
+      "name":     "브로드컴",
+      "avg_cost": null,
+      "market":   "US",
+      "currency": "$",
+      "memo":     ""
+    },
+    {
+      "ticker":   "SCHD",
+      "name":     "SCHD ETF",
+      "avg_cost": null,
+      "market":   "US",
+      "currency": "$",
+      "memo":     "배당 ETF"
+    },
+    {
+      "ticker":   "000660.KS",
+      "name":     "SK하이닉스",
+      "avg_cost": null,
+      "market":   "KR",
+      "currency": "₩",
+      "memo":     "HBM 수혜"
+    },
+    {
+      "ticker":   "005930.KS",
+      "name":     "삼성전자",
+      "avg_cost": null,
+      "market":   "KR",
+      "currency": "₩",
+      "memo":     ""
+    },
+    {
+      "ticker":   "035720.KS",
+      "name":     "카카오",
+      "avg_cost": null,
+      "market":   "KR",
+      "currency": "₩",
+      "memo":     ""
+    }
+  ]
+}
