@@ -173,6 +173,94 @@ def print_report(report: dict, run_n: int):
     console.rule()
 
 
+def _collect_jackal_news(hunter_data: dict):
+    """
+    data/jackal_watchlist.json 읽기 → 해당 종목 뉴스 수집 → data/jackal_news.json 저장.
+    ARIA Hunter의 웹서치 결과에서 Jackal 추천 종목 관련 헤드라인 추출.
+    비용: Claude Haiku 1회 (약 $0.002)
+    """
+    from aria_paths import DATA_DIR
+    watchlist_file = DATA_DIR / "jackal_watchlist.json"
+    news_file      = DATA_DIR / "jackal_news.json"
+
+    if not watchlist_file.exists():
+        return
+
+    try:
+        wl = json.loads(watchlist_file.read_text(encoding="utf-8"))
+    except Exception:
+        return
+
+    tickers = wl.get("tickers", [])
+    details = wl.get("details", {})
+    if not tickers:
+        return
+
+    console.print(f"[dim]Jackal watchlist 뉴스 수집: {tickers}[/dim]")
+
+    # Hunter가 수집한 신호에서 관련 헤드라인 추출
+    signals = hunter_data.get("raw_signals", [])
+    ticker_names = [details.get(t, {}).get("name", t) for t in tickers]
+    search_terms = tickers + ticker_names
+
+    relevant = []
+    for sig in signals:
+        headline = sig.get("headline", "")
+        if any(term.lower() in headline.lower() for term in search_terms):
+            relevant.append({
+                "ticker":   next((t for t in tickers if t.lower() in headline.lower() or
+                                  details.get(t,{}).get("name","").lower() in headline.lower()), tickers[0]),
+                "headline": headline,
+                "source":   sig.get("source_hint", ""),
+                "data_pt":  sig.get("data_point", ""),
+            })
+
+    # Hunter 결과가 부족하면 Haiku로 보완 검색
+    if len(relevant) < 3:
+        try:
+            from aria_agents import call_api, MODEL_HUNTER
+            ticker_str = ", ".join([f"{t}({details.get(t,{}).get('name',t)})" for t in tickers])
+            raw = call_api(
+                "You are a financial news collector. Return ONLY valid JSON, no markdown.",
+                f"Search recent news for these stocks: {ticker_str}\n"
+                f"Market regime: {wl.get('regime','')}\n"
+                "Return JSON: {"news_items": [{"ticker": "", "headline": "", "impact": "bullish/bearish/neutral"}]}",
+                use_search=True,
+                model=MODEL_HUNTER,
+                max_tokens=800,
+            )
+            import re as _re, json as _json
+            cleaned = _re.sub(r"```(?:json)?|```", "", raw).strip()
+            m = _re.search(r"\{[\s\S]*\}", cleaned)
+            if m:
+                data = _json.loads(m.group())
+                for item in data.get("news_items", []):
+                    relevant.append({
+                        "ticker":   item.get("ticker", ""),
+                        "headline": item.get("headline", ""),
+                        "impact":   item.get("impact", "neutral"),
+                        "source":   "web_search",
+                    })
+        except Exception as e:
+            console.print(f"[yellow]Jackal 뉴스 보완 검색 실패: {e}[/yellow]")
+
+    # 저장
+    try:
+        result = {
+            "collected_at": _now().strftime("%Y-%m-%d %H:%M KST"),
+            "tickers":      tickers,
+            "regime":       wl.get("regime", ""),
+            "news_items":   relevant[:10],
+            "total":        len(relevant),
+        }
+        news_file.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        console.print(f"[dim]Jackal 뉴스 {len(relevant)}건 저장 → jackal_news.json[/dim]")
+    except Exception as e:
+        console.print(f"[yellow]jackal_news.json 저장 실패: {e}[/yellow]")
+
+
 def main():
     parser = argparse.ArgumentParser(description="ARIA Multi-Agent")
     parser.add_argument("--history", action="store_true")
@@ -321,7 +409,11 @@ def main():
         except Exception as e:
             console.print("[yellow]Pattern DB 스킵: " + str(e) + "[/yellow]")
 
-        # ── 12. Dashboard HTML (MORNING만) ────────────────────────
+        # ── 12. Jackal watchlist 뉴스 수집 (MORNING만) ──────────
+        if MODE == "MORNING":
+            _collect_jackal_news(hunter)
+
+        # ── 13. Dashboard HTML (MORNING만) ────────────────────────
         if MODE == "MORNING":
             try:
                 from aria_dashboard import build_dashboard
