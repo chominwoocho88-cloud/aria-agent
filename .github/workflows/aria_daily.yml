@@ -1,5 +1,7 @@
 name: ARIA Daily Report
 
+# ARIA 전용 워크플로우 — Jackal과 완전 독립
+# 역할: 시장 분석 리포트 + 텔레그램 + dashboard.html
 on:
   schedule:
     - cron: "30 23 * * 0-4"   # MORNING  08:30 KST (한국장 30분 전)
@@ -15,7 +17,6 @@ on:
         default: "MORNING"
 
 jobs:
-
   run-aria:
     runs-on: ubuntu-latest
     permissions:
@@ -34,7 +35,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── MORNING 08:30 KST (한국장 30분 전) ───────────────────────
+      # ── MORNING 08:30 KST ─────────────────────────────────────
       - name: MORNING Report
         if: >
           github.event.schedule == '30 23 * * 0-4' ||
@@ -53,7 +54,7 @@ jobs:
           SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
         run: python aria_main.py
 
-      # ── EVENING 23:00 KST (미국장 30분 전) ──────────────────────
+      # ── EVENING 23:00 KST ─────────────────────────────────────
       - name: EVENING Report
         if: >
           github.event.schedule == '0 14 * * 1-5' ||
@@ -72,7 +73,7 @@ jobs:
           SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
         run: python aria_main.py
 
-      # ── WEEKLY 일요일 07:00 KST ───────────────────────────────────
+      # ── WEEKLY 일요일 07:00 KST ───────────────────────────────
       - name: WEEKLY Report
         if: >
           github.event.schedule == '0 22 * * 0' ||
@@ -89,7 +90,7 @@ jobs:
           send_weekly_report()
           "
 
-      # ── MONTHLY 매월 1일 06:00 KST ────────────────────────────────
+      # ── MONTHLY 매월 1일 06:00 KST ────────────────────────────
       - name: MONTHLY Report
         if: >
           github.event.schedule == '0 21 1 * *' ||
@@ -107,23 +108,25 @@ jobs:
           from aria_notify import send_monthly_report
           from aria_analysis import extract_monthly_lessons
           send_monthly_report()
-          mem_path = Path('data/memory.json') if Path('data/memory.json').exists() else Path('memory.json')
-          acc_path = Path('data/accuracy.json') if Path('data/accuracy.json').exists() else Path('accuracy.json')
-          memory   = json.loads(mem_path.read_text()) if mem_path.exists() else []
-          accuracy = json.loads(acc_path.read_text()) if acc_path.exists() else {}
+          mem = Path('memory.json') if Path('memory.json').exists() else Path('data/memory.json')
+          acc = Path('accuracy.json') if Path('accuracy.json').exists() else Path('data/accuracy.json')
+          memory   = json.loads(mem.read_text()) if mem.exists() else []
+          accuracy = json.loads(acc.read_text()) if acc.exists() else {}
           extract_monthly_lessons(memory, accuracy)
           "
 
-      # ── 저장 ──────────────────────────────────────────────────────
+      # ── 저장 ──────────────────────────────────────────────────
       - name: Save ARIA state
         run: |
           git config user.name  "ARIA Bot"
           git config user.email "aria@github-actions"
 
+          # 루트 레벨 파일
           git add memory.json sentiment.json accuracy.json \
                   rotation.json aria_weights.json aria_lessons.json \
                   aria_cost.json aria_market_data.json morning_baseline.json \
                   reports/ dashboard.html 2>/dev/null || true
+          # data/ 디렉토리 (aria_paths.py 기준)
           git add data/ 2>/dev/null || true
 
           git stash
@@ -140,69 +143,3 @@ jobs:
           git diff --staged --quiet || \
             git commit -m "ARIA: $(date +'%Y-%m-%d %H:%M') [${ARIA_MODE:-AUTO}] 저장"
           git push
-
-  # ── Jackal Evolution (ARIA 완료 후 항상 실행) ─────────────────────
-  run-jackal:
-    needs: run-aria
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: always()
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: pip install anthropic httpx yfinance
-
-      - name: Run Jackal Evolution
-        env:
-          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
-          ANTHROPIC_MODEL:     "claude-sonnet-4-20250514"
-          SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
-          JACKAL_DAILY_BUDGET: "500000"
-          JACKAL_AUTOCOMPACT:  "true"
-        run: |
-          python3 -c "
-          import logging, sys
-          logging.basicConfig(level=logging.INFO, format='%(asctime)s [Jackal] %(message)s')
-          sys.path.insert(0, 'jackal')
-          from jackal_evolution import JackalEvolution
-          from jackal_shield import JackalShield
-          shield = JackalShield()
-          if shield.scan().get('abort'):
-              print('Shield 중단'); exit(0)
-          ev = JackalEvolution()
-          r  = ev.evolve()
-          ev.save_weights()
-          print(f'완료: Skill {len(r.get(\"new_skills\",[]))}개 / Instinct {len(r.get(\"new_instincts\",[]))}개')
-          "
-
-      - name: Save Jackal state
-        run: |
-          git config user.name  "Jackal Bot"
-          git config user.email "jackal@aria-agent"
-
-          git add jackal/jackal_weights.json jackal/skills/ jackal/lessons/ || true
-          git add jackal/compact_log.json jackal/.last_evolve \
-                  jackal/scan_log.json 2>/dev/null || true
-
-          git stash
-          git fetch origin main
-          git reset --hard origin/main
-          git stash pop || true
-
-          git add jackal/jackal_weights.json jackal/skills/ jackal/lessons/ || true
-          git add jackal/compact_log.json jackal/.last_evolve \
-                  jackal/scan_log.json 2>/dev/null || true
-
-          git diff --cached --quiet || \
-            git commit -m "🦊 Jackal: $(date +'%Y-%m-%d %H:%M') [skip ci]"
-          git push || (git pull --rebase origin main && git push)
