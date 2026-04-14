@@ -137,7 +137,11 @@ class JackalEvolution:
     # ══════════════════════════════════════════════════════════════
 
     def _learn_from_outcomes(self) -> dict:
-        # hunt_log.json 우선, 없으면 scan_log.json 폴백
+        """
+        두 가지 학습 포인트:
+        ① 1일 정확도: 다음날 방향이 맞았는가 (진입 타이밍)
+        ② 스윙 정확도: 3~7일 내 Peak +1% 이상 (보유 기간 성공)
+        """
         log_file = HUNT_LOG_FILE if HUNT_LOG_FILE.exists() else SCAN_LOG_FILE
         if not log_file.exists():
             return {"learned": 0, "changes": [], "accuracy_summary": {}}
@@ -147,14 +151,14 @@ class JackalEvolution:
         except Exception:
             return {"learned": 0, "changes": [], "accuracy_summary": {}}
 
-        # 알림 발송된 것 + 미확인 + 시간 경과
-        # Hunt는 alerted 기준, 아니면 최소 is_entry=True 기준
-        cutoff  = datetime.now() - timedelta(hours=OUTCOME_HOURS)
+        cutoff_1d   = datetime.now() - timedelta(hours=28)   # 1일 체크: 28시간 후
+        cutoff_swing = datetime.now() - timedelta(days=8)    # 스윙 체크: 8일 후
+
         pending = [
             e for e in self._logs
             if (e.get("alerted") or e.get("is_entry"))
             and not e.get("outcome_checked")
-            and datetime.fromisoformat(e.get("timestamp", "2000-01-01")) < cutoff
+            and datetime.fromisoformat(e.get("timestamp", "2000-01-01")) < cutoff_1d
         ]
 
         learned  = 0
@@ -164,8 +168,12 @@ class JackalEvolution:
         tkr_acc  = defaultdict(lambda: {"correct": 0, "total": 0})
         dev_acc  = defaultdict(lambda: {"correct": 0, "total": 0})
 
-        stype_acc = defaultdict(lambda: {"correct": 0, "total": 0,
-                                               "peak_days": [], "peak_pcts": []})
+        stype_acc  = defaultdict(lambda: {
+            "correct": 0, "total": 0, "peak_days": [], "peak_pcts": [],
+            # 두 학습 포인트 추가
+            "d1_correct": 0, "d1_total": 0,
+            "swing_correct": 0, "swing_total": 0,
+        })
 
         for entry in pending:
             try:
@@ -174,108 +182,138 @@ class JackalEvolution:
                 if not price_entry:
                     continue
 
-                # Peak Detection: expected_days 기준으로 추적
-                expected_days = entry.get("expected_days", 5)
-                track_days    = max(expected_days + 2, 7)
-                hist = yf.Ticker(ticker).history(
-                    period=f"{track_days + 5}d", interval="1d"
-                )
+                now         = datetime.now()
+                entry_ts    = datetime.fromisoformat(entry["timestamp"])
+                days_since  = (now - entry_ts).days
+
+                hist = yf.Ticker(ticker).history(period="15d", interval="1d")
                 if hist.empty or len(hist) < 2:
                     continue
 
-                # 진입일 이후 데이터만
-                entry_ts = datetime.fromisoformat(entry["timestamp"])
-                future   = hist[hist.index > entry_ts.strftime("%Y-%m-%d")]
+                future = hist[hist.index > entry_ts.strftime("%Y-%m-%d")]
                 if future.empty:
-                    future = hist.iloc[-min(track_days, len(hist)):]
+                    future = hist.iloc[-min(10, len(hist)):]
 
-                closes = [float(c) for c in future["Close"]]
+                closes  = [float(c) for c in future["Close"]]
                 returns = [(c - price_entry) / price_entry * 100 for c in closes]
-
                 if not returns:
                     continue
 
-                peak_pct = max(returns)
-                peak_day = returns.index(peak_pct) + 1
-                final_pct = returns[-1]
-                correct   = peak_pct >= SUCCESS_PCT
+                # ── ① 1일 정확도 ──────────────────────────────
+                d1_pct     = returns[0] if len(returns) >= 1 else None
+                d1_correct = (d1_pct > 0.3) if d1_pct is not None else None
 
-                entry["outcome_checked"] = True
-                entry["price_5d_later"]  = round(closes[-1], 4)
-                entry["outcome_pct"]     = round(final_pct, 2)
-                entry["peak_pct"]        = round(peak_pct, 2)
-                entry["peak_day"]        = peak_day
-                entry["outcome_correct"] = correct
+                entry["price_1d_later"]  = round(closes[0], 4) if closes else None
+                entry["outcome_1d_pct"]  = round(d1_pct, 2) if d1_pct is not None else None
+                entry["outcome_1d_hit"]  = d1_correct
 
-                # ── 신호별 정확도 ──────────────────────────────
+                # ── ② 스윙 정확도 (3~7일 Peak) ────────────────
+                swing_window = min(7, len(returns))
+                swing_returns = returns[:swing_window]
+                peak_pct  = max(swing_returns) if swing_returns else 0
+                peak_day  = swing_returns.index(peak_pct) + 1 if swing_returns else 1
+                swing_hit = peak_pct >= 1.0   # +1% 이상 = 스윙 성공
+
+                # 스윙 체크는 7일 이상 경과 후에만 확정
+                swing_checked = days_since >= 7
+
+                entry["price_peak"]        = round(closes[peak_day-1], 4) if closes else None
+                entry["peak_day"]          = peak_day
+                entry["peak_pct"]          = round(peak_pct, 2)
+                entry["outcome_swing_hit"] = swing_hit if swing_checked else None
+
+                # outcome_checked: 1일은 즉시, 스윙은 7일 후
+                entry["outcome_checked"] = swing_checked
+                # 레거시 필드 호환
+                entry["outcome_pct"]     = round(returns[-1], 2) if returns else None
+                entry["outcome_correct"] = swing_hit
+
+                stype   = entry.get("swing_type", "기술적과매도")
+                regime  = entry.get("aria_regime", "")
+                verdict = entry.get("devil_verdict", "")
+
+                # ── 신호별 정확도 (스윙 기준) ─────────────────
                 for sig in entry.get("signals_fired", []):
                     sig_acc[sig]["total"]   += 1
-                    sig_acc[sig]["correct"] += int(correct)
+                    sig_acc[sig]["correct"] += int(swing_hit)
 
-                # ── 스윙 타입별 정확도 + Peak Day 학습 ──────────
-                stype = entry.get("swing_type", "기술적과매도")
-                stype_acc[stype]["total"]   += 1
-                stype_acc[stype]["correct"] += int(correct)
+                # ── 스윙 타입별 — 두 포인트 모두 ───────────────
+                stype_acc[stype]["total"]        += 1
+                stype_acc[stype]["correct"]      += int(swing_hit)
                 stype_acc[stype]["peak_days"].append(peak_day)
                 stype_acc[stype]["peak_pcts"].append(peak_pct)
+                stype_acc[stype]["swing_total"]  += 1
+                stype_acc[stype]["swing_correct"] += int(swing_hit)
+                if d1_correct is not None:
+                    stype_acc[stype]["d1_total"]   += 1
+                    stype_acc[stype]["d1_correct"]  += int(d1_correct)
 
-                # ── 레짐별 정확도 ──────────────────────────────
-                regime = entry.get("aria_regime", "")
+                # ── 레짐별 ────────────────────────────────────
                 if regime:
                     reg_acc[regime]["total"]   += 1
-                    reg_acc[regime]["correct"] += int(correct)
+                    reg_acc[regime]["correct"] += int(swing_hit)
 
-                # ── 티커별 정확도 ──────────────────────────────
+                # ── 티커별 ────────────────────────────────────
                 tkr_acc[ticker]["total"]   += 1
-                tkr_acc[ticker]["correct"] += int(correct)
+                tkr_acc[ticker]["correct"] += int(swing_hit)
 
-                # ── Devil 판정 정확도 ──────────────────────────
-                verdict = entry.get("devil_verdict", "")
+                # ── Devil 정확도 ──────────────────────────────
                 if verdict:
                     dev_acc[verdict]["total"]   += 1
-                    dev_acc[verdict]["correct"] += int(not correct if verdict == "반대" else correct)
+                    dev_acc[verdict]["correct"] += int(not swing_hit if verdict == "반대" else swing_hit)
 
-                # ── 신호별 가중치 즉시 조정 ────────────────────
-                adj = WEIGHT_ADJUST_UP if correct else -WEIGHT_ADJUST_DOWN
-                sw  = self.weights["signal_weights"]
-                for sig in entry.get("signals_fired", []):
-                    if sig in sw:
-                        old_w = sw[sig]
-                        new_w = round(max(WEIGHT_MIN, min(WEIGHT_MAX, old_w + adj)), 4)
-                        sw[sig] = new_w
-                        if abs(old_w - new_w) > 0.001:
-                            changes.append(
-                                f"{sig}: {old_w:.3f}→{new_w:.3f} "
-                                f"[{ticker} peak D{peak_day} {peak_pct:+.1f}%]"
-                            )
+                # ── 가중치 조정 (스윙 + 1일 복합) ─────────────
+                # 스윙 성공: +0.04 / 1일도 맞음: 추가 +0.01
+                if swing_checked:
+                    adj = WEIGHT_ADJUST_UP if swing_hit else -WEIGHT_ADJUST_DOWN
+                    if d1_correct:
+                        adj += 0.01   # 1일도 맞았으면 추가 보너스
+                    sw_w = self.weights["signal_weights"]
+                    for sig in entry.get("signals_fired", []):
+                        if sig in sw_w:
+                            old_w = sw_w[sig]
+                            new_w = round(max(WEIGHT_MIN, min(WEIGHT_MAX, old_w + adj)), 4)
+                            sw_w[sig] = new_w
+                            if abs(old_w - new_w) > 0.001:
+                                changes.append(
+                                    f"{sig}: {old_w:.3f}→{new_w:.3f} "
+                                    f"[{ticker} 1일:{'+' if d1_correct else '-'} "
+                                    f"스윙D{peak_day} {peak_pct:+.1f}%]"
+                                )
 
                 learned += 1
+                d1_str  = f"{d1_pct:+.1f}%" if d1_pct is not None else "대기"
                 log.info(
-                    f"  {ticker} [{stype}]: peak D{peak_day} {peak_pct:+.1f}% "
-                    f"final {final_pct:+.1f}% {'✅' if correct else '❌'} | "
-                    f"devil={verdict}"
+                    f"  {ticker} [{stype}]: "
+                    f"1일 {d1_str} {'✅' if d1_correct else '❌' if d1_correct is not None else '⏳'} | "
+                    f"스윙 Peak D{peak_day} {peak_pct:+.1f}% {'✅' if swing_hit else '❌'}"
+                    + (" (확정)" if swing_checked else " (집계중)")
                 )
 
             except Exception as e:
                 log.error(f"  학습 실패: {e}")
 
-        # ── 스윙 타입별 최적 보유 기간 저장 ──────────────────────
+        # ── 스윙 타입별 두 정확도 저장 ────────────────────────────
         opt_days = self.weights.setdefault("swing_type_optimal", {})
         for stype, v in stype_acc.items():
-            if v["peak_days"]:
-                avg_peak = round(sum(v["peak_days"]) / len(v["peak_days"]), 1)
-                avg_gain = round(sum(v["peak_pcts"]) / len(v["peak_pcts"]), 2)
-                acc_pct  = round(v["correct"] / v["total"] * 100, 1) if v["total"] else 0
-                opt_days[stype] = {
-                    "avg_peak_day":  avg_peak,
-                    "avg_peak_gain": avg_gain,
-                    "accuracy":      acc_pct,
-                    "sample":        v["total"],
-                }
-                log.info(
-                    f"  [{stype}] 평균 Peak D{avg_peak} "
-                    f"({avg_gain:+.2f}%) 적중률 {acc_pct}%"
-                )
+            if not v["peak_days"]:
+                continue
+            avg_peak  = round(sum(v["peak_days"]) / len(v["peak_days"]), 1)
+            avg_gain  = round(sum(v["peak_pcts"]) / len(v["peak_pcts"]), 2)
+            swing_acc = round(v["swing_correct"] / v["swing_total"] * 100, 1) if v["swing_total"] else 0
+            d1_acc    = round(v["d1_correct"]    / v["d1_total"]    * 100, 1) if v["d1_total"]    else 0
+
+            opt_days[stype] = {
+                "avg_peak_day":   avg_peak,
+                "avg_peak_gain":  avg_gain,
+                "swing_accuracy": swing_acc,   # 3~7일 스윙 성공률
+                "day1_accuracy":  d1_acc,       # 1일 방향 정확도
+                "sample":         v["total"],
+            }
+            log.info(
+                f"  [{stype}] Peak D{avg_peak} ({avg_gain:+.2f}%) | "
+                f"1일 {d1_acc}% | 스윙 {swing_acc}%"
+            )
 
         # ── 누적 정확도 업데이트 ───────────────────────────────
         self._update_accuracy("signal_accuracy",  sig_acc)
@@ -562,10 +600,14 @@ class JackalEvolution:
 - weight_adjustments는 -0.15 ~ +0.15 범위
 - 정확도가 60% 이상인 신호는 가중치 ↑, 40% 미만은 ↓ 권장
 - recommendation_accuracy를 보고 어떤 레짐/섹터에서 추천이 잘 맞는지 분석
-- swing_type_optimal을 보고 타입별 최적 보유 기간 패턴 분석
-  예: "패닉셀반등은 평균 D2.3에 Peak, 강세다이버전스는 D5.1"
-- 적중률 높은 스윙 타입 → new_skills에 "X 타입은 Y일째 익절"로 포함
-- 적중률 낮은 스윙 타입 → new_instincts의 warning에 포함
+- swing_type_optimal의 두 정확도 분석:
+  day1_accuracy:  1일 방향 정확도 → 진입 타이밍이 좋은 신호
+  swing_accuracy: 스윙 성공률 → 보유 기간 기준
+  예: "패닉셀반등 1일60% + 스윙85% → 진입하면 며칠 들고가야"
+  예: "MA지지 1일45% + 스윙62% → 진입 타이밍 불확실, 분할 추천"
+- day1 높고 swing 낮음 → "당일 스캘핑" 스킬
+- day1 낮고 swing 높음 → "분할 진입, X일 보유" 스킬
+- 둘 다 낮음 → 해당 신호 타입 경고로 추가
 - 추천이 잘 맞는 패턴은 new_skills에 포함
 - 추천이 잘 안 맞는 패턴은 new_instincts의 warning에 포함
 """.strip()
