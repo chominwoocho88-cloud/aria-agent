@@ -233,10 +233,18 @@ MA20: {cur}{tech['ma20']} | MA50: {cur}{tech.get('ma50','N/A')}
         m   = re.search(r"\{[\s\S]*\}", raw)
         r   = json.loads(m.group()) if m else {}
         r["analyst_score"] = int(r.get("analyst_score", 50))
+        r.setdefault("swing_setup",  "중립")
+        r.setdefault("signals_fired", [])
+        r.setdefault("bull_case",    "")
+        r.setdefault("entry_zone",   "")
+        r.setdefault("target_1d",    "")
+        r.setdefault("target_5d",    "")
+        r.setdefault("stop_loss",    "")
         return r
     except Exception as e:
         log.error(f"  Analyst 실패: {e}")
-        return {"analyst_score": 50, "swing_setup": "중립", "signals_fired": []}
+        return {"analyst_score": 50, "swing_setup": "중립", "signals_fired": [],
+                "bull_case": "", "entry_zone": "", "target_1d": "", "target_5d": "", "stop_loss": ""}
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -274,10 +282,14 @@ Thesis Killer:{tk_text or ' 없음'} | 레짐:{aria['regime']}
         m   = re.search(r"\{[\s\S]*\}", raw)
         r   = json.loads(m.group()) if m else {}
         r["devil_score"] = int(r.get("devil_score", 30))
+        r.setdefault("verdict",           "부분동의")
+        r.setdefault("main_risk",         "")
+        r.setdefault("thesis_killer_hit", False)
+        r.setdefault("is_dead_cat",       False)
         return r
     except Exception as e:
         log.error(f"  Devil 실패: {e}")
-        return {"devil_score": 30, "verdict": "부분동의",
+        return {"devil_score": 30, "verdict": "부분동의", "main_risk": "",
                 "thesis_killer_hit": False, "is_dead_cat": False}
 
 
@@ -421,8 +433,8 @@ def run_hunt(force: bool = False) -> dict:
         devil   = _devil_swing(ticker, tech, analyst, aria, cur)
         final   = _final(analyst, devil)
 
-        log.info(f"    A:{analyst['analyst_score']} D:{devil['devil_score']} "
-                 f"({devil['verdict']}) → F:{final['final_score']:.0f} {final['label']}")
+        log.info(f"    A:{analyst.get('analyst_score',50)} D:{devil.get('devil_score',30)} "
+                 f"({devil.get('verdict','?')}) → F:{final['final_score']:.0f} {final['label']}")
 
         hunted += 1
 
