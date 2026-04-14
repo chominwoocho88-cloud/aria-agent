@@ -1,43 +1,43 @@
 {
   "date": "2026-04-14",
-  "saved_at": "15:06 KST",
+  "saved_at": "15:28 KST",
   "market_regime": "위험선호",
   "trend_phase": "상승추세",
   "confidence": "보통",
-  "one_line_summary": "TSMC 어닝 서프라이즈·반도체 수출 폭발로 나스닥 23183 고점권 유지, VIX 19.12 공포 완전 해소됐으나 Fed 금리인상 재부상·에너지 인플레·연속 급등 후 되돌림 경보 동시 발동으로 위험선호 속 고점 경계 국면",
+  "one_line_summary": "TSMC 어닝 서프라이즈 +35.1%에 나스닥 23183 고점권 안착, VIX 19.12로 공포 해소되며 위험선호 재진입했으나 대형은행 실적 집중 발표·에너지 인플레 재부상으로 단기 급반전 경계 필요",
   "thesis_killers": [],
   "key_outflows": [
     {
-      "zone": "에너지·항공 섹터",
+      "zone": "에너지 섹터 (미국 주식)",
       "severity": "보통"
     },
     {
-      "zone": "헬스케어 섹터",
+      "zone": "헬스케어 섹터 (미국 주식)",
       "severity": "보통"
     },
     {
-      "zone": "장기채 (미국 10년국채)",
-      "severity": "높음"
+      "zone": "은행·금융 섹터 (단기 불확실성)",
+      "severity": "보통"
     }
   ],
   "key_inflows": [
     {
-      "zone": "반도체·AI 인프라 (글로벌)",
+      "zone": "반도체·AI 섹터 (글로벌)",
       "momentum": "강함"
     },
     {
-      "zone": "코스피·한국 반도체 (SK하이닉스·삼성전자)",
-      "momentum": "강함"
+      "zone": "KOSPI 반도체 대형주 (SK하이닉스·삼성전자)",
+      "momentum": "보통~강함"
     },
     {
-      "zone": "미국 대형 금융주 (Goldman Sachs 등)",
+      "zone": "미국 기술주 전반",
       "momentum": "보통"
     }
   ],
   "korea_focus": {},
   "volatility": {
     "vix": "19.12",
-    "vkospi": "추정 18~20",
+    "vkospi": "데이터 미제공",
     "fear_greed": "62 (Greed)",
     "level": "중립~탐욕"
   },
@@ -45,8 +45,8 @@
     "sp500": "6886.24",
     "nasdaq": "23183.74",
     "vix": "19.12",
-    "kospi": "5985.62",
-    "krw_usd": "1481.48",
+    "kospi": "5969.4",
+    "krw_usd": "1480.55",
     "nvda": "189.31"
   },
   "actionable_watch": []

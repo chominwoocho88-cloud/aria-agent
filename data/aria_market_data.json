@@ -1,5 +1,5 @@
 {
-  "fetched_at": "2026-04-14 15:04 KST",
+  "fetched_at": "2026-04-14 15:26 KST",
   "market_status": "open",
   "data_label": "실시간",
   "data_quality": "ok",
@@ -10,17 +10,17 @@
   "vix": "19.12",
   "vix_change": "-1.9%",
   "us_10y": "4.3",
-  "kospi": "5985.62",
-  "kospi_change": "+3.05%",
-  "krw_usd": "1481.48",
-  "sk_hynix": "1111000.0",
-  "sk_hynix_change": "+6.83%",
-  "samsung": "207750.0",
-  "samsung_change": "+3.36%",
-  "kakao": "48200.0",
-  "kakao_change": "+2.55%",
-  "kodex": "34130.0",
-  "kodex_change": "+1.8%",
+  "kospi": "5969.4",
+  "kospi_change": "+2.77%",
+  "krw_usd": "1480.55",
+  "sk_hynix": "1104000.0",
+  "sk_hynix_change": "+6.15%",
+  "samsung": "206750.0",
+  "samsung_change": "+2.86%",
+  "kakao": "48150.0",
+  "kakao_change": "+2.45%",
+  "kodex": "34155.0",
+  "kodex_change": "+1.88%",
   "nvda": "189.31",
   "nvda_change": "+0.3%",
   "avgo": "379.75",
@@ -59,13 +59,11 @@
   "korea_special_news": [],
   "source": "Yahoo Finance + FearGreedChart + KRX + FRED + FSC",
   "volatility_alert": {
-    "level": "elevated",
-    "alerts": [
-      "코스피 3.05% 변동"
-    ],
-    "should_run_now": true,
+    "level": "normal",
+    "alerts": [],
+    "should_run_now": false,
     "vix": 19.12,
-    "kospi_change": 3.05,
+    "kospi_change": 2.77,
     "sp500_change": 1.02
   }
 }

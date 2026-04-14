@@ -113,7 +113,7 @@
         },
         "자금흐름": {
           "score": 5,
-          "reason": "유입4 / 유출4"
+          "reason": "유입3 / 유출3"
         },
         "반론강도": {
           "score": 0,
@@ -132,7 +132,7 @@
       "trend": "상승추세",
       "vix_level": "중립~탐욕",
       "vix_val": 19.12,
-      "vkospi_val": 18.0,
+      "vkospi_val": null,
       "fear_greed": 62.0,
       "internal_raw": 100,
       "divergence": true,
@@ -160,7 +160,7 @@
       },
       "자금흐름": {
         "score": 5,
-        "reason": "유입4 / 유출4"
+        "reason": "유입3 / 유출3"
       },
       "반론강도": {
         "score": 0,
@@ -179,7 +179,7 @@
     "trend": "상승추세",
     "vix_level": "중립~탐욕",
     "vix_val": 19.12,
-    "vkospi_val": 18.0,
+    "vkospi_val": null,
     "fear_greed": 62.0,
     "internal_raw": 100,
     "divergence": true,
