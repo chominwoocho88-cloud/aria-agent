@@ -35,9 +35,12 @@ log = logging.getLogger("jackal_scanner")
 KST   = timezone(timedelta(hours=9))
 _BASE = Path(__file__).parent
 
-SCAN_LOG_FILE = _BASE / "scan_log.json"
-COOLDOWN_FILE = _BASE / "scan_cooldown.json"
-WEIGHTS_FILE  = _BASE / "jackal_weights.json"
+SCAN_LOG_FILE      = _BASE / "scan_log.json"
+COOLDOWN_FILE      = _BASE / "scan_cooldown.json"
+WEIGHTS_FILE       = _BASE / "jackal_weights.json"
+RECOMMEND_LOG_FILE = _BASE / "recommendation_log.json"
+JACKAL_WATCHLIST   = Path("data") / "jackal_watchlist.json"   # ARIA가 읽음
+JACKAL_NEWS_FILE   = Path("data") / "jackal_news.json"        # ARIA가 씀, Jackal이 읽음
 
 # ARIA 데이터 파일 (읽기만, 의존성 없음)
 ARIA_BASELINE  = Path("data") / "morning_baseline.json"
@@ -502,6 +505,123 @@ def _build_alert_message(ticker: str, info: dict, tech: dict,
     )
 
 
+def _save_recommendation(extra: dict, aria: dict):
+    """
+    추천 종목을 두 곳에 저장:
+    1. data/jackal_watchlist.json  → ARIA Hunter가 읽어 뉴스 검색
+    2. jackal/recommendation_log.json → 24h 후 결과 확인용
+    """
+    import yfinance as _yf
+    now = datetime.now(KST)
+    entries = []
+    for ticker, info in extra.items():
+        price_now = None
+        try:
+            hist = _yf.Ticker(ticker).history(period="2d", interval="1d")
+            if not hist.empty:
+                price_now = float(hist["Close"].iloc[-1])
+        except Exception:
+            pass
+        entries.append({
+            "ticker":          ticker,
+            "name":            info.get("name", ticker),
+            "market":          info.get("market", "US"),
+            "reason":          info.get("reason", ""),
+            "price_at_rec":    price_now,
+            "recommended_at":  now.isoformat(),
+            "aria_regime":     aria.get("regime", ""),
+            "aria_inflows":    aria.get("key_inflows", []),
+            "aria_trend":      aria.get("trend", ""),
+            "outcome_checked": False,
+            "price_next_day":  None,
+            "outcome_pct":     None,
+            "outcome_correct": None,
+        })
+
+    # 1. jackal_watchlist.json (ARIA Hunter가 읽음)
+    watchlist = {
+        "updated_at": now.isoformat(),
+        "regime":     aria.get("regime", ""),
+        "tickers":    [e["ticker"] for e in entries],
+        "details":    {e["ticker"]: {"name": e["name"], "reason": e["reason"]} for e in entries},
+    }
+    try:
+        JACKAL_WATCHLIST.parent.mkdir(exist_ok=True)
+        JACKAL_WATCHLIST.write_text(
+            json.dumps(watchlist, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        log.info(f"   jackal_watchlist.json 저장: {watchlist['tickers']}")
+    except Exception as e:
+        log.error(f"   watchlist 저장 실패: {e}")
+
+    # 2. recommendation_log.json (Evolution이 읽음)
+    logs: list = []
+    if RECOMMEND_LOG_FILE.exists():
+        try:
+            logs = json.loads(RECOMMEND_LOG_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    logs.extend(entries)
+    logs = logs[-200:]
+    RECOMMEND_LOG_FILE.write_text(
+        json.dumps(logs, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _load_jackal_news() -> str:
+    """ARIA가 수집한 Jackal 추천 종목 뉴스 → 프롬프트용 문자열."""
+    if not JACKAL_NEWS_FILE.exists():
+        return ""
+    try:
+        data  = json.loads(JACKAL_NEWS_FILE.read_text(encoding="utf-8"))
+        items = data.get("news_items", [])
+        if not items:
+            return ""
+        lines = ["\n[ARIA 수집 뉴스 — Jackal 추천 종목]"]
+        for item in items[:5]:
+            lines.append(f"  • {item.get('ticker','')}: {item.get('headline','')[:60]}")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def _send_aria_extra_message(extra: dict, aria: dict):
+    """ARIA 분석 기반 추천 종목 전송 + 추적 저장."""
+    if not extra:
+        return
+
+    _save_recommendation(extra, aria)
+
+    now_str = datetime.now(KST).strftime("%m/%d %H:%M")
+    regime  = aria.get("regime", "")
+    inflows = aria.get("key_inflows", [])
+
+    lines = [
+        "💡 <b>ARIA 기반 관심 종목 추천</b>",
+        "━━━━━━━━━━━━━━━━━━━━",
+    ]
+    if regime:
+        lines.append(f"🌐 레짐: {regime[:30]}")
+    if inflows:
+        lines.append(f"📈 유입 섹터: {', '.join(inflows[:3])}")
+    lines.append("")
+
+    for ticker, info in extra.items():
+        icon   = "🇺🇸" if info.get("market") == "US" else "🇰🇷"
+        reason = info.get("reason", "")
+        lines.append(f"{icon} <b>{info['name']}</b> ({ticker})")
+        if reason:
+            lines.append(f"   └ {reason}")
+
+    lines += [
+        "",
+        "━━━━━━━━━━━━━━━━━━━━",
+        "📰 ARIA가 관련 뉴스 수집 예정 (내일 아침 반영)",
+        f"⏰ {now_str} KST | Jackal × ARIA",
+    ]
+    _send_telegram("\n".join(lines))
+    log.info(f"   ARIA 추천 전송: {list(extra.keys())}")
+
 def _build_summary_message(results: list, macro: dict, aria: dict) -> str:
     """타점 없을 때 스캔 결과 요약"""
     now_str = datetime.now(KST).strftime("%m/%d %H:%M")
@@ -658,13 +778,15 @@ def run_scan(force: bool = False) -> dict:
 
     # 포트폴리오 로드
     portfolio = _load_portfolio()
-    log.info(f"   포트폴리오: {len(portfolio)}종목 | ")
+    log.info(f"   포트폴리오: {len(portfolio)}종목")
 
-    # ARIA 기반 추가 5종목 추천
+    # ARIA 기반 추가 5종목 추천 → 별도 메시지로 즉시 전송
     extra = _suggest_extra_tickers(aria, portfolio)
+    if extra:
+        _send_aria_extra_message(extra, aria)
 
-    # 전체 스캔 대상 = 포트폴리오 + 추가 추천
-    watchlist = {**portfolio, **extra}
+    # 스캔 대상은 포트폴리오만 (extra는 별도 메시지로 처리됨)
+    watchlist = portfolio
 
     scanned = 0
     alerted = 0
