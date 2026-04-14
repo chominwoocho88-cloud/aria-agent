@@ -1,13 +1,13 @@
 """
 jackal_core.py
-Jackal Core — 완전 독립 오케스트레이터 (ARIA와 무관)
+Jackal Core — 새 스윙 기회 탐색 엔진
 
+역할: 포트폴리오 모니터링 X, 항상 새 종목 발굴
 매시간 실행 흐름:
-  1. Shield  → 보안/비용 체크
-  2. Scanner → Claude Haiku로 타점 판단 + 텔레그램
-  3. Compact → 필요시 압축
-  4. Evolution → 24시간마다 자체 학습
-                 (scan_log.json 기반 — ARIA 파일 읽지 않음)
+  1. Shield   → 비용/보안 체크
+  2. Hunter   → ARIA 뉴스 기반 스윙 5종목 탐색 + 알림
+  3. Compact  → 필요시 로그 압축
+  4. Evolution → 24시간마다 hunt_log.json 자체 학습
 """
 
 import os
@@ -23,7 +23,6 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from jackal_shield    import JackalShield
 from jackal_compact   import JackalCompact
-from jackal_scanner   import run_scan
 from jackal_hunter    import run_hunt
 from jackal_evolution import JackalEvolution
 
@@ -44,7 +43,7 @@ class JackalCore:
         self.compact   = JackalCompact()
         self.evolution = JackalEvolution()
 
-    def run(self, force_scan: bool = False, force_evolve: bool = False,
+    def run(self, force_hunt: bool = False, force_evolve: bool = False,
             context_tokens: int = 0) -> dict:
 
         log.info("🦊 Jackal Core 시작")
@@ -62,15 +61,11 @@ class JackalCore:
         else:
             log.info("  이상 없음 ✅")
 
-        # 2. Scanner — 포트폴리오 모니터링
-        log.info("📡 Scanner 실행 (포트폴리오)...")
-        scan = run_scan(force=force_scan)
+        # 2. Hunter — ARIA 뉴스 기반 스윙 종목 탐색
+        log.info("🎯 Hunter 실행...")
+        hunt = run_hunt(force=force_hunt)
 
-        # 3. Hunter — ARIA 뉴스 기반 스윙 기회 탐색
-        log.info("🎯 Hunter 실행 (ARIA 스윙 탐색)...")
-        hunt = run_hunt(force=force_scan)
-
-        # 4. Compact
+        # 3. Compact
         compact = self.compact.check_and_compact(context_tokens)
         if compact.get("compacted"):
             log.info(f"📦 Compact: {compact['saved_tokens']:,} 토큰 절약")
@@ -78,30 +73,26 @@ class JackalCore:
         # 4. Evolution (24시간마다 자체 학습)
         evolve = {}
         if force_evolve or self._should_evolve():
-            log.info("🧬 Evolution 실행 (자체 학습)...")
+            log.info("🧬 Evolution 실행...")
             evolve = self.evolution.evolve()
             self.evolution.save_weights()
             log.info(
-                f"  스캔 학습: {evolve.get('scan_learned', 0)}건 | "
-                f"Skill: {len(evolve.get('new_skills', []))}개 | "
-                f"Instinct: {len(evolve.get('new_instincts', []))}개"
+                f"  학습: {evolve.get('learned', 0)}건 | "
+                f"Skill: {len(evolve.get('new_skills', []))}개"
             )
-            for c in evolve.get("weight_changes", []):
-                log.info(f"  ⚖️  {c}")
         else:
             log.info("🧬 Evolution: 스킵 (24h 미경과)")
 
         elapsed = round((datetime.now() - start).total_seconds(), 2)
-        self._print_summary(scan, evolve, elapsed)
+        self._print_summary(hunt, evolve, elapsed)
 
         return {
             "status":  "ok",
             "elapsed": elapsed,
-            "scan":    scan,
             "hunt":    hunt,
             "evolution": {
                 "ran":     bool(evolve),
-                "learned": evolve.get("scan_learned", 0),
+                "learned": evolve.get("learned", 0),
                 "skills":  len(evolve.get("new_skills", [])),
             },
         }
@@ -117,16 +108,15 @@ class JackalCore:
         except Exception:
             return True
 
-    def _print_summary(self, scan: dict, evolve: dict, elapsed: float):
+    def _print_summary(self, hunt: dict, evolve: dict, elapsed: float):
         print("\n" + "=" * 54)
         print(f"  🦊 Jackal | {datetime.now().strftime('%Y-%m-%d %H:%M')}")
         print("=" * 54)
         print(f"  소요      : {elapsed}s")
-        print(f"  Scanner   : 분석 {scan['scanned']}종목 | 알림 {scan['alerted']}건")
-        print(f"  Hunter    : 분석 {hunt.get('hunted',0)}종목 | 알림 {hunt.get('alerted',0)}건")
+        print(f"  Hunter    : 분석 {hunt.get('hunted', 0)}종목 | 알림 {hunt.get('alerted', 0)}건")
         if evolve:
-            print(f"  Evolution : 학습 {evolve.get('scan_learned',0)}건 | "
-                  f"Skill {len(evolve.get('new_skills',[]))}개")
+            print(f"  Evolution : 학습 {evolve.get('learned', 0)}건 | "
+                  f"Skill {len(evolve.get('new_skills', []))}개")
         else:
             print("  Evolution : ⏭️  skip")
         print("=" * 54 + "\n")
@@ -134,13 +124,15 @@ class JackalCore:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--force-scan",   action="store_true")
-    parser.add_argument("--force-evolve", action="store_true")
+    parser.add_argument("--force-hunt",   action="store_true",
+                        help="장 마감 무시 강제 실행")
+    parser.add_argument("--force-evolve", action="store_true",
+                        help="24h 미경과해도 Evolution 즉시 실행")
     parser.add_argument("--tokens",       type=int, default=0)
     args = parser.parse_args()
 
     JackalCore().run(
-        force_scan=args.force_scan,
+        force_hunt=args.force_hunt,
         force_evolve=args.force_evolve,
         context_tokens=args.tokens,
     )
