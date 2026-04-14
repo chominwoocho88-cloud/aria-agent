@@ -43,19 +43,44 @@ WEIGHTS_FILE  = _BASE / "jackal_weights.json"
 ARIA_BASELINE  = Path("data") / "morning_baseline.json"
 ARIA_SENTIMENT = Path("data") / "sentiment.json"
 ARIA_ROTATION  = Path("data") / "rotation.json"
+PORTFOLIO_FILE = Path("data") / "portfolio.json"
 
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 MODEL_H          = os.environ.get("SUBAGENT_MODEL", "claude-haiku-4-5-20251001")
 
-WATCHLIST = {
-    "NVDA":      {"name": "엔비디아",   "avg_cost": 182.99, "market": "US", "currency": "$"},
-    "AVGO":      {"name": "브로드컴",   "avg_cost": None,   "market": "US", "currency": "$"},
-    "SCHD":      {"name": "SCHD",       "avg_cost": None,   "market": "US", "currency": "$"},
-    "000660.KS": {"name": "SK하이닉스", "avg_cost": None,   "market": "KR", "currency": "₩"},
-    "005930.KS": {"name": "삼성전자",   "avg_cost": None,   "market": "KR", "currency": "₩"},
-    "035720.KS": {"name": "카카오",     "avg_cost": None,   "market": "KR", "currency": "₩"},
-}
+
+def _load_portfolio() -> dict:
+    """data/portfolio.json 에서 포트폴리오 로드.
+    없으면 기본값 반환."""
+    default = {
+        "NVDA":      {"name": "엔비디아",   "avg_cost": 182.99, "market": "US", "currency": "$", "portfolio": True},
+        "AVGO":      {"name": "브로드컴",   "avg_cost": None,   "market": "US", "currency": "$", "portfolio": True},
+        "SCHD":      {"name": "SCHD",       "avg_cost": None,   "market": "US", "currency": "$", "portfolio": True},
+        "000660.KS": {"name": "SK하이닉스", "avg_cost": None,   "market": "KR", "currency": "₩", "portfolio": True},
+        "005930.KS": {"name": "삼성전자",   "avg_cost": None,   "market": "KR", "currency": "₩", "portfolio": True},
+        "035720.KS": {"name": "카카오",     "avg_cost": None,   "market": "KR", "currency": "₩", "portfolio": True},
+    }
+    if not PORTFOLIO_FILE.exists():
+        return default
+    try:
+        data = json.loads(PORTFOLIO_FILE.read_text(encoding="utf-8"))
+        result = {}
+        for h in data.get("holdings", []):
+            ticker = h.get("ticker", "")
+            if not ticker:
+                continue
+            market = h.get("market", "US")
+            result[ticker] = {
+                "name":      h.get("name", ticker),
+                "avg_cost":  h.get("avg_cost"),
+                "market":    market,
+                "currency":  h.get("currency", "$"),
+                "portfolio": True,
+            }
+        return result if result else default
+    except Exception:
+        return default
 
 ALERT_THRESHOLD = 65
 STRONG_THRESHOLD = 78
@@ -480,14 +505,29 @@ def _build_summary_message(results: list, macro: dict, aria: dict) -> str:
     lines   = ["📊 <b>Jackal 스캔 완료 — 타점 없음</b>",
                "━━━━━━━━━━━━━━━━━━━━"]
 
-    for r in results:
+    # 포트폴리오 / 추천 종목 구분
+    portfolio_results = [r for r in results if r.get("is_portfolio", True)]
+    extra_results     = [r for r in results if not r.get("is_portfolio", True)]
+
+    if portfolio_results:
+        lines.append("<b>📋 보유 포트폴리오</b>")
+    for r in portfolio_results:
         sig  = r.get("signal_type", "관망")
         icon = {"강한매수": "🔴", "매수검토": "🟡", "관망": "⚪", "매도주의": "🔵"}.get(sig, "⚪")
         v    = r.get("devil_verdict", "")
         dv   = f" | Devil:{v}" if v else ""
-        lines.append(
-            f"{icon} {r['name']}: {r['final_score']:.0f}점 | RSI {r['rsi']} | {sig}{dv}"
-        )
+        lines.append(f"{icon} {r['name']}: {r['final_score']:.0f}점 | RSI {r['rsi']} | {sig}{dv}")
+
+    if extra_results:
+        lines.append("")
+        lines.append("<b>💡 ARIA 추천 종목 (포트폴리오 외)</b>")
+    for r in extra_results:
+        sig  = r.get("signal_type", "관망")
+        icon = {"강한매수": "🔴", "매수검토": "🟡", "관망": "⚪", "매도주의": "🔵"}.get(sig, "⚪")
+        reason = r.get("aria_reason", "")
+        lines.append(f"{icon} {r['name']} ({r['ticker']}): {r['final_score']:.0f}점 | {sig}")
+        if reason:
+            lines.append(f"   └ {reason}")
 
     lines.append("━━━━━━━━━━━━━━━━━━━━")
     fred_parts = []
@@ -525,6 +565,78 @@ def _save_log(entry: dict):
 # 메인 스캔
 # ══════════════════════════════════════════════════════════════════
 
+def _suggest_extra_tickers(aria: dict, portfolio: dict) -> dict:
+    """
+    ARIA 분석에서 타점 가능성 높은 추가 5종목 추천.
+    Claude Haiku가 섹터 유입/헤드라인 기반으로 추천.
+    포트폴리오에 이미 있는 종목은 제외.
+    """
+    existing = set(portfolio.keys())
+    inflows  = aria.get("key_inflows", [])
+    outflows = aria.get("key_outflows", [])
+    regime   = aria.get("regime", "")
+    one_line = aria.get("one_line", "")
+    top_sec  = aria.get("top_sector", "")
+
+    if not inflows and not regime:
+        return {}
+
+    prompt = f"""당신은 주식 종목 추천 전문가입니다.
+ARIA 시장 분석 결과를 보고 타점이 생길 가능성이 높은 종목 5개를 추천하세요.
+이미 보유 중인 종목({', '.join(existing)})은 제외하세요.
+
+[ARIA 분석]
+레짐: {regime}
+요약: {one_line[:80]}
+주요 유입 섹터: {', '.join(inflows)}
+주요 유출 섹터: {', '.join(outflows)}
+강세 섹터: {top_sec}
+
+조건:
+- yfinance로 조회 가능한 실제 티커 심볼 사용
+- 미국 주식: TICKER 형식 (예: TSM, AMD, QCOM)
+- 한국 주식: 6자리+.KS 형식 (예: 012450.KS)
+- 유입 섹터와 연관된 종목 우선
+- 현재 레짐에서 수혜 가능한 종목
+
+JSON만 반환하세요:
+{{
+  "recommendations": [
+    {{"ticker": "TSM", "name": "TSMC", "market": "US", "currency": "$", "reason": "AI 반도체 수혜"}},
+    {{"ticker": "AMD", "name": "AMD", "market": "US", "currency": "$", "reason": "GPU 경쟁"}},
+    {{"ticker": "012450.KS", "name": "한화에어로스페이스", "market": "KR", "currency": "₩", "reason": "방산 섹터 유입"}}
+  ]
+}}"""
+
+    try:
+        resp = Anthropic().messages.create(
+            model=MODEL_H, max_tokens=500,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw  = re.sub(r"", "", resp.content[0].text).strip()
+        m    = re.search(r"\{{[\s\S]*\}}", raw)
+        if not m:
+            return {}
+        data  = json.loads(m.group())
+        extra = {}
+        for r in data.get("recommendations", [])[:5]:
+            t = r.get("ticker", "")
+            if t and t not in existing:
+                extra[t] = {
+                    "name":      r.get("name", t),
+                    "avg_cost":  None,
+                    "market":    r.get("market", "US"),
+                    "currency":  r.get("currency", "$"),
+                    "portfolio": False,
+                    "reason":    r.get("reason", ""),
+                }
+        log.info(f"   ARIA 추가 추천: {list(extra.keys())}")
+        return extra
+    except Exception as e:
+        log.error(f"추가 종목 추천 실패: {e}")
+        return {}
+
+
 def run_scan(force: bool = False) -> dict:
     now_kst = datetime.now(KST)
     us_open = _is_us_open()
@@ -540,11 +652,21 @@ def run_scan(force: bool = False) -> dict:
     log.info(f"   ARIA 레짐: {aria['regime'][:20] if aria['regime'] else '정보없음'} | "
              f"센티먼트: {aria['sentiment_score']}점")
 
+    # 포트폴리오 로드
+    portfolio = _load_portfolio()
+    log.info(f"   포트폴리오: {len(portfolio)}종목 | ")
+
+    # ARIA 기반 추가 5종목 추천
+    extra = _suggest_extra_tickers(aria, portfolio)
+
+    # 전체 스캔 대상 = 포트폴리오 + 추가 추천
+    watchlist = {**portfolio, **extra}
+
     scanned = 0
     alerted = 0
     results: list = []
 
-    for ticker, info in WATCHLIST.items():
+    for ticker, info in watchlist.items():
         market = info["market"]
 
         if not force:
@@ -578,12 +700,14 @@ def run_scan(force: bool = False) -> dict:
         log.info(f"    Final: {final['final_score']:.0f}점 | {final['signal_type']} | is_entry={final['is_entry']}")
 
         results.append({
-            "ticker":       ticker,
-            "name":         info["name"],
-            "final_score":  final["final_score"],
-            "signal_type":  final["signal_type"],
-            "devil_verdict": devil.get("verdict", ""),
-            "rsi":          tech["rsi"],
+            "ticker":        ticker,
+            "name":          info["name"],
+            "final_score":   final["final_score"],
+            "signal_type":   final["signal_type"],
+            "devil_verdict":  devil.get("verdict", ""),
+            "rsi":           tech["rsi"],
+            "is_portfolio":  info.get("portfolio", True),
+            "aria_reason":   info.get("reason", ""),
         })
 
         # ── 알림 발송 ─────────────────────────────────────────────
