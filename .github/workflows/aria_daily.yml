@@ -2,25 +2,20 @@ name: ARIA Daily Report
 
 on:
   schedule:
-    - cron: "30 19 * * 0-4"   # DAWN      04:30 KST
-    - cron: "30 22 * * 0-4"   # MORNING   07:30 KST
-    - cron: "30 5  * * 1-5"   # AFTERNOON 14:30 KST
-    - cron: "30 11 * * 1-5"   # EVENING   20:30 KST
-    - cron: "0  22 * * 0"     # WEEKLY    일요일 07:00 KST
-    - cron: "0  21 1 * *"     # MONTHLY   매월 1일 06:00 KST
+    - cron: "30 23 * * 0-4"   # MORNING  08:30 KST (한국장 30분 전)
+    - cron: "0  14 * * 1-5"   # EVENING  23:00 KST (미국장 30분 전)
+    - cron: "0  22 * * 0"     # WEEKLY   일요일 07:00 KST
+    - cron: "0  21 1 * *"     # MONTHLY  매월 1일 06:00 KST
 
   workflow_dispatch:
     inputs:
       mode:
-        description: "DAWN / MORNING / AFTERNOON / EVENING / WEEKLY / MONTHLY"
+        description: "MORNING / EVENING / WEEKLY / MONTHLY"
         required: false
         default: "MORNING"
 
 jobs:
 
-  # ══════════════════════════════════════════════════════════════════
-  # ARIA 메인 분석
-  # ══════════════════════════════════════════════════════════════════
   run-aria:
     runs-on: ubuntu-latest
     permissions:
@@ -39,29 +34,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── DAWN 04:30 KST ───────────────────────────────────────────
-      - name: DAWN Report
-        if: >
-          github.event.schedule == '30 19 * * 0-4' ||
-          (github.event_name == 'workflow_dispatch' &&
-           github.event.inputs.mode == 'DAWN')
-        env:
-          PYTHONIOENCODING:    utf-8
-          ARIA_MODE:           DAWN
-          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
-          TELEGRAM_TOKEN:      ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
-          GH_TOKEN:            ${{ secrets.GH_TOKEN }}
-          GH_REPO:             ${{ secrets.GH_REPO }}
-          ANTHROPIC_MODEL:     "claude-sonnet-4-20250514"
-          MAX_THINKING_TOKENS: "8000"
-          SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
-        run: python aria_main.py
-
-      # ── MORNING 07:30 KST ────────────────────────────────────────
+      # ── MORNING 08:30 KST (한국장 30분 전) ───────────────────────
       - name: MORNING Report
         if: >
-          github.event.schedule == '30 22 * * 0-4' ||
+          github.event.schedule == '30 23 * * 0-4' ||
           (github.event_name == 'workflow_dispatch' &&
            github.event.inputs.mode == 'MORNING')
         env:
@@ -77,29 +53,10 @@ jobs:
           SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
         run: python aria_main.py
 
-      # ── AFTERNOON 14:30 KST ──────────────────────────────────────
-      - name: AFTERNOON Report
-        if: >
-          github.event.schedule == '30 5 * * 1-5' ||
-          (github.event_name == 'workflow_dispatch' &&
-           github.event.inputs.mode == 'AFTERNOON')
-        env:
-          PYTHONIOENCODING:    utf-8
-          ARIA_MODE:           AFTERNOON
-          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
-          TELEGRAM_TOKEN:      ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
-          GH_TOKEN:            ${{ secrets.GH_TOKEN }}
-          GH_REPO:             ${{ secrets.GH_REPO }}
-          ANTHROPIC_MODEL:     "claude-sonnet-4-20250514"
-          MAX_THINKING_TOKENS: "8000"
-          SUBAGENT_MODEL:      "claude-haiku-4-5-20251001"
-        run: python aria_main.py
-
-      # ── EVENING 20:30 KST ────────────────────────────────────────
+      # ── EVENING 23:00 KST (미국장 30분 전) ──────────────────────
       - name: EVENING Report
         if: >
-          github.event.schedule == '30 11 * * 1-5' ||
+          github.event.schedule == '0 14 * * 1-5' ||
           (github.event_name == 'workflow_dispatch' &&
            github.event.inputs.mode == 'EVENING')
         env:
@@ -150,7 +107,6 @@ jobs:
           from aria_notify import send_monthly_report
           from aria_analysis import extract_monthly_lessons
           send_monthly_report()
-          # 루트 + data/ 양쪽 경로 시도
           mem_path = Path('data/memory.json') if Path('data/memory.json').exists() else Path('memory.json')
           acc_path = Path('data/accuracy.json') if Path('data/accuracy.json').exists() else Path('accuracy.json')
           memory   = json.loads(mem_path.read_text()) if mem_path.exists() else []
@@ -164,23 +120,17 @@ jobs:
           git config user.name  "ARIA Bot"
           git config user.email "aria@github-actions"
 
-          # 루트 레벨 파일 (구버전 경로 호환)
           git add memory.json sentiment.json accuracy.json \
                   rotation.json aria_weights.json aria_lessons.json \
                   aria_cost.json aria_market_data.json morning_baseline.json \
                   reports/ dashboard.html 2>/dev/null || true
-
-          # data/ 디렉토리 (aria_paths.py 기준 경로)
           git add data/ 2>/dev/null || true
 
           git stash
-
           git fetch origin main
           git reset --hard origin/main
-
           git stash pop || true
 
-          # 다시 add (stash pop 후)
           git add memory.json sentiment.json accuracy.json \
                   rotation.json aria_weights.json aria_lessons.json \
                   aria_cost.json aria_market_data.json morning_baseline.json \
@@ -191,9 +141,7 @@ jobs:
             git commit -m "ARIA: $(date +'%Y-%m-%d %H:%M') [${ARIA_MODE:-AUTO}] 저장"
           git push
 
-  # ══════════════════════════════════════════════════════════════════
-  # Jackal (ARIA 완료 후 항상 실행)
-  # ══════════════════════════════════════════════════════════════════
+  # ── Jackal Evolution (ARIA 완료 후 항상 실행) ─────────────────────
   run-jackal:
     needs: run-aria
     runs-on: ubuntu-latest
@@ -222,23 +170,19 @@ jobs:
           JACKAL_DAILY_BUDGET: "500000"
           JACKAL_AUTOCOMPACT:  "true"
         run: |
-          # ARIA 완료 후 Jackal Evolution만 실행 (Scanner는 별도 워크플로우)
           python3 -c "
-          import logging
+          import logging, sys
           logging.basicConfig(level=logging.INFO, format='%(asctime)s [Jackal] %(message)s')
-          from jackal.jackal_evolution import JackalEvolution
-          from jackal.jackal_shield import JackalShield
-
+          sys.path.insert(0, 'jackal')
+          from jackal_evolution import JackalEvolution
+          from jackal_shield import JackalShield
           shield = JackalShield()
-          result = shield.scan()
-          if result.get('abort'):
-              print('Shield 중단')
-              exit(0)
-
+          if shield.scan().get('abort'):
+              print('Shield 중단'); exit(0)
           ev = JackalEvolution()
           r  = ev.evolve()
           ev.save_weights()
-          print(f'Evolution 완료: Skill {len(r.get(\"new_skills\",[]))}개 / Instinct {len(r.get(\"new_instincts\",[]))}개')
+          print(f'완료: Skill {len(r.get(\"new_skills\",[]))}개 / Instinct {len(r.get(\"new_instincts\",[]))}개')
           "
 
       - name: Save Jackal state
@@ -260,5 +204,5 @@ jobs:
                   jackal/scan_log.json 2>/dev/null || true
 
           git diff --cached --quiet || \
-            git commit -m "🦊 Jackal: $(date +'%Y-%m-%d %H:%M') Evolution [skip ci]"
+            git commit -m "🦊 Jackal: $(date +'%Y-%m-%d %H:%M') [skip ci]"
           git push || (git pull --rebase origin main && git push)
