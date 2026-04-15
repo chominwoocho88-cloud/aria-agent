@@ -405,9 +405,9 @@ def _calc_signal_quality(signals: list, tech: dict, aria: dict,
     # 1일 정확도 30.4% = 반대로 움직이는 경향
     # → 단독 발동 시 페널티, 조합 시만 소폭 인정
     if "rsi_divergence" in sig:
-        if sig == {"rsi_divergence"}:
-            score -= 8    # 단독: 57.1% (약한 노이즈)
-            reasons.append("RSI다이버전스단독(57%)-8")
+        if sig == {"rsi_divergence"} or sig == {"rsi_divergence", "ma_support"}:
+            score -= 20   # 단독 31.6% → skip 강제
+            reasons.append("RSI다이버전스단독(31.6%)-20")
         elif "momentum_dip" in sig and "vol_accumulation" not in sig:
             score -= 12   # momentum_dip+rsi_div = 40% 최악 조합
             reasons.append("다이버전스+momentum_dip(40%)-12")
