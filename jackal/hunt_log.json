@@ -426,7 +426,11 @@
     "outcome_correct": null
   },
   {
+<<<<<<< Updated upstream
     "timestamp": "2026-04-15T18:06:34.736883+09:00",
+=======
+    "timestamp": "2026-04-15T18:07:47.698434+09:00",
+>>>>>>> Stashed changes
     "ticker": "035420.KS",
     "name": "035420.KS",
     "price_at_hunt": 211000.0,
@@ -463,7 +467,11 @@
     "outcome_swing_hit": null
   },
   {
+<<<<<<< Updated upstream
     "timestamp": "2026-04-15T18:06:34.736883+09:00",
+=======
+    "timestamp": "2026-04-15T18:07:47.698434+09:00",
+>>>>>>> Stashed changes
     "ticker": "CVX",
     "name": "CVX",
     "price_at_hunt": 187.02,
@@ -693,7 +701,11 @@
     "outcome_swing_hit": null
   },
   {
+<<<<<<< Updated upstream
     "timestamp": "2026-04-15T18:06:34.736883+09:00",
+=======
+    "timestamp": "2026-04-15T18:07:47.698434+09:00",
+>>>>>>> Stashed changes
     "ticker": "000270.KS",
     "name": "000270.KS",
     "price_at_hunt": 151500.0,
@@ -1425,7 +1437,11 @@
     "outcome_swing_hit": null
   },
   {
+<<<<<<< Updated upstream
     "timestamp": "2026-04-15T18:06:34.736883+09:00",
+=======
+    "timestamp": "2026-04-15T15:24:24.276698+09:00",
+>>>>>>> Stashed changes
     "ticker": "005380.KS",
     "name": "005380.KS",
     "price_at_hunt": 508000.0,
@@ -1444,6 +1460,7 @@
     "day1_score": 52,
     "swing_score": 68,
     "entry_mode": "일반",
+<<<<<<< Updated upstream
     "swing_setup": "반등가능",
     "signals_fired": [
       "sector_inflow",
@@ -1457,6 +1474,16 @@
     "final_score": 59.2,
     "is_entry": true,
     "alerted": true,
+=======
+    "swing_setup": "중립",
+    "signals_fired": [],
+    "devil_verdict": "부분동의",
+    "devil_score": 30,
+    "thesis_killer_hit": false,
+    "final_score": 50.0,
+    "is_entry": false,
+    "alerted": false,
+>>>>>>> Stashed changes
     "outcome_checked": false,
     "price_1d_later": null,
     "outcome_1d_pct": null,
@@ -1629,7 +1656,11 @@
     "outcome_swing_hit": null
   },
   {
+<<<<<<< Updated upstream
     "timestamp": "2026-04-15T18:06:34.736883+09:00",
+=======
+    "timestamp": "2026-04-15T18:07:47.698434+09:00",
+>>>>>>> Stashed changes
     "ticker": "068270.KS",
     "name": "068270.KS",
     "price_at_hunt": 202000.0,
@@ -1639,6 +1670,51 @@
     "vol_ratio": 1.09,
     "s1_score": 15,
     "s2_score": 33,
+<<<<<<< Updated upstream
+=======
+    "aria_regime": "위험선호",
+    "aria_inflows": [
+      "한국 반도체 (SK하이닉스·삼성전자)",
+      "코스피 대형주 전반"
+    ],
+    "analyst_score": 58,
+    "day1_score": 52,
+    "swing_score": 68,
+    "entry_mode": "일반",
+    "swing_setup": "반등가능",
+    "signals_fired": [
+      "rsi_neutral_zone",
+      "bb_midband_position",
+      "sector_inflow",
+      "earnings_positive_catalyst"
+    ],
+    "devil_verdict": "부분동의",
+    "devil_score": 30,
+    "thesis_killer_hit": false,
+    "final_score": 59.2,
+    "is_entry": true,
+    "alerted": true,
+    "outcome_checked": false,
+    "price_1d_later": null,
+    "outcome_1d_pct": null,
+    "outcome_1d_hit": null,
+    "price_peak": null,
+    "peak_day": null,
+    "peak_pct": null,
+    "outcome_swing_hit": null
+  },
+  {
+    "timestamp": "2026-04-15T18:07:47.698434+09:00",
+    "ticker": "042700.KS",
+    "name": "042700.KS",
+    "price_at_hunt": 295000.0,
+    "rsi": 56.0,
+    "bb_pos": 71.4,
+    "change_5d": 5.17,
+    "vol_ratio": 1.26,
+    "s1_score": 12,
+    "s2_score": 30,
+>>>>>>> Stashed changes
     "aria_regime": "위험선호",
     "aria_inflows": [
       "한국 반도체 (SK하이닉스·삼성전자)",
