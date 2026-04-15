@@ -387,6 +387,23 @@ def agent_devil(analyst_data: dict, memory: list, mode: str) -> dict:
         model=MODEL_DEVIL, max_tokens=_TOK["DEVIL"],
     )
     result = parse_json(raw)
+
+    # ── thesis_killers 후처리: VIX·환율 event 자동 제거 (백테스트 정확도 0~32%)
+    _BLOCKED_EVENTS = {"vix", "환율", "원달러", "달러", "달러/원", "금리", "국채"}
+    _ALLOWED_EVENTS = {"나스닥", "nasdaq", "코스피", "kospi", "sk하이닉스", "삼성전자", "엔비디아", "s&p", "반도체"}
+    filtered_tks = []
+    for tk in result.get("thesis_killers", []):
+        event_lower = tk.get("event", "").lower()
+        # 차단 키워드 포함 또는 허용 키워드 없으면 제거
+        if any(b in event_lower for b in _BLOCKED_EVENTS):
+            console.print("  [dim]thesis_killer 제거 (VIX/환율): " + tk.get("event", "") + "[/dim]")
+            continue
+        if not any(a in event_lower for a in _ALLOWED_EVENTS):
+            console.print("  [dim]thesis_killer 제거 (검증불가): " + tk.get("event", "") + "[/dim]")
+            continue
+        filtered_tks.append(tk)
+    result["thesis_killers"] = filtered_tks
+
     console.print("  [green]Done: " + str(result.get("verdict", ""))
                   + " / " + str(len(result.get("counterarguments", []))) + " counters[/green]")
     return result
