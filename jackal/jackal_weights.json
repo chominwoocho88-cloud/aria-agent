@@ -2,9 +2,11 @@
   "signal_weights": {
     "bb_touch": 2.074,
     "momentum_dip": 2.052,
+    "vol_accumulation": 2.084,
     "rsi_oversold": 1.808,
     "sector_rebound": 2.362,
     "ma_support": 1.612,
+    "rsi_divergence": 1.544,
     "volume_climax": 2.1
   },
   "regime_weights": {
@@ -33,6 +35,13 @@
       "d1_correct": 37,
       "d1_accuracy": 48.7
     },
+    "vol_accumulation": {
+      "total": 53,
+      "swing_correct": 42,
+      "swing_accuracy": 79.2,
+      "d1_correct": 25,
+      "d1_accuracy": 47.2
+    },
     "rsi_oversold": {
       "total": 26,
       "swing_correct": 17,
@@ -54,6 +63,13 @@
       "d1_correct": 33,
       "d1_accuracy": 45.8
     },
+    "rsi_divergence": {
+      "total": 23,
+      "swing_correct": 12,
+      "swing_accuracy": 52.2,
+      "d1_correct": 7,
+      "d1_accuracy": 30.4
+    },
     "volume_climax": {
       "total": 5,
       "swing_correct": 4,
@@ -64,22 +80,16 @@
   },
   "regime_accuracy": {
     "위험선호": {
-      "total": 40,
-      "correct": 30,
-      "accuracy": 75.0,
-      "avg_peak": 4.9
+      "total": 44,
+      "correct": 34,
+      "accuracy": 77.3,
+      "avg_peak": 4.91
     },
     "위험회피": {
-      "total": 113,
-      "correct": 75,
-      "accuracy": 66.4,
-      "avg_peak": 4.8
-    },
-    "전환중": {
-      "total": 4,
-      "correct": 0,
-      "accuracy": 0.0,
-      "avg_peak": -0.1
+      "total": 126,
+      "correct": 80,
+      "accuracy": 63.5,
+      "avg_peak": 4.53
     },
     "혼조 – AI·반도체 모멘텀 vs 지정학·유가·달러 강": {
       "total": 1,
@@ -96,22 +106,28 @@
   },
   "ticker_accuracy": {
     "NVDA": {
-      "total": 31,
-      "correct": 25,
-      "accuracy": 80.6,
-      "avg_peak_day": 4.2
+      "total": 33,
+      "correct": 26,
+      "accuracy": 78.8,
+      "avg_peak_day": 4.1
     },
     "AVGO": {
-      "total": 20,
-      "correct": 14,
-      "accuracy": 70.0,
-      "avg_peak_day": 3.1
+      "total": 26,
+      "correct": 20,
+      "accuracy": 76.9,
+      "avg_peak_day": 3.7
     },
     "035720.KS": {
-      "total": 26,
+      "total": 28,
       "correct": 17,
-      "accuracy": 65.4,
-      "avg_peak_day": 3.3
+      "accuracy": 60.7,
+      "avg_peak_day": 3.2
+    },
+    "000660.KS": {
+      "total": 17,
+      "correct": 13,
+      "accuracy": 76.5,
+      "avg_peak_day": 5.8
     },
     "466920.KS": {
       "total": 28,
@@ -119,17 +135,11 @@
       "accuracy": 75.0,
       "avg_peak_day": 4.0
     },
-    "000660.KS": {
-      "total": 16,
-      "correct": 12,
-      "accuracy": 75.0,
-      "avg_peak_day": 5.8
-    },
     "005930.KS": {
-      "total": 10,
-      "correct": 8,
-      "accuracy": 80.0,
-      "avg_peak_day": 5.5
+      "total": 12,
+      "correct": 9,
+      "accuracy": 75.0,
+      "avg_peak_day": 5.6
     },
     "SCHD": {
       "total": 28,
@@ -156,9 +166,9 @@
   "fear_greed_weight": 0.4,
   "technical_weight": 0.37,
   "fundamental_weight": 0.23,
-  "last_backtest": "2026-04-15T01:47:54.258261",
+  "last_backtest": "2026-04-15T02:54:14.539722",
   "backtest_days": 49,
-  "backtest_signals": 159,
+  "backtest_signals": 172,
   "signal_optimal_days": {
     "bb_touch": {
       "avg_peak_day": 4.4,
@@ -173,6 +183,13 @@
       "swing_accuracy": 77.6,
       "day1_accuracy": 48.7,
       "sample_count": 76
+    },
+    "vol_accumulation": {
+      "avg_peak_day": 4.8,
+      "avg_peak_gain": 6.5,
+      "swing_accuracy": 79.2,
+      "day1_accuracy": 47.2,
+      "sample_count": 53
     },
     "rsi_oversold": {
       "avg_peak_day": 4.6,
@@ -194,6 +211,13 @@
       "swing_accuracy": 55.6,
       "day1_accuracy": 45.8,
       "sample_count": 72
+    },
+    "rsi_divergence": {
+      "avg_peak_day": 4.0,
+      "avg_peak_gain": 1.34,
+      "swing_accuracy": 52.2,
+      "day1_accuracy": 30.4,
+      "sample_count": 23
     },
     "volume_climax": {
       "avg_peak_day": 4.8,
