@@ -335,6 +335,102 @@ JSON만 반환:
 # 기술지표 일괄 계산
 # ══════════════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════════════
+# 개선안 2: Macro Quality Gate (PCR 대체 — yfinance 무료 데이터)
+# ══════════════════════════════════════════════════════════════════
+
+def _fetch_macro_gate(aria: dict) -> dict:
+    """
+    거시 환경 Quality Gate.
+    극단 위험 환경에서 Stage1 임계값 상향 → 노이즈 필터링.
+
+    체크 항목:
+      1. VIX       : 극단 공포 (>35 위험, >50 매우 위험)
+      2. Yield Curve: 10Y - 3M 스프레드 (음수 = 역전 = 주의)
+      3. HY Spread : HYG ETF 가격 하락 = HY 스프레드 확대 proxy
+      4. ARIA 레짐  : 위험회피 = 추가 보수적
+
+    Returns:
+        {risk_level, score_penalty, vix, yield_curve, hy_stress, reason}
+    """
+    vix = 20.0
+    try:
+        vix_df = yf.Ticker("^VIX").history(period="3d", interval="1d")
+        if not vix_df.empty:
+            vix = float(vix_df["Close"].iloc[-1])
+    except Exception:
+        pass
+
+    curve = 0.0
+    try:
+        tnx_df = yf.Ticker("^TNX").history(period="3d", interval="1d")  # 10Y yield
+        irx_df = yf.Ticker("^IRX").history(period="3d", interval="1d")  # 3M yield
+        if not tnx_df.empty and not irx_df.empty:
+            t10    = float(tnx_df["Close"].iloc[-1])
+            t3m    = float(irx_df["Close"].iloc[-1])
+            curve  = round(t10 - t3m, 2)
+    except Exception:
+        pass
+
+    # HY Stress: HYG 5일 수익률 (하락 = 스프레드 확대 = 위험)
+    hy_chg5 = 0.0
+    try:
+        hyg_df = yf.Ticker("HYG").history(period="10d", interval="1d")
+        if len(hyg_df) >= 6:
+            p_now = float(hyg_df["Close"].iloc[-1])
+            p_5d  = float(hyg_df["Close"].iloc[-6])
+            hy_chg5 = round((p_now - p_5d) / p_5d * 100, 2)
+    except Exception:
+        pass
+
+    regime  = aria.get("regime", "")
+    penalty = 0
+    reasons = []
+
+    # VIX 기준
+    if vix >= 50:
+        penalty += 20
+        reasons.append(f"VIX {vix:.0f}(극단공포)")
+    elif vix >= 35:
+        penalty += 10
+        reasons.append(f"VIX {vix:.0f}(공포)")
+    elif vix >= 28:
+        penalty += 5
+        reasons.append(f"VIX {vix:.0f}(경계)")
+
+    # Yield Curve 역전
+    if curve < -0.5:
+        penalty += 8
+        reasons.append(f"YC역전{curve:+.2f}%")
+    elif curve < 0:
+        penalty += 3
+        reasons.append(f"YC평탄{curve:+.2f}%")
+
+    # HY 스트레스
+    if hy_chg5 < -2.0:
+        penalty += 7
+        reasons.append(f"HY스프레드확대({hy_chg5:+.1f}%)")
+    elif hy_chg5 < -1.0:
+        penalty += 3
+        reasons.append(f"HY주의({hy_chg5:+.1f}%)")
+
+    # ARIA 레짐
+    if "회피" in regime:
+        penalty += 5
+        reasons.append("ARIA위험회피")
+
+    level = "extreme" if penalty >= 25 else "elevated" if penalty >= 10 else "normal"
+
+    return {
+        "risk_level":    level,
+        "score_penalty": penalty,
+        "vix":           round(vix, 1),
+        "yield_curve":   curve,
+        "hy_chg5":       hy_chg5,
+        "reason":        " | ".join(reasons) if reasons else "정상",
+    }
+
+
 def _fetch_etf_returns() -> dict:
     """섹터 ETF 5일 수익률 가져오기 (상대강도 계산용)."""
     etfs = list(set(SECTOR_ETF.values()))
@@ -482,9 +578,11 @@ def _calc_tech(df: pd.DataFrame) -> dict | None:
 def _stage1_technical(universe: list, tech_map: dict,
                        candidates_meta: dict,
                        etf_returns: dict = None,
-                       aria: dict = None) -> list:
+                       aria: dict = None,
+                       macro_penalty: int = 0) -> list:
     """
     yfinance 기술지표 + 다이버전스 + 섹터상대강도로 100 → 50 선별.
+    macro_penalty: Macro Gate 점수 페널티 (극단 환경에서 임계값 상향 효과)
     """
     etf_returns = etf_returns or {}
     aria        = aria or {}
@@ -612,6 +710,11 @@ def _stage1_technical(universe: list, tech_map: dict,
             "tech":       tech,
             "s1_score":   round(s, 1),
         })
+
+    # macro_penalty 적용: 극단 환경에서 점수 하향 → 상위 진입 어렵게
+    if macro_penalty > 0:
+        for item in scored:
+            item["s1_score"] = round(item["s1_score"] - macro_penalty, 1)
 
     scored.sort(key=lambda x: x["s1_score"], reverse=True)
     top50 = scored[:50]
@@ -1375,6 +1478,33 @@ def run_hunt(force: bool = False) -> dict:
 
     log.info(f"  ARIA: {aria['regime'][:40]} | 유입: {aria['key_inflows'][:2]}")
 
+    # ── Macro Quality Gate (개선안 2) ────────────────────────────
+    log.info("  🌐 Macro Gate 체크...")
+    macro = _fetch_macro_gate(aria)
+    if macro["risk_level"] == "extreme":
+        log.warning(
+            f"  ⚠️  Macro Gate [EXTREME]: {macro['reason']} "
+            f"→ Stage1 임계값 +{macro['score_penalty']}점"
+        )
+    elif macro["risk_level"] == "elevated":
+        log.info(
+            f"  ⚡ Macro Gate [ELEVATED]: {macro['reason']} "
+            f"→ Stage1 임계값 +{macro['score_penalty']}점"
+        )
+    else:
+        log.info(f"  ✅ Macro Gate: {macro['reason']}")
+
+    # macro 결과를 jackal_weights.json에 저장 (dashboard 실시간 표시용)
+    try:
+        from pathlib import Path as _P
+        _wf = _P(__file__).parent / "jackal_weights.json"
+        import json as _j
+        _w = _j.loads(_wf.read_text(encoding="utf-8")) if _wf.exists() else {}
+        _w["last_macro_gate"] = {**macro, "checked_at": datetime.now(KST).isoformat()}
+        _wf.write_text(_j.dumps(_w, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
     # ── Universe 구성 ─────────────────────────────────────────────
     universe = _build_universe(aria)
 
@@ -1391,7 +1521,8 @@ def run_hunt(force: bool = False) -> dict:
 
     # ── Stage 1: 100 → 50 ────────────────────────────────────────
     top50 = _stage1_technical(universe, tech_map, candidates_meta,
-                               etf_returns=etf_returns, aria=aria)
+                               etf_returns=etf_returns, aria=aria,
+                               macro_penalty=macro["score_penalty"])
     if not top50:
         log.info("  Stage1: 후보 없음")
         _send_status(f"📊 Stage1: 후보 없음\nUniverse {len(universe)}개 스캔\n기술지표 조건 충족 종목 없음", aria)
