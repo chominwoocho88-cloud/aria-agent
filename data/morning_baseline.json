@@ -1,49 +1,45 @@
 {
-  "date": "2026-04-14",
-  "saved_at": "18:26 KST",
-  "market_regime": "위험선호 위장 스태그플레이션 초입 가능성",
+  "date": "2026-04-15",
+  "saved_at": "15:19 KST",
+  "market_regime": "위험선호",
   "trend_phase": "상승추세",
-  "confidence": "낮음",
-  "one_line_summary": "나스닥 23183·S&P 6886 고점권 위험선호 외관이나, TSMC 서프라이즈 소화 완료·에너지 EPS -31% 컷·FICC 미달로 추가 상승 촉매 부재 — 블랙스완 급반전 경계 구간",
+  "confidence": "보통",
+  "one_line_summary": "S&P500 6967·나스닥 23639 전고점 재탈환, SK하이닉스·삼성 어닝 서프라이즈로 코스피 6095 급등했지만 나스닥 고점권+Azure 둔화+쏠림 극단화로 블랙스완 경계 필요",
   "thesis_killers": [],
   "key_outflows": [
     {
-      "zone": "에너지 섹터 (S&P500 내)",
+      "zone": "빅테크 성장주 (MS·메가캡 전반)",
       "severity": "높음"
     },
     {
-      "zone": "헬스케어 섹터",
-      "severity": "보통"
-    },
-    {
-      "zone": "FICC·채권 트레이딩",
+      "zone": "중국 AI 칩 수입 대체 수혜 글로벌 종목",
       "severity": "보통"
     }
   ],
   "key_inflows": [
     {
-      "zone": "반도체·AI 섹터 (TSMC, 엔비디아, SK하이닉스)",
-      "momentum": "약화"
+      "zone": "한국 반도체 (SK하이닉스·삼성전자)",
+      "momentum": "강함"
     },
     {
-      "zone": "미국 대형 금융주 (골드만삭스 등)",
-      "momentum": "약화"
+      "zone": "코스피 대형주 전반",
+      "momentum": "보통"
     }
   ],
   "korea_focus": {},
   "volatility": {
-    "vix": "18.55",
-    "vkospi": "코스피 5967.75 반영 (별도 수치 미제공)",
-    "fear_greed": "65",
-    "level": "탐욕"
+    "vix": "18.36",
+    "vkospi": "데이터 미제공",
+    "fear_greed": "65 (Greed)",
+    "level": "중립~탐욕"
   },
   "market_snapshot": {
-    "sp500": "6886.24",
-    "nasdaq": "23183.74",
-    "vix": "18.55",
-    "kospi": "5967.75",
-    "krw_usd": "1471.18",
-    "nvda": "189.31"
+    "sp500": "6967.38",
+    "nasdaq": "23639.08",
+    "vix": "18.36",
+    "kospi": "6095.75",
+    "krw_usd": "1474.08",
+    "nvda": "196.51"
   },
   "actionable_watch": []
 }
