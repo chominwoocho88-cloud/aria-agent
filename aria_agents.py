@@ -18,11 +18,13 @@ from rich.console import Console
 KST     = timezone(timedelta(hours=9))
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 
-MODEL_HUNTER        = "claude-haiku-4-5-20251001"
-MODEL_ANALYST       = "claude-sonnet-4-6"
-MODEL_DEVIL         = "claude-sonnet-4-6"
-MODEL_REPORTER_FULL = "claude-sonnet-4-6"
-MODEL_REPORTER_LITE = "claude-sonnet-4-6"
+_DEFAULT_HAIKU  = "claude-haiku-4-5-20251001"
+_DEFAULT_SONNET = "claude-sonnet-4-6"
+MODEL_HUNTER        = os.environ.get("ARIA_MODEL_HUNTER", _DEFAULT_HAIKU)
+MODEL_ANALYST       = os.environ.get("ARIA_MODEL",        _DEFAULT_SONNET)
+MODEL_DEVIL         = os.environ.get("ARIA_MODEL",        _DEFAULT_SONNET)
+MODEL_REPORTER_FULL = os.environ.get("ARIA_MODEL",        _DEFAULT_SONNET)
+MODEL_REPORTER_LITE = os.environ.get("ARIA_MODEL_LITE",   _DEFAULT_SONNET)
 
 # ── 토큰 예산 (비용 최적화: 실측 기반 상한 설정)
 _TOK = {
