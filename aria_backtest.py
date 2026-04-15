@@ -1291,13 +1291,93 @@ def classify_task_type(note: str, vix, fg) -> str:
         return "volatility_regime"
     return "continuation"
 
+def _fetch_recent_data() -> None:
+    """
+    HIST_DATA 마지막 날짜 이후 ~ 오늘까지 yfinance로 자동 보완.
+    최대 20거래일치만 추가 (비용 0, yfinance 무료).
+    """
+    import yfinance as yf
+    from datetime import date as _date
 
+    last = datetime.strptime(DATES[-1], "%Y-%m-%d").date()
+    today = _date.today()
+    if (today - last).days <= 1:
+        return  # 이미 최신
+
+    print(f"\n📥 HIST_DATA 자동 보완: {last} 이후 ~ {today}")
+
+    # yfinance 다운로드 (한 번에)
+    tickers = {
+        "^GSPC": "sp500", "^IXIC": "nasdaq", "^VIX": "vix",
+        "^KS11": "kospi", "000660.KS": "sk_hynix",
+        "005930.KS": "samsung", "NVDA": "nvda",
+    }
+    try:
+        start_str = (last + timedelta(days=1)).strftime("%Y-%m-%d")
+        raw = yf.download(
+            list(tickers.keys()),
+            start=start_str,
+            end=today.strftime("%Y-%m-%d"),
+            auto_adjust=True,
+            progress=False,
+        )
+        if raw.empty:
+            print("  yfinance 데이터 없음 — 스킵")
+            return
+
+        closes = raw["Close"] if "Close" in raw.columns else raw
+        dates_fetched = [d.strftime("%Y-%m-%d") for d in closes.index]
+
+        added = 0
+        for i, d_str in enumerate(dates_fetched[:20]):  # 최대 20일
+            row = {}
+            for yf_ticker, key in tickers.items():
+                try:
+                    val = float(closes[yf_ticker].iloc[i])
+                    row[key] = round(val, 2)
+                    # 전일 대비 변화율
+                    if i > 0:
+                        prev = float(closes[yf_ticker].iloc[i - 1])
+                        chg  = (val - prev) / prev * 100
+                        row[f"{key}_change"] = f"{chg:+.2f}%"
+                    elif d_str in HIST_DATA:
+                        # 첫날은 HIST_DATA의 마지막 값과 비교
+                        prev_val = HIST_DATA[DATES[-1]].get(key)
+                        if prev_val:
+                            chg = (val - prev_val) / prev_val * 100
+                            row[f"{key}_change"] = f"{chg:+.2f}%"
+                        else:
+                            row[f"{key}_change"] = "N/A"
+                    else:
+                        row[f"{key}_change"] = "N/A"
+                except Exception:
+                    row[key] = None
+                    row[f"{key}_change"] = "N/A"
+
+            if row.get("sp500") and d_str not in HIST_DATA:
+                row["fear_greed"] = "50"  # F&G는 실시간 API 없어 중립으로 설정
+                row["fear_greed_label"] = "Neutral (추정)"
+                row["krw_usd"] = "N/A"
+                row["note"] = f"yfinance 자동 수집 ({d_str})"
+                HIST_DATA[d_str] = row
+                added += 1
+                print(f"  + {d_str}: S&P {row['sp500']} ({row.get('sp500_change','N/A')}) VIX {row.get('vix','N/A')}")
+
+        # DATES 갱신
+        global DATES
+        DATES = sorted(HIST_DATA.keys())
+        print(f"  ✅ {added}일 추가 → 총 {len(DATES)}거래일")
+
+    except Exception as e:
+        print(f"  yfinance 자동 보완 실패 (스킵): {e}")
+        
 def main():
     global market_data_snapshot
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry", action="store_true")
     args = parser.parse_args()
 
+    _fetch_recent_data()  # HIST_DATA 최신화
     print("=" * 65)
     print(f"ARIA Backtest — {len(DATES)}거래일 사전 학습" + (" [DRY RUN]" if args.dry else ""))
     print(f"기간: {DATES[0]} ~ {DATES[-1]}")
