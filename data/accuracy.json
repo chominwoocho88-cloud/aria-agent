@@ -1,14 +1,14 @@
 {
-  "total": 864,
-  "correct": 396,
+  "total": 1074,
+  "correct": 492,
   "by_category": {
     "주식": {
-      "total": 802,
-      "correct": 382
+      "total": 1003,
+      "correct": 476
     },
     "VIX": {
-      "total": 60,
-      "correct": 13
+      "total": 69,
+      "correct": 15
     },
     "기타": {
       "total": 1,
@@ -22,18 +22,18 @@
   "history": [
     {
       "date": "2026-01-13",
-      "total": 3,
-      "correct": 3,
+      "total": 2,
+      "correct": 2,
       "accuracy": 100.0,
-      "dir_correct": 3,
+      "dir_correct": 2,
       "dir_accuracy": 100.0
     },
     {
       "date": "2026-01-14",
-      "total": 3,
-      "correct": 3,
+      "total": 4,
+      "correct": 4,
       "accuracy": 100.0,
-      "dir_correct": 3,
+      "dir_correct": 4,
       "dir_accuracy": 100.0
     },
     {
@@ -71,10 +71,10 @@
     {
       "date": "2026-01-23",
       "total": 2,
-      "correct": 2,
-      "accuracy": 100.0,
-      "dir_correct": 2,
-      "dir_accuracy": 100.0
+      "correct": 0,
+      "accuracy": 0.0,
+      "dir_correct": 0,
+      "dir_accuracy": 0.0
     },
     {
       "date": "2026-01-24",
@@ -103,10 +103,10 @@
     {
       "date": "2026-01-29",
       "total": 5,
-      "correct": 0,
-      "accuracy": 0.0,
-      "dir_correct": 0,
-      "dir_accuracy": 0.0
+      "correct": 1,
+      "accuracy": 20.0,
+      "dir_correct": 1,
+      "dir_accuracy": 20.0
     },
     {
       "date": "2026-01-30",
@@ -118,11 +118,11 @@
     },
     {
       "date": "2026-01-31",
-      "total": 5,
-      "correct": 0,
-      "accuracy": 0.0,
-      "dir_correct": 0,
-      "dir_accuracy": 0.0
+      "total": 4,
+      "correct": 2,
+      "accuracy": 50.0,
+      "dir_correct": 2,
+      "dir_accuracy": 50.0
     },
     {
       "date": "2026-02-03",
@@ -150,10 +150,10 @@
     },
     {
       "date": "2026-02-06",
-      "total": 3,
-      "correct": 3,
+      "total": 4,
+      "correct": 4,
       "accuracy": 100.0,
-      "dir_correct": 3,
+      "dir_correct": 4,
       "dir_accuracy": 100.0
     },
     {
@@ -166,7 +166,7 @@
     },
     {
       "date": "2026-02-10",
-      "total": 4,
+      "total": 5,
       "correct": 0,
       "accuracy": 0.0,
       "dir_correct": 0,
@@ -174,7 +174,7 @@
     },
     {
       "date": "2026-02-11",
-      "total": 4,
+      "total": 3,
       "correct": 0,
       "accuracy": 0.0,
       "dir_correct": 0,
@@ -182,18 +182,18 @@
     },
     {
       "date": "2026-02-12",
-      "total": 4,
-      "correct": 0,
-      "accuracy": 0.0,
-      "dir_correct": 0,
-      "dir_accuracy": 0.0
+      "total": 5,
+      "correct": 4,
+      "accuracy": 80.0,
+      "dir_correct": 4,
+      "dir_accuracy": 80.0
     },
     {
       "date": "2026-02-13",
-      "total": 3,
-      "correct": 3,
+      "total": 4,
+      "correct": 4,
       "accuracy": 100.0,
-      "dir_correct": 3,
+      "dir_correct": 4,
       "dir_accuracy": 100.0
     },
     {
@@ -222,27 +222,27 @@
     },
     {
       "date": "2026-02-21",
-      "total": 5,
-      "correct": 5,
+      "total": 4,
+      "correct": 4,
       "accuracy": 100.0,
-      "dir_correct": 5,
+      "dir_correct": 4,
       "dir_accuracy": 100.0
     },
     {
       "date": "2026-02-24",
-      "total": 5,
-      "correct": 5,
+      "total": 3,
+      "correct": 3,
       "accuracy": 100.0,
-      "dir_correct": 5,
+      "dir_correct": 3,
       "dir_accuracy": 100.0
     },
     {
       "date": "2026-02-25",
       "total": 1,
-      "correct": 1,
-      "accuracy": 100.0,
-      "dir_correct": 1,
-      "dir_accuracy": 100.0
+      "correct": 0,
+      "accuracy": 0.0,
+      "dir_correct": 0,
+      "dir_accuracy": 0.0
     },
     {
       "date": "2026-02-26",
@@ -254,7 +254,7 @@
     },
     {
       "date": "2026-02-27",
-      "total": 3,
+      "total": 4,
       "correct": 0,
       "accuracy": 0.0,
       "dir_correct": 0,
@@ -270,11 +270,11 @@
     },
     {
       "date": "2026-03-03",
-      "total": 3,
+      "total": 4,
       "correct": 3,
-      "accuracy": 100.0,
+      "accuracy": 75.0,
       "dir_correct": 3,
-      "dir_accuracy": 100.0
+      "dir_accuracy": 75.0
     },
     {
       "date": "2026-03-04",
@@ -294,7 +294,7 @@
     },
     {
       "date": "2026-03-06",
-      "total": 4,
+      "total": 3,
       "correct": 0,
       "accuracy": 0.0,
       "dir_correct": 0,
@@ -310,14 +310,6 @@
     },
     {
       "date": "2026-03-10",
-      "total": 4,
-      "correct": 4,
-      "accuracy": 100.0,
-      "dir_correct": 4,
-      "dir_accuracy": 100.0
-    },
-    {
-      "date": "2026-03-11",
       "total": 5,
       "correct": 5,
       "accuracy": 100.0,
@@ -325,8 +317,16 @@
       "dir_accuracy": 100.0
     },
     {
-      "date": "2026-03-12",
+      "date": "2026-03-11",
       "total": 4,
+      "correct": 0,
+      "accuracy": 0.0,
+      "dir_correct": 0,
+      "dir_accuracy": 0.0
+    },
+    {
+      "date": "2026-03-12",
+      "total": 3,
       "correct": 0,
       "accuracy": 0.0,
       "dir_correct": 0,
@@ -335,25 +335,25 @@
     {
       "date": "2026-03-13",
       "total": 4,
-      "correct": 3,
-      "accuracy": 75.0,
-      "dir_correct": 3,
-      "dir_accuracy": 75.0
+      "correct": 0,
+      "accuracy": 0.0,
+      "dir_correct": 0,
+      "dir_accuracy": 0.0
     },
     {
       "date": "2026-03-14",
-      "total": 2,
-      "correct": 2,
+      "total": 3,
+      "correct": 3,
       "accuracy": 100.0,
-      "dir_correct": 2,
+      "dir_correct": 3,
       "dir_accuracy": 100.0
     },
     {
       "date": "2026-03-17",
-      "total": 5,
-      "correct": 5,
+      "total": 4,
+      "correct": 4,
       "accuracy": 100.0,
-      "dir_correct": 5,
+      "dir_correct": 4,
       "dir_accuracy": 100.0
     },
     {
@@ -366,7 +366,7 @@
     },
     {
       "date": "2026-03-19",
-      "total": 4,
+      "total": 3,
       "correct": 0,
       "accuracy": 0.0,
       "dir_correct": 0,
@@ -374,19 +374,19 @@
     },
     {
       "date": "2026-03-20",
-      "total": 3,
-      "correct": 3,
+      "total": 4,
+      "correct": 4,
       "accuracy": 100.0,
-      "dir_correct": 3,
+      "dir_correct": 4,
       "dir_accuracy": 100.0
     },
     {
       "date": "2026-03-21",
       "total": 5,
-      "correct": 0,
-      "accuracy": 0.0,
-      "dir_correct": 0,
-      "dir_accuracy": 0.0
+      "correct": 1,
+      "accuracy": 20.0,
+      "dir_correct": 1,
+      "dir_accuracy": 20.0
     },
     {
       "date": "2026-03-24",
@@ -406,11 +406,11 @@
     },
     {
       "date": "2026-03-26",
-      "total": 4,
-      "correct": 0,
-      "accuracy": 0.0,
-      "dir_correct": 0,
-      "dir_accuracy": 0.0
+      "total": 3,
+      "correct": 3,
+      "accuracy": 100.0,
+      "dir_correct": 3,
+      "dir_accuracy": 100.0
     },
     {
       "date": "2026-03-27",
@@ -422,22 +422,14 @@
     },
     {
       "date": "2026-03-28",
-      "total": 3,
-      "correct": 2,
-      "accuracy": 66.7,
-      "dir_correct": 2,
-      "dir_accuracy": 66.7
+      "total": 2,
+      "correct": 1,
+      "accuracy": 50.0,
+      "dir_correct": 1,
+      "dir_accuracy": 50.0
     },
     {
       "date": "2026-03-31",
-      "total": 4,
-      "correct": 0,
-      "accuracy": 0.0,
-      "dir_correct": 0,
-      "dir_accuracy": 0.0
-    },
-    {
-      "date": "2026-04-01",
       "total": 5,
       "correct": 4,
       "accuracy": 80.0,
@@ -445,7 +437,23 @@
       "dir_accuracy": 80.0
     },
     {
+      "date": "2026-04-01",
+      "total": 6,
+      "correct": 5,
+      "accuracy": 83.3,
+      "dir_correct": 5,
+      "dir_accuracy": 83.3
+    },
+    {
       "date": "2026-04-02",
+      "total": 2,
+      "correct": 1,
+      "accuracy": 50.0,
+      "dir_correct": 1,
+      "dir_accuracy": 50.0
+    },
+    {
+      "date": "2026-04-03",
       "total": 3,
       "correct": 1,
       "accuracy": 33.3,
@@ -453,7 +461,7 @@
       "dir_accuracy": 33.3
     },
     {
-      "date": "2026-04-03",
+      "date": "2026-04-07",
       "total": 4,
       "correct": 2,
       "accuracy": 50.0,
@@ -461,24 +469,16 @@
       "dir_accuracy": 50.0
     },
     {
-      "date": "2026-04-07",
-      "total": 4,
-      "correct": 4,
-      "accuracy": 100.0,
-      "dir_correct": 4,
-      "dir_accuracy": 100.0
-    },
-    {
       "date": "2026-04-08",
-      "total": 4,
-      "correct": 4,
+      "total": 5,
+      "correct": 5,
       "accuracy": 100.0,
-      "dir_correct": 4,
+      "dir_correct": 5,
       "dir_accuracy": 100.0
     },
     {
       "date": "2026-04-09",
-      "total": 4,
+      "total": 5,
       "correct": 0,
       "accuracy": 0.0,
       "dir_correct": 0,
@@ -486,7 +486,7 @@
     },
     {
       "date": "2026-04-10",
-      "total": 4,
+      "total": 5,
       "correct": 0,
       "accuracy": 0.0,
       "dir_correct": 0,
@@ -521,8 +521,8 @@
       "date": "2026-01-13",
       "by_category": {
         "주식": {
-          "total": 3,
-          "correct": 3
+          "total": 2,
+          "correct": 2
         }
       }
     },
@@ -530,8 +530,8 @@
       "date": "2026-01-14",
       "by_category": {
         "주식": {
-          "total": 3,
-          "correct": 3
+          "total": 4,
+          "correct": 4
         }
       }
     },
@@ -576,7 +576,7 @@
       "by_category": {
         "주식": {
           "total": 2,
-          "correct": 2
+          "correct": 0
         }
       }
     },
@@ -615,8 +615,12 @@
       "date": "2026-01-29",
       "by_category": {
         "주식": {
-          "total": 5,
+          "total": 4,
           "correct": 0
+        },
+        "VIX": {
+          "total": 1,
+          "correct": 1
         }
       }
     },
@@ -634,11 +638,7 @@
       "by_category": {
         "주식": {
           "total": 4,
-          "correct": 0
-        },
-        "VIX": {
-          "total": 1,
-          "correct": 0
+          "correct": 2
         }
       }
     },
@@ -673,8 +673,8 @@
       "date": "2026-02-06",
       "by_category": {
         "주식": {
-          "total": 3,
-          "correct": 3
+          "total": 4,
+          "correct": 4
         }
       }
     },
@@ -691,7 +691,7 @@
       "date": "2026-02-10",
       "by_category": {
         "주식": {
-          "total": 4,
+          "total": 5,
           "correct": 0
         }
       }
@@ -700,7 +700,7 @@
       "date": "2026-02-11",
       "by_category": {
         "주식": {
-          "total": 4,
+          "total": 3,
           "correct": 0
         }
       }
@@ -709,8 +709,8 @@
       "date": "2026-02-12",
       "by_category": {
         "주식": {
-          "total": 4,
-          "correct": 0
+          "total": 5,
+          "correct": 4
         }
       }
     },
@@ -718,8 +718,8 @@
       "date": "2026-02-13",
       "by_category": {
         "주식": {
-          "total": 3,
-          "correct": 3
+          "total": 4,
+          "correct": 4
         }
       }
     },
@@ -758,8 +758,8 @@
       "date": "2026-02-21",
       "by_category": {
         "주식": {
-          "total": 5,
-          "correct": 5
+          "total": 4,
+          "correct": 4
         }
       }
     },
@@ -767,8 +767,8 @@
       "date": "2026-02-24",
       "by_category": {
         "주식": {
-          "total": 5,
-          "correct": 5
+          "total": 3,
+          "correct": 3
         }
       }
     },
@@ -777,7 +777,7 @@
       "by_category": {
         "주식": {
           "total": 1,
-          "correct": 1
+          "correct": 0
         }
       }
     },
@@ -794,7 +794,7 @@
       "date": "2026-02-27",
       "by_category": {
         "주식": {
-          "total": 3,
+          "total": 4,
           "correct": 0
         }
       }
@@ -812,7 +812,7 @@
       "date": "2026-03-03",
       "by_category": {
         "주식": {
-          "total": 3,
+          "total": 4,
           "correct": 3
         }
       }
@@ -839,7 +839,7 @@
       "date": "2026-03-06",
       "by_category": {
         "주식": {
-          "total": 4,
+          "total": 3,
           "correct": 0
         }
       }
@@ -861,8 +861,8 @@
       "date": "2026-03-10",
       "by_category": {
         "주식": {
-          "total": 4,
-          "correct": 4
+          "total": 5,
+          "correct": 5
         }
       }
     },
@@ -870,8 +870,8 @@
       "date": "2026-03-11",
       "by_category": {
         "주식": {
-          "total": 5,
-          "correct": 5
+          "total": 4,
+          "correct": 0
         }
       }
     },
@@ -879,7 +879,7 @@
       "date": "2026-03-12",
       "by_category": {
         "주식": {
-          "total": 4,
+          "total": 3,
           "correct": 0
         }
       }
@@ -889,7 +889,7 @@
       "by_category": {
         "주식": {
           "total": 4,
-          "correct": 3
+          "correct": 0
         }
       }
     },
@@ -897,8 +897,8 @@
       "date": "2026-03-14",
       "by_category": {
         "주식": {
-          "total": 2,
-          "correct": 2
+          "total": 3,
+          "correct": 3
         }
       }
     },
@@ -906,8 +906,8 @@
       "date": "2026-03-17",
       "by_category": {
         "주식": {
-          "total": 5,
-          "correct": 5
+          "total": 4,
+          "correct": 4
         }
       }
     },
@@ -924,7 +924,7 @@
       "date": "2026-03-19",
       "by_category": {
         "주식": {
-          "total": 4,
+          "total": 3,
           "correct": 0
         }
       }
@@ -933,8 +933,8 @@
       "date": "2026-03-20",
       "by_category": {
         "주식": {
-          "total": 3,
-          "correct": 3
+          "total": 4,
+          "correct": 4
         }
       }
     },
@@ -943,7 +943,7 @@
       "by_category": {
         "주식": {
           "total": 4,
-          "correct": 0
+          "correct": 1
         },
         "VIX": {
           "total": 1,
@@ -973,8 +973,8 @@
       "date": "2026-03-26",
       "by_category": {
         "주식": {
-          "total": 4,
-          "correct": 0
+          "total": 3,
+          "correct": 3
         }
       }
     },
@@ -991,8 +991,8 @@
       "date": "2026-03-28",
       "by_category": {
         "주식": {
-          "total": 3,
-          "correct": 2
+          "total": 2,
+          "correct": 1
         }
       }
     },
@@ -1000,8 +1000,8 @@
       "date": "2026-03-31",
       "by_category": {
         "주식": {
-          "total": 3,
-          "correct": 0
+          "total": 4,
+          "correct": 4
         },
         "VIX": {
           "total": 1,
@@ -1013,8 +1013,8 @@
       "date": "2026-04-01",
       "by_category": {
         "주식": {
-          "total": 4,
-          "correct": 4
+          "total": 5,
+          "correct": 5
         },
         "VIX": {
           "total": 1,
@@ -1025,10 +1025,6 @@
     {
       "date": "2026-04-02",
       "by_category": {
-        "VIX": {
-          "total": 1,
-          "correct": 0
-        },
         "주식": {
           "total": 2,
           "correct": 1
@@ -1039,8 +1035,8 @@
       "date": "2026-04-03",
       "by_category": {
         "주식": {
-          "total": 4,
-          "correct": 2
+          "total": 3,
+          "correct": 1
         }
       }
     },
@@ -1049,7 +1045,7 @@
       "by_category": {
         "주식": {
           "total": 4,
-          "correct": 4
+          "correct": 2
         }
       }
     },
@@ -1057,8 +1053,8 @@
       "date": "2026-04-08",
       "by_category": {
         "주식": {
-          "total": 3,
-          "correct": 3
+          "total": 4,
+          "correct": 4
         },
         "VIX": {
           "total": 1,
@@ -1070,7 +1066,7 @@
       "date": "2026-04-09",
       "by_category": {
         "주식": {
-          "total": 3,
+          "total": 4,
           "correct": 0
         },
         "VIX": {
@@ -1083,7 +1079,7 @@
       "date": "2026-04-10",
       "by_category": {
         "주식": {
-          "total": 4,
+          "total": 5,
           "correct": 0
         }
       }
@@ -1093,6 +1089,6 @@
     "VIX (22%)"
   ],
   "strong_areas": [],
-  "dir_total": 731,
-  "dir_correct": 331
+  "dir_total": 941,
+  "dir_correct": 427
 }
