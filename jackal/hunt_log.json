@@ -316,10 +316,10 @@
     "outcome_swing_hit": null
   },
   {
-    "timestamp": "2026-04-16T05:13:10.858615+09:00",
+    "timestamp": "2026-04-16T06:10:49.685823+09:00",
     "ticker": "XOM",
     "name": "XOM",
-    "price_at_hunt": 149.0,
+    "price_at_hunt": 149.01,
     "rsi": 30.9,
     "bb_pos": 7.4,
     "change_5d": -4.62,
@@ -353,7 +353,7 @@
     "outcome_swing_hit": null
   },
   {
-    "timestamp": "2026-04-16T05:13:10.858615+09:00",
+    "timestamp": "2026-04-16T06:10:49.685823+09:00",
     "ticker": "000270.KS",
     "name": "000270.KS",
     "price_at_hunt": 151500.0,
@@ -390,7 +390,7 @@
     "outcome_swing_hit": null
   },
   {
-    "timestamp": "2026-04-16T05:13:10.858615+09:00",
+    "timestamp": "2026-04-16T06:10:49.685823+09:00",
     "ticker": "086520.KS",
     "name": "086520.KS",
     "price_at_hunt": 147900.0,
