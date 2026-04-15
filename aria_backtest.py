@@ -1292,9 +1292,9 @@ def main():
 
         # HIST_DATA에 오늘 레짐 저장 (시계열 컨텍스트용)
         HIST_DATA.setdefault(date, {})["regime"]       = analysis.get("market_regime","")
-        HIST_DATA.setdefault(date, {})["fear_greed"]   = market_data.get("fear_greed","50")
-        HIST_DATA.setdefault(date, {})["vix"]          = market_data.get("vix","20")
-        HIST_DATA.setdefault(date, {})["sp500_change"] = market_data.get("sp500_change","0")
+        HIST_DATA.setdefault(date, {})["fear_greed"]   = md.get("fear_greed","50")
+        HIST_DATA.setdefault(date, {})["vix"]          = md.get("vix","20")
+        HIST_DATA.setdefault(date, {})["sp500_change"] = md.get("sp500_change","0")
 
         if next_data:
             results = verify_predictions(analysis, next_data)
