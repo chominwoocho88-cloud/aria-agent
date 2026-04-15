@@ -263,9 +263,22 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
     total_signals  = 0
     skipped        = 0
 
-    # 중복 날짜 제거 필터 (Doc1: 주말/휴장 직후 동일 RSI/BB 중복 발동 방지)
-    # 동일 (ticker, RSI, BB) 조합이 연속 이틀 발동하면 첫날만 사용
-    seen_tech_keys: set = set()
+    # ── signal funnel 카운터 (Doc2/3: 어떤 필터가 얼마나 줄였는지 추적) ──
+    funnel = {
+        "raw_candidates":  0,   # 신호 발동 전 전체 종목×날짜
+        "after_dedupe":    0,   # 중복 제거 후
+        "after_ma_filter": 0,   # ma_support 단독 제거 후
+        "final":           0,   # 최종 집계
+    }
+    # blocked accuracy: 게이트/필터로 막힌 신호의 실제 결과 추적
+    blocked_entries: list = []
+
+    # ── 중복 날짜 제거 (개선: last_trade_date 기반) ─────────────────
+    # 문제: 주말/연휴 낀 날 memory.json 분석이 다음 거래일에도 동일 지표로 반복
+    # 이전: (ticker, RSI, BB) 기반 → 우연히 같은 RSI/BB 값인 날도 제거될 위험
+    # 개선: yfinance에서 받은 실제 마지막 거래일 날짜를 key로 사용
+    # 방어: 날짜 추출 실패 시 RSI/BB 방식으로 fallback
+    seen_trade_dates: dict = {}  # {ticker: last_trade_date}
 
     for report in memory:
         date_str = report.get("analysis_date", "")
@@ -279,11 +292,43 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
             if not tech:
                 continue
 
-            # 중복 감지: 동일 기술 지표 = 같은 날 데이터가 반복된 것
-            tech_key = (ticker, round(tech["rsi"], 1), round(tech["bb_pos"], 1))
-            if tech_key in seen_tech_keys:
-                continue   # 이미 처리한 동일 상태 → 스킵
-            seen_tech_keys.add(tech_key)
+            # 실제 마지막 거래일 날짜 추출 (timezone UTC 통일 — KRX/NYSE 혼재 방어)
+            try:
+                sub = df[df.index <= date_str]
+                if sub.empty:
+                    last_trade_date = date_str
+                else:
+                    last_idx = sub.index[-1]
+                    # tz-naive/tz-aware 안전 처리 (Doc3: KRX/NYSE 혼합 시 예외 방지)
+                    try:
+                        if hasattr(last_idx, 'tzinfo') and last_idx.tzinfo is not None:
+                            # tz-aware: UTC로 변환 후 date 추출
+                            last_trade_date = str(last_idx.tz_convert('UTC').date())
+                        else:
+                            # tz-naive: 직접 date 추출
+                            last_trade_date = str(last_idx.date())
+                    except AttributeError:
+                        last_trade_date = str(last_idx)[:10]
+            except Exception:
+                last_trade_date = f"rsi{round(tech['rsi'],1)}_bb{round(tech['bb_pos'],1)}"
+
+            # dedupe key: ticker + market + signal_family + last_trade_date
+            # market 추가로 KRX/NYSE 같은 날 혼동 방지, family 추가로 좋은 2차진입 보호
+            market = info.get("market", "US")
+            sig_family = (
+                "crash_rebound" if any(s in fired for s in
+                    ["sector_rebound","volume_climax","vol_accumulation","52w_low_zone"])
+                else "oversold" if any(s in fired for s in ["bb_touch","rsi_oversold"])
+                else "general"
+            )
+            # scan_mode: 백테스트 vs 실시간 구분 (나중에 장중/장마감 추가 시 확장 가능)
+            funnel["raw_candidates"] += 1
+            scan_mode = "backtest"
+            dedupe_key = (ticker, market, sig_family, last_trade_date, scan_mode)
+            if dedupe_key in seen_trade_dates:
+                continue
+            seen_trade_dates[dedupe_key] = date_str
+            funnel["after_dedupe"] += 1
 
             fired = [sig for sig, rule in signal_rules.items() if rule(tech)]
 
@@ -298,6 +343,7 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
 
             if not fired:
                 continue
+            funnel["after_ma_filter"] += 1
             peak = track_peak(df, date_str)
             if peak["peak_day"] is None:
                 skipped += 1
@@ -322,6 +368,7 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
             regime_results[regime_key].append(entry)
             ticker_results[ticker].append(entry)
             total_signals += 1
+            funnel["final"] += 1
 
             d1_str = f"{peak.get('d1_pct', 0):+.1f}%" if peak.get('d1_pct') is not None else "N/A"
             print(
@@ -355,7 +402,37 @@ def run_backtest():
     signal_results, regime_results, ticker_results, total_signals, skipped = \
         _run_signals(memory, tickers, hist, SIGNAL_RULES_STRICT, "엄격")
 
+    # ── signal funnel + blocked accuracy 출력 ──────────────────────
     print(f"\n총 신호 발동: {total_signals}건 / {total_days}거래일 (Peak 추적불가: {skipped}건)")
+
+    print("\n============================================================")
+    print("  🔬 Signal Funnel (필터별 기여도)")
+    print("============================================================")
+    raw   = funnel["raw_candidates"]
+    dedup = funnel["after_dedupe"]
+    ma_f  = funnel["after_ma_filter"]
+    final = funnel["final"]
+    print(f"  raw candidates : {raw:4d}건")
+    print(f"  dedupe 후      : {dedup:4d}건  (-{raw-dedup:3d}, {(raw-dedup)/max(raw,1)*100:.1f}% 중복제거)")
+    print(f"  ma_filter 후   : {ma_f:4d}건  (-{dedup-ma_f:3d}, ma_support단독 제거)")
+    print(f"  최종 발동      : {final:4d}건  (-{ma_f-final:3d}, Peak추적불가/기타)")
+    if raw > 0:
+        print(f"  총 필터 효율   : {(raw-final)/raw*100:.1f}% 제거 ({raw}→{final}건)")
+
+    # blocked accuracy — 막힌 신호 실제 결과
+    if blocked_entries:
+        b_total = len(blocked_entries)
+        b_ok    = sum(1 for e in blocked_entries if e.get("swing_hit"))
+        b_acc   = b_ok / b_total * 100 if b_total > 0 else 0
+        print(f"\n  📊 Blocked Accuracy (게이트로 막힌 신호)")
+        print(f"  차단 신호: {b_total}건 | 실제 스윙 적중: {b_ok}건 ({b_acc:.1f}%)")
+        if final > 0:
+            live_ok  = sum(1 for entries in signal_results.values()
+                           for e in entries if e.get("swing_hit"))
+            live_acc = live_ok / final * 100
+            diff     = b_acc - live_acc
+            verdict  = "✅ 잘 막았음" if diff < -5 else "⚠️ 좋은 신호 과도하게 차단 검토"
+            print(f"  발송 신호 정확도: {live_acc:.1f}%  |  차단 신호: {b_acc:.1f}%  {verdict}")
 
     # 신호 0건이면 완화 임계값으로 재시도
     if total_signals == 0:
