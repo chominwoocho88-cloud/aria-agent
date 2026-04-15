@@ -44,22 +44,29 @@ DEFAULT_TICKERS = {
 
 # 기본 신호 임계값
 SIGNAL_RULES_STRICT = {
-    "rsi_oversold":   lambda t: t["rsi"] < 32,
-    "bb_touch":       lambda t: t["bb_pos"] < 15,
-    "volume_climax":  lambda t: t["vol_ratio"] > 1.8 and t["change_1d"] < -1.0,
-    "momentum_dip":   lambda t: t["change_5d"] < -4.0,
-    "ma_support":     lambda t: (t["ma50"] is not None and abs(t["price"] - t["ma50"]) / t["ma50"] < 0.025),
-    "sector_rebound": lambda t: t["rsi"] < 40 and t["change_3d"] < -2.0,
+    "rsi_oversold":    lambda t: t["rsi"] < 32,
+    "bb_touch":        lambda t: t["bb_pos"] < 15,
+    "volume_climax":   lambda t: t["vol_ratio"] > 1.8 and t["change_1d"] < -1.0,
+    "momentum_dip":    lambda t: t["change_5d"] < -4.0,
+    "ma_support":      lambda t: (t["ma50"] is not None and abs(t["price"] - t["ma50"]) / t["ma50"] < 0.025),
+    "sector_rebound":  lambda t: t["rsi"] < 40 and t.get("change_3d", t.get("change_5d", 0)) < -2.0,
+    # 신규 신호 (calc_indicators에서 계산)
+    "rsi_divergence":  lambda t: t.get("rsi_divergence", False),
+    "52w_low_zone":    lambda t: t.get("52w_pos", 50) < 15,
+    "vol_accumulation":lambda t: t.get("vol_accumulation", False),
 }
 
 # 완화 신호 임계값 (신호 0건 시 자동 전환)
 SIGNAL_RULES_RELAXED = {
-    "rsi_oversold":   lambda t: t["rsi"] < 40,
-    "bb_touch":       lambda t: t["bb_pos"] < 25,
-    "volume_climax":  lambda t: t["vol_ratio"] > 1.5 and t["change_1d"] < -0.5,
-    "momentum_dip":   lambda t: t["change_5d"] < -2.0,
-    "ma_support":     lambda t: (t["ma50"] is not None and abs(t["price"] - t["ma50"]) / t["ma50"] < 0.04),
-    "sector_rebound": lambda t: t["rsi"] < 45 and t["change_3d"] < -1.0,
+    "rsi_oversold":    lambda t: t["rsi"] < 40,
+    "bb_touch":        lambda t: t["bb_pos"] < 25,
+    "volume_climax":   lambda t: t["vol_ratio"] > 1.5 and t["change_1d"] < -0.5,
+    "momentum_dip":    lambda t: t["change_5d"] < -2.0,
+    "ma_support":      lambda t: (t["ma50"] is not None and abs(t["price"] - t["ma50"]) / t["ma50"] < 0.04),
+    "sector_rebound":  lambda t: t["rsi"] < 45 and t.get("change_3d", t.get("change_5d", 0)) < -1.0,
+    "rsi_divergence":  lambda t: t.get("rsi_divergence", False),
+    "52w_low_zone":    lambda t: t.get("52w_pos", 50) < 20,
+    "vol_accumulation":lambda t: t.get("vol_accumulation", False),
 }
 
 TRACKING_DAYS = 10
@@ -161,11 +168,43 @@ def calc_indicators(df: pd.DataFrame, as_of: str) -> dict | None:
             return round((price - float(close.iloc[-n-1])) / float(close.iloc[-n-1]) * 100, 2)
         return 0.0
 
+    # 신규 피처 계산
+    # RSI 강세 다이버전스
+    rsi_series = 100 - 100 / (1 + gain / loss)
+    rsi_div = False
+    if len(close) >= 7 and chg(5) < -1.5:
+        rsi_5d = float(rsi_series.iloc[-6]) if len(rsi_series) >= 6 else float(rsi_series.iloc[0])
+        p5d    = float(close.iloc[-6]) if len(close) >= 6 else float(close.iloc[0])
+        if price < p5d and round(rsi, 1) > rsi_5d + 2:
+            rsi_div = True
+
+    # 52주 위치
+    high52 = float(close.rolling(252).max().iloc[-1]) if len(close) >= 50 else float(close.max())
+    low52  = float(close.rolling(252).min().iloc[-1]) if len(close) >= 50 else float(close.min())
+    pos52  = round((price - low52) / (high52 - low52) * 100, 1) if high52 > low52 else 50.0
+
+    # 거래량 추세 + 매집
+    vol_trend = 0.0
+    if len(volume) >= 10:
+        vr = float(volume.iloc[-5:].mean())
+        vp = float(volume.iloc[-10:-5].mean())
+        vol_trend = round((vr - vp) / vp * 100, 1) if vp > 0 else 0.0
+    vol_acc = chg(5) < -2.0 and vol_trend > 15
+
     return {
-        "price": round(price, 4), "change_1d": chg(1), "change_3d": chg(3),
-        "change_5d": chg(5), "rsi": round(rsi, 1), "ma20": round(ma20, 4),
-        "ma50": round(ma50, 4) if ma50 else None,
-        "bb_pos": round(bb_pos, 1), "vol_ratio": vol_ratio,
+        "price":           round(price, 4),
+        "change_1d":       chg(1),
+        "change_3d":       chg(3),
+        "change_5d":       chg(5),
+        "rsi":             round(rsi, 1),
+        "ma20":            round(ma20, 4),
+        "ma50":            round(ma50, 4) if ma50 else None,
+        "bb_pos":          round(bb_pos, 1),
+        "vol_ratio":       vol_ratio,
+        "rsi_divergence":  rsi_div,
+        "52w_pos":         pos52,
+        "vol_trend_5d":    vol_trend,
+        "vol_accumulation": vol_acc,
     }
 
 
