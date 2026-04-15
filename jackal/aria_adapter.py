@@ -7,8 +7,9 @@ from pathlib import Path
 
 log = logging.getLogger("aria_adapter")
 
-_JACKAL_DIR = Path(__file__).parent
-_REPO_ROOT  = _JACKAL_DIR.parent
+# ── 경로 — 항상 repo root 기준 절대경로 ──────────────────────────
+_JACKAL_DIR = Path(__file__).parent   # jackal/
+_REPO_ROOT  = _JACKAL_DIR.parent      # repo root
 DATA_DIR    = _REPO_ROOT / "data"
 
 ARIA_BASELINE = DATA_DIR / "morning_baseline.json"
@@ -18,10 +19,17 @@ JACKAL_NEWS   = DATA_DIR / "jackal_news.json"
 
 def load_aria_context() -> dict:
     ctx: dict = {
-        "one_line": "", "regime": "", "top_headlines": [],
-        "key_inflows": [], "key_outflows": [], "thesis_killers": [],
-        "actionable": [], "inflows_detail": [], "outflows_detail": [],
-        "all_headlines": [], "jackal_news": {},
+        "one_line":        "",
+        "regime":          "",
+        "top_headlines":   [],
+        "key_inflows":     [],
+        "key_outflows":    [],
+        "thesis_killers":  [],
+        "actionable":      [],
+        "inflows_detail":  [],
+        "outflows_detail": [],
+        "all_headlines":   [],
+        "jackal_news":     {},
     }
     try:
         if ARIA_BASELINE.exists():
