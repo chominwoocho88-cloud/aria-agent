@@ -38,8 +38,10 @@ _BASE = Path(__file__).parent
 
 HUNT_LOG_FILE  = _BASE / "hunt_log.json"
 HUNT_COOL_FILE = _BASE / "hunt_cooldown.json"
-ARIA_BASELINE  = Path("data") / "morning_baseline.json"
-ARIA_MEMORY    = Path("data") / "memory.json"
+from aria_adapter import (
+    load_aria_context     as _load_aria_context,
+    aria_baseline_exists  as _aria_baseline_exists,
+)
 
 TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
@@ -1465,7 +1467,7 @@ def run_hunt(force: bool = False) -> dict:
     now_kst = datetime.now(KST)
     log.info(f"🎯 Jackal Hunter | {now_kst.strftime('%Y-%m-%d %H:%M KST')}")
 
-    if not ARIA_BASELINE.exists():
+    if not _aria_baseline_exists():
         log.info("  ARIA baseline 없음 — 스킵")
         _send_status("⚠️ ARIA morning 분석 대기 중\n(매일 오전 ARIA 실행 후 활성화)")
         return {"hunted": 0, "alerted": 0}
