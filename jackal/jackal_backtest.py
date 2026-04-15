@@ -322,8 +322,10 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
             except Exception:
                 last_trade_date = f"rsi{round(tech['rsi'],1)}_bb{round(tech['bb_pos'],1)}"
 
+            # fired 먼저 계산 (sig_family가 fired를 참조하므로 반드시 선행)
+            fired = [sig for sig, rule in signal_rules.items() if rule(tech)]
+
             # dedupe key: ticker + market + signal_family + last_trade_date
-            # market 추가로 KRX/NYSE 같은 날 혼동 방지, family 추가로 좋은 2차진입 보호
             market = info.get("market", "US")
             sig_family = (
                 "crash_rebound" if any(s in fired for s in
@@ -331,9 +333,6 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
                 else "oversold" if any(s in fired for s in ["bb_touch","rsi_oversold"])
                 else "general"
             )
-            # scan_mode: 백테스트 vs 실시간 구분 (나중에 장중/장마감 추가 시 확장 가능)
-            # fired를 먼저 계산해야 sig_family에서 사용 가능
-            fired = [sig for sig, rule in signal_rules.items() if rule(tech)]
 
             funnel["raw_candidates"] += 1
             scan_mode = "backtest"
