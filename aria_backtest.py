@@ -3,7 +3,7 @@ aria_backtest.py — ARIA 30거래일 사전 학습 스크립트
 2026년 3월~4월 실제 시장 데이터로 분석→검증 사이클을 돌려
 accuracy.json, aria_lessons.json, aria_weights.json을 미리 채운다.
 """
-import os, sys, json, re, argparse
+import os, sys, json, re, argparse, functools
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -1258,6 +1258,40 @@ def print_summary_table(all_results_by_date):
     print(f"{'='*65}")
 
 
+def classify_vix_band(vix) -> str:
+    """
+    VIX를 레짐 밴드로 분류 (dual-write용 — 기존 방향성 판단과 병행).
+    기존 verify_predictions는 direction 기준 유지, 이 필드는 별도 측정.
+    300건 이상 쌓이면 밴드 기준 교훈으로 점진 전환 가능.
+    """
+    try:
+        v = float(vix)
+    except (ValueError, TypeError):
+        return "unknown"
+    if v >= 40:   return "panic"
+    if v >= 28:   return "fear"
+    if v >= 18:   return "caution"
+    return "calm"
+
+
+def classify_task_type(note: str, vix, fg) -> str:
+    """
+    예측 태스크 분류 (저장만, 예측에 미사용).
+    데이터 축적 후 태스크별 정확도 분석에 활용.
+    """
+    EVENT_KW = ["FOMC","CPI","관세","tariff","실적발표","Fed","금리","어닝"]
+    try:
+        v = float(vix)
+    except (ValueError, TypeError):
+        v = 20
+    note_str = str(note or "")
+    if any(kw in note_str for kw in EVENT_KW):
+        return "event_response"
+    if v >= 28:
+        return "volatility_regime"
+    return "continuation"
+
+
 def main():
     global market_data_snapshot
     parser = argparse.ArgumentParser()
@@ -1286,7 +1320,11 @@ def main():
 
         analysis = generate_analysis(date, md, dry=args.dry)
         # VIX 현재값 저장 (다음날 VIX 검증용)
-        analysis["vix_at_time"] = md["vix"]
+        analysis["vix_at_time"]   = md["vix"]
+        analysis["vix_band"]      = classify_vix_band(md["vix"])        # dual-write
+        analysis["task_type"]     = classify_task_type(                  # 레이블만 저장
+            md.get("note",""), md.get("vix",20), md.get("fear_greed",50)
+        )
         save_to_memory(analysis)
         print(f"  → 레짐: {analysis.get('market_regime','')} | 추세: {analysis.get('trend_phase','')} | TK: {len(analysis.get('thesis_killers',[]))}개")
 
