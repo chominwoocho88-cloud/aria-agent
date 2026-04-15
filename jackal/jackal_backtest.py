@@ -13,6 +13,7 @@ Look-ahead Bias 없는 방식:
 소요: ~3분 (yfinance 다운로드)
 """
 
+import functools
 import sys
 import json
 import os
@@ -127,26 +128,34 @@ def load_tickers() -> dict:
     return DEFAULT_TICKERS
 
 
-def download_history(tickers: dict) -> dict:
-    hist = {}
-    print(f"\n📥 yfinance 다운로드 ({len(tickers)}종목)...")
-    for ticker in tickers:
-        for attempt in range(3):
-            try:
-                df = yf.Ticker(ticker).history(period="1y", interval="1d")
-                if df.empty:
-                    print(f"  {ticker}: 데이터 없음")
-                    break
+@functools.lru_cache(maxsize=32)
+def _fetch_yf_cached(ticker: str):
+    """yfinance 1년 일봉 캐싱 — 같은 ticker 반복 호출 방지."""
+    for attempt in range(3):
+        try:
+            import yfinance as yf, pandas as pd
+            df = yf.Ticker(ticker).history(period="1y", interval="1d")
+            if not df.empty:
                 df.index = pd.to_datetime(df.index).tz_localize(None)
-                hist[ticker] = df
-                print(f"  {ticker}: {len(df)}일 ✅")
-                time.sleep(0.3)
-                break
-            except Exception as e:
-                if attempt < 2:
-                    time.sleep(2)
-                else:
-                    print(f"  {ticker}: 실패 ({e})")
+                return df
+        except Exception:
+            if attempt < 2:
+                import time; time.sleep(2)
+    return None
+
+
+def download_history(tickers: dict) -> dict:
+    import time
+    hist = {}
+    print(f"\n📥 yfinance 다운로드 ({len(tickers)}종목, lru_cache 적용)...")
+    for ticker in tickers:
+        df = _fetch_yf_cached(ticker)
+        if df is not None:
+            hist[ticker] = df.copy()
+            print(f"  {ticker}: {len(df)}일 ✅")
+        else:
+            print(f"  {ticker}: 데이터 없음")
+        time.sleep(0.1)
     return hist
 
 
@@ -272,6 +281,7 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
     }
     # blocked accuracy: 게이트/필터로 막힌 신호의 실제 결과 추적
     blocked_entries: list = []
+    _dedupe_drop_log: dict = {}   # {date: {ticker: [dropped_signal_names]}}
 
     # ── 중복 날짜 제거 (개선: last_trade_date 기반) ─────────────────
     # 문제: 주말/연휴 낀 날 memory.json 분석이 다음 거래일에도 동일 지표로 반복
@@ -322,15 +332,25 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
                 else "general"
             )
             # scan_mode: 백테스트 vs 실시간 구분 (나중에 장중/장마감 추가 시 확장 가능)
+            # fired를 먼저 계산해야 sig_family에서 사용 가능
+            fired = [sig for sig, rule in signal_rules.items() if rule(tech)]
+
             funnel["raw_candidates"] += 1
             scan_mode = "backtest"
             dedupe_key = (ticker, market, sig_family, last_trade_date, scan_mode)
             if dedupe_key in seen_trade_dates:
+                prev_entry_date = seen_trade_dates[dedupe_key]
+                if prev_entry_date not in _dedupe_drop_log:
+                    _dedupe_drop_log[prev_entry_date] = {}
+                if ticker not in _dedupe_drop_log[prev_entry_date]:
+                    _dedupe_drop_log[prev_entry_date][ticker] = []
+                _dedupe_drop_log[prev_entry_date][ticker].extend(
+                    [s for s in fired if s not in
+                     _dedupe_drop_log[prev_entry_date][ticker]]
+                )
                 continue
             seen_trade_dates[dedupe_key] = date_str
             funnel["after_dedupe"] += 1
-
-            fired = [sig for sig, rule in signal_rules.items() if rule(tech)]
 
             # ma_support 단독 독립 트리거 제거 (scanner.py와 동기화)
             # 다른 강한 신호 없이 ma_support만이면 신호 불발
@@ -418,6 +438,20 @@ def run_backtest():
     print(f"  최종 발동      : {final:4d}건  (-{ma_f-final:3d}, Peak추적불가/기타)")
     if raw > 0:
         print(f"  총 필터 효율   : {(raw-final)/raw*100:.1f}% 제거 ({raw}→{final}건)")
+
+    # dropped signal 요약
+    total_dropped = sum(len(sigs) for d in _dedupe_drop_log.values()
+                        for sigs in d.values())
+    if total_dropped > 0:
+        print(f"  dropped_signals: {total_dropped}건 (dedupe로 제거된 신호명)")
+        # 가장 많이 dropped된 신호 top3
+        from collections import Counter
+        drop_counter: Counter = Counter()
+        for d in _dedupe_drop_log.values():
+            for sigs in d.values():
+                drop_counter.update(sigs)
+        for sig, cnt in drop_counter.most_common(3):
+            print(f"    {sig}: {cnt}건")
 
     # blocked accuracy — 막힌 신호 실제 결과
     if blocked_entries:
