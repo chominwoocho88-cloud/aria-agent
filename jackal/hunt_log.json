@@ -316,7 +316,7 @@
     "outcome_swing_hit": null
   },
   {
-    "timestamp": "2026-04-16T05:08:46.749426+09:00",
+    "timestamp": "2026-04-16T05:13:10.858615+09:00",
     "ticker": "XOM",
     "name": "XOM",
     "price_at_hunt": 149.0,
@@ -353,7 +353,7 @@
     "outcome_swing_hit": null
   },
   {
-    "timestamp": "2026-04-16T04:51:25.656647+09:00",
+    "timestamp": "2026-04-16T05:13:10.858615+09:00",
     "ticker": "000270.KS",
     "name": "000270.KS",
     "price_at_hunt": 151500.0,
@@ -390,7 +390,7 @@
     "outcome_swing_hit": null
   },
   {
-    "timestamp": "2026-04-16T04:51:25.656647+09:00",
+    "timestamp": "2026-04-16T05:13:10.858615+09:00",
     "ticker": "086520.KS",
     "name": "086520.KS",
     "price_at_hunt": 147900.0,
@@ -467,7 +467,7 @@
     "outcome_swing_hit": null
   },
   {
-    "timestamp": "2026-04-16T05:08:46.749426+09:00",
+    "timestamp": "2026-04-16T05:13:10.858615+09:00",
     "ticker": "NOC",
     "name": "NOC",
     "price_at_hunt": 678.44,
@@ -482,18 +482,22 @@
       "반도체·AI 섹터 (미국·한국)",
       "대형 금융주 (골드만삭스 등)"
     ],
-    "analyst_score": 50,
-    "day1_score": 50,
-    "swing_score": 50,
-    "entry_mode": "일반",
-    "swing_setup": "중립",
-    "signals_fired": [],
+    "analyst_score": 58,
+    "day1_score": 42,
+    "swing_score": 68,
+    "entry_mode": "분할진입",
+    "swing_setup": "반등가능",
+    "signals_fired": [
+      "bullish_div",
+      "rsi_recovery_trend",
+      "bb_mid_zone"
+    ],
     "devil_verdict": "부분동의",
     "devil_score": 30,
     "thesis_killer_hit": false,
-    "final_score": 50.0,
-    "is_entry": false,
-    "alerted": false,
+    "final_score": 57.6,
+    "is_entry": true,
+    "alerted": true,
     "outcome_checked": false,
     "price_1d_later": null,
     "outcome_1d_pct": null,
