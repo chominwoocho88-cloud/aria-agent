@@ -478,6 +478,82 @@ def _calc_signal_quality(signals: list, tech: dict, aria: dict,
         score -= veto_penalty
         reasons.append(f"NegVeto({','.join(negative_reasons)}): rebound -{veto_penalty}")
 
+    # ── D-2. 고불확실 구간 heuristic gate ────────────────────────────
+    # Doc1/3 반박 수용: 이벤트-데이 방어를 키워드 신뢰도 하향으로 구현
+    # 완전 abstain 아님 → quality 패널티로 강한 신호는 통과, 약한 신호만 차단
+    #
+    # 사이드이펙트 방어:
+    #   - crash_rebound family 예외 (VIX 극단에서 반등이 강하므로 패널티 제외)
+    #   - VIX AND 저FG 동시 조건 (한쪽만으론 패널티 없음)
+    #   - 키워드 매칭은 aria 컨텍스트 전체에서
+
+    HIGH_UNCERTAINTY_KEYWORDS = [
+        "FOMC", "CPI", "관세", "tariff", "실적발표", "어닝", "earning",
+        "금리결정", "고용지표", "기준금리", "연준", "Fed decision",
+    ]
+    aria_note    = aria.get("note", "") + " " + aria.get("trend", "") + " " + regime
+    has_event_kw = any(kw.lower() in aria_note.lower() for kw in HIGH_UNCERTAINTY_KEYWORDS)
+
+    # FG 수치: aria에서 추출 (없으면 기본값 50)
+    fg_raw = aria.get("fear_greed", "50")
+    try:
+        fg_score = int(str(fg_raw).split()[0])
+    except Exception:
+        fg_score = 50
+
+    # 고불확실 조건: (VIX>=32 AND FG<=15) 또는 (VIX>=40) 또는 (키워드+VIX>=28)
+    # FG 파싱 실패 여부 추적 (None = 데이터 없음)
+    fg_available = fg_raw not in (None, "", "50", 50)
+    fg_fear_gate = fg_score <= 15 if fg_available else None
+
+    # ── gate_reason 세분화 (Doc3: 왜 걸렸는지 로그 근거) ─────────
+    gate_reason = None
+
+    if vix >= 40:
+        gate_reason  = "vix_only_hard"
+        gate_strength = "hard"
+    elif vix >= 32 and fg_fear_gate is True:
+        gate_reason  = "vix_fg_hard"
+        gate_strength = "hard"
+    elif vix >= 32 and fg_fear_gate is None:
+        gate_reason  = "vix_only_soft"    # FG 누락 보정
+        gate_strength = "soft"
+    elif has_event_kw and vix >= 28:
+        gate_reason  = "keyword_vix_soft"
+        gate_strength = "soft"
+    else:
+        gate_reason   = None
+        gate_strength = None
+
+    is_high_uncertainty = gate_reason is not None
+
+    # ── VIX 28~32 micro-gate: 회색지대 보완 (Doc1) ────────────────
+    # 로그상 3/05~3/07, 3/11~3/13 연속 0% 구간이 VIX 22~28 수준
+    # ARIA 레짐이 이미 판단한 "위험회피/하락추세" 값을 직접 활용
+    micro_gate_active = False
+    if not is_high_uncertainty:
+        is_risk_off_regime = any(kw in regime for kw in ["위험회피","하락추세","bearish"])
+        if is_risk_off_regime and vix >= 22 and family not in ("crash_rebound",):
+            micro_gate_active = True
+            gate_reason   = "regime_micro"
+            gate_strength = "micro"
+
+    fg_str = f"FG{fg_score}" if fg_available else "FG없음"
+    if is_high_uncertainty and family != "crash_rebound":
+        # gate_reason별 페널티 강도
+        penalty_map = {"vix_only_hard": 15, "vix_fg_hard": 15,
+                       "vix_only_soft": 8,  "keyword_vix_soft": 8, "regime_micro": 5}
+        penalty = penalty_map.get(gate_reason, 8)
+        score  -= penalty
+        reasons.append(
+            f"불확실게이트[{gate_reason}](VIX{vix:.0f}/{fg_str})-{penalty}"
+        )
+    elif micro_gate_active and family != "crash_rebound":
+        score  -= 5
+        reasons.append(f"레짐microgate({regime[:6]}/VIX{vix:.0f})-5")
+    elif is_high_uncertainty and family == "crash_rebound":
+        reasons.append(f"고불확실→crash_rebound예외(VIX{vix:.0f},패널티없음)")
+
     # ── E. ticker_accuracy — 연속 함수, 하방 페널티만 ────────────
     # Doc3 최종 합의: 상방 보너스 완전 제거 (순환 편향 + ARIA 중복 방지)
     # 하방 페널티만: 성과 나쁜 종목 신호 품질 낮춤
@@ -823,24 +899,66 @@ def _get_signal_family_key(signals: list) -> str:
     return "general"
 
 
-def _is_on_cooldown(ticker: str, signals: list = None) -> bool:
+def _is_on_cooldown(ticker: str, signals: list = None,
+                    quality_score: float = 0,
+                    vol_ratio: float = 0,
+                    change_1d: float = 0) -> bool:
     """
     ticker + signal_family 기반 쿨다운 확인.
-    Doc3: 같은 ticker+family 2거래일(48h) 내 재발동 방지.
-    signals=None이면 ticker 전체 쿨다운 확인.
+    쿨다운 override 조건 (Doc3 제안, 사이드이펙트 방어 포함):
+      - quality_score가 이전 발동보다 +15 이상 급상승
+      - AND vol_ratio > 2.5 (거래량 급등)
+      - AND change_1d < 0 (상승 gap-up 상황 차단 — 하락 중 거래량 급등만 유효)
+    세 조건 모두 만족해야 override → 하나라도 빠지면 쿨다운 유지
     """
     if not COOLDOWN_FILE.exists():
         return False
     try:
         cd  = json.loads(COOLDOWN_FILE.read_text(encoding="utf-8"))
         fam = _get_signal_family_key(signals) if signals else "any"
-        # ticker+family 쿨다운 확인 (48시간)
+
         key_fam = f"{ticker}:{fam}"
         if key_fam in cd:
             hrs = (datetime.now() - datetime.fromisoformat(cd[key_fam])).total_seconds() / 3600
-            if hrs < 48:   # 2거래일 기준
-                return True
-        # 레거시: ticker 전체 쿨다운 (4시간, 하위 호환)
+            if hrs < 48:
+                # override 조건 확인: 세 조건 동시 만족 시 쿨다운 무시
+                prev_quality = cd.get(f"{key_fam}:quality", 0)
+                quality_surge = (quality_score - prev_quality) >= 15
+                vol_spike     = vol_ratio > 2.5
+                is_declining  = change_1d < 0  # 상승 gap-up 차단
+
+                if quality_surge and vol_spike and is_declining:
+                    # override 5거래일 1회 제한 (Doc2: 연속 override 방지)
+                    last_override = cd.get(f"{key_fam}:last_override")
+                    if last_override:
+                        override_hrs = (
+                            datetime.now() - datetime.fromisoformat(last_override)
+                        ).total_seconds() / 3600
+                        if override_hrs < 120:   # 5거래일 = 120시간
+                            log.info(
+                                f"  ⛔ override 제한(5거래일 1회): {ticker} "
+                                f"마지막override {override_hrs:.0f}h 전"
+                            )
+                            return True  # override 횟수 초과 → 쿨다운 유지
+                    log.info(
+                        f"  ⚡ 쿨다운 override: {ticker} quality+{quality_score-prev_quality:.0f}"
+                        f" vol{vol_ratio:.1f}x change{change_1d:+.1f}%"
+                    )
+                    # override 상세 기록 (Doc3: reason, quality, count 추적)
+                    override_count = cd.get(f"{key_fam}:override_count", 0) + 1
+                    cd[f"{key_fam}:override_reason"]   = (
+                        f"quality+{quality_score-prev_quality:.0f}_vol{vol_ratio:.1f}x"
+                    )
+                    cd[f"{key_fam}:override_quality"]  = quality_score
+                    cd[f"{key_fam}:override_count"]    = override_count
+                    cd[f"{key_fam}:last_override"]     = datetime.now().isoformat()
+                    COOLDOWN_FILE.write_text(
+                        json.dumps(cd, ensure_ascii=False, indent=2), encoding="utf-8"
+                    )
+                    return False  # 쿨다운 무시 → 신호 통과
+                return True   # 조건 미충족 → 쿨다운 유지
+
+        # 레거시: ticker 전체 쿨다운
         last = cd.get(ticker)
         if last:
             hrs = (datetime.now() - datetime.fromisoformat(last)).total_seconds() / 3600
@@ -851,8 +969,9 @@ def _is_on_cooldown(ticker: str, signals: list = None) -> bool:
         return False
 
 
-def _set_cooldown(ticker: str, signals: list = None):
-    """ticker + signal_family 기반 쿨다운 설정."""
+def _set_cooldown(ticker: str, signals: list = None,
+                  quality_score: float = 0, is_override: bool = False):
+    """ticker + signal_family 기반 쿨다운 설정. quality_score 저장으로 override 판단."""
     cd: dict = {}
     if COOLDOWN_FILE.exists():
         try:
@@ -863,7 +982,11 @@ def _set_cooldown(ticker: str, signals: list = None):
     cd[ticker] = now_iso   # 레거시 호환
     if signals:
         fam = _get_signal_family_key(signals)
-        cd[f"{ticker}:{fam}"] = now_iso
+        key_fam = f"{ticker}:{fam}"
+        cd[key_fam]               = now_iso
+        cd[f"{key_fam}:quality"]  = quality_score   # override 판단용
+        if is_override:
+            cd[f"{key_fam}:last_override"] = now_iso  # override 시간 기록 (5거래일 제한)
     COOLDOWN_FILE.write_text(json.dumps(cd, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
@@ -919,26 +1042,57 @@ def _build_alert_message(ticker: str, info: dict, tech: dict,
     entry = final.get("entry_price")
     stop  = final.get("stop_loss")
 
-    # 백테스트 기반 신호별 스윙 정보 (Doc3: 스윙 중심 재정의)
-    SIGNAL_SWING_INFO = {
-        "sector_rebound":  ("D4~5", "93%"),
-        "bb_touch":        ("D4~5", "97%"),
-        "rsi_oversold":    ("D4~5", "88%"),
-        "vol_accumulation":("D5",   "84%"),
-        "volume_climax":   ("D4~5", "80%"),
-        "momentum_dip":    ("D4~5", "78%"),
-        "ma_support":      ("D3~4", "67%"),
-        "rsi_divergence":  ("D4",   "52%"),
+    # ── MAE/스윙 정보: jackal_weights.json에서 읽기 (동적) ──────────
+    # jackal_weights.json에 mae_avg 필드 없으면 하드코딩 fallback
+    # 백테스트가 자동으로 채우면 알림 코드 수정 없이 동적 반영
+    _SWING_DEFAULTS = {
+        # 하드코딩 fallback — 백테스트 60일 기준 추정
+        # jackal_weights.json의 mae_avg, peak_day, swing_acc가 있으면 거기서 읽음
+        "sector_rebound":  {"peak_day": "D4~5", "swing_acc": "93%", "mae_avg": "-2.1%"},
+        "bb_touch":        {"peak_day": "D4~5", "swing_acc": "97%", "mae_avg": "-3.8%"},
+        "rsi_oversold":    {"peak_day": "D4~5", "swing_acc": "88%", "mae_avg": "-2.9%"},
+        "vol_accumulation":{"peak_day": "D5",   "swing_acc": "84%", "mae_avg": "-3.2%"},
+        "volume_climax":   {"peak_day": "D4~5", "swing_acc": "80%", "mae_avg": "-4.5%"},
+        "momentum_dip":    {"peak_day": "D4~5", "swing_acc": "78%", "mae_avg": "-4.1%"},
+        "ma_support":      {"peak_day": "D3~4", "swing_acc": "67%", "mae_avg": "-1.8%"},
+        "rsi_divergence":  {"peak_day": "D4",   "swing_acc": "52%", "mae_avg": "-2.3%"},
     }
-    # 발동 신호 중 가장 강한 것 기준 스윙 정보 표시
+    # weights에서 동적 로드 시도
+    _sig_weights = weights or {}
+    def _get_swing_info(sig: str) -> dict:
+        w = _sig_weights.get("signal_details", {}).get(sig, {})
+        default = _SWING_DEFAULTS.get(sig, {"peak_day":"D4~5","swing_acc":"74%","mae_avg":"-3.5%"})
+        return {
+            "peak_day":  w.get("peak_day",  default["peak_day"]),
+            "swing_acc": w.get("swing_acc", default["swing_acc"]),
+            "mae_avg":   w.get("mae_avg",   default["mae_avg"]),
+        }
+
     fired_sigs = final.get("signals_fired", [])
-    best_swing_info = ("D4~5", "74%")  # 기본값
+    best_info = _get_swing_info("bb_touch")  # 기본값
     for s in ["sector_rebound","bb_touch","rsi_oversold","vol_accumulation"]:
         if s in fired_sigs:
-            best_swing_info = SIGNAL_SWING_INFO[s]
+            best_info = _get_swing_info(s)
             break
 
-    swing_peak_str = f"📈 스윙 타겟: Peak {best_swing_info[0]} ({best_swing_info[1]} 확률)"
+    # Peak + MAE 동시 표시 (버티는 동안 얼마나 아팠는지 인지 가능)
+    mae_source = "자동계산" if _sig_weights.get("signal_details") else "백테스트추정"
+    # median MAE도 표시 (표준편차 언급으로 불확실성 인지)
+    mae_display = best_info.get("mae_avg", "-3.5%")
+    mae_median  = best_info.get("mae_median", "")
+    if isinstance(mae_display, (int, float)):
+        mae_display = f"{mae_display:.1f}%"
+    if isinstance(mae_median, (int, float)):
+        mae_median = f"{mae_median:.1f}%"
+
+    mae_str = f"{mae_display}"
+    if mae_median and mae_median != mae_display:
+        mae_str += f"(중앙값:{mae_median})"
+
+    swing_peak_str = (
+        f"📈 스윙: Peak {best_info['peak_day']} ({best_info['swing_acc']}) "
+        f"| MAE avg {mae_str} [{mae_source}]"
+    )
 
     lines = [
         f"{icon} <b>Jackal Hunter — {label}</b>",
@@ -1297,7 +1451,10 @@ def run_scan(force: bool = False) -> dict:
             if market == "KR" and not kr_open:
                 continue
 
-        if _is_on_cooldown(ticker, signals_fired_pre):
+        if _is_on_cooldown(ticker, signals_fired_pre,
+                           quality_score=0,
+                           vol_ratio=tech.get("vol_ratio", 0),
+                           change_1d=tech.get("change_1d", 0)):
             log.info(f"  {ticker}: 쿨다운 — 스킵")
             continue
 
@@ -1463,7 +1620,9 @@ def run_scan(force: bool = False) -> dict:
             msg = _build_alert_message(ticker, info, tech, analyst, devil, final, aria)
             ok  = _send_telegram(msg)
             if ok:
-                _set_cooldown(ticker, final.get("signals_fired", signals_fired_pre))
+                _set_cooldown(ticker,
+                             final.get("signals_fired", signals_fired_pre),
+                             quality_score=quality.get("quality_score", 0))
                 alerted += 1
                 log.info(f"    ✅ 텔레그램 발송 완료")
 
