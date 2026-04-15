@@ -208,19 +208,19 @@ class JackalEvolution:
             except Exception:
                 pass
 
-        cutoff_1d = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=28)
+        cutoff_1d = datetime.now() - timedelta(hours=28)
 
         pending_live = [
             e for e in self._logs
             if (e.get("alerted") or e.get("is_entry"))
             and not e.get("outcome_checked")
-            and datetime.fromisoformat(e.get("timestamp", "2000-01-01")).replace(tzinfo=None) < cutoff_1d
+            and datetime.fromisoformat(e.get("timestamp", "2000-01-01").split("+")[0].split("Z")[0]) < cutoff_1d
         ]
         pending_shadow = [
             e for e in shadow_logs
             if e.get("shadow_record")
             and not e.get("outcome_checked")
-            and datetime.fromisoformat(e.get("timestamp", "2000-01-01")).replace(tzinfo=None) < cutoff_1d
+            and datetime.fromisoformat(e.get("timestamp", "2000-01-01").split("+")[0].split("Z")[0]) < cutoff_1d
         ]
 
         pending = pending_live
