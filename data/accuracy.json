@@ -1,18 +1,18 @@
 {
-  "total": 1247,
-  "correct": 573,
+  "total": 1252,
+  "correct": 576,
   "by_category": {
     "주식": {
-      "total": 1166,
-      "correct": 554
+      "total": 1168,
+      "correct": 556
     },
     "VIX": {
       "total": 79,
       "correct": 18
     },
     "기타": {
-      "total": 1,
-      "correct": 1
+      "total": 4,
+      "correct": 2
     },
     "환율": {
       "total": 1,
@@ -497,6 +497,15 @@
       "total": 6,
       "correct": 5,
       "accuracy": 83.3
+    },
+    {
+      "date": "2026-04-15",
+      "total": 5,
+      "correct": 3,
+      "accuracy": 60.0,
+      "dir_correct": 3,
+      "dir_accuracy": 60.0,
+      "full_correct": 3
     }
   ],
   "history_by_category": [
@@ -1077,12 +1086,29 @@
           "correct": 2
         }
       }
+    },
+    {
+      "date": "2026-04-15",
+      "by_category": {
+        "기타": {
+          "total": 3,
+          "correct": 1
+        },
+        "주식": {
+          "total": 2,
+          "correct": 2
+        }
+      }
     }
   ],
   "weak_areas": [
     "VIX (23%)"
   ],
   "strong_areas": [],
-  "dir_total": 1114,
-  "dir_correct": 508
+  "dir_total": 1119,
+  "dir_correct": 511,
+  "score_total": 5.0,
+  "score_earned": 3.0,
+  "score_accuracy": 60.0,
+  "dir_accuracy_pct": 45.7
 }

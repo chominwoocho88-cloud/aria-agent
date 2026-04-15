@@ -66,7 +66,7 @@
       "category": "주식",
       "lesson": "나스닥 기술주 방향성 (AI/반도체 섹터 극단약세 심화) 오판 — 실제 +2.06% (예측 반대)",
       "severity": "high",
-      "applied": 3,
+      "applied": 6,
       "reinforced": 0
     },
     {
@@ -75,7 +75,7 @@
       "category": "주식",
       "lesson": "엔비디아 기술주 방향성 (반도체 관세 직격 우려) 오판 — 실제 +1.81% (예측 반대)",
       "severity": "high",
-      "applied": 3,
+      "applied": 6,
       "reinforced": 0
     },
     {
@@ -84,7 +84,7 @@
       "category": "주식",
       "lesson": "코스피 3일 추세 (중국 관세 국내 수출주 영향) 오판 — 실제 +1.52% (예측 반대)",
       "severity": "high",
-      "applied": 3,
+      "applied": 6,
       "reinforced": 0
     },
     {
@@ -93,7 +93,7 @@
       "category": "주식",
       "lesson": "SK하이닉스 3일 추세 (메모리 반도체 수출 악화 우려) 오판 — 실제 +2.95% (예측 반대)",
       "severity": "high",
-      "applied": 2,
+      "applied": 4,
       "reinforced": 0
     },
     {
@@ -162,7 +162,7 @@
       "category": "주식",
       "lesson": "S&P500 극단적 공포 국면 지속 여부 오판 — 실제 +1.81% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -171,7 +171,7 @@
       "category": "주식",
       "lesson": "나스닥 기술주 약세 심화 오판 — 실제 +2.06% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -180,7 +180,7 @@
       "category": "주식",
       "lesson": "중국 보복관세 영향 - 반도체 섹터 3일 누적 방향 오판 — 실제 +7.09% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -189,7 +189,7 @@
       "category": "주식",
       "lesson": "코스피 국내 매물 분출 오판 — 실제 +1.52% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -198,7 +198,7 @@
       "category": "주식",
       "lesson": "S&P500 글로벌 위험자산 방향성 오판 — 실제 +1.81% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -207,7 +207,7 @@
       "category": "주식",
       "lesson": "나스닥 기술주 투매 지속 오판 — 실제 +2.06% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -216,7 +216,7 @@
       "category": "주식",
       "lesson": "반도체 섹터 (SK하이닉스) 보복관세 영향도 오판 — 실제 +2.95% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -225,7 +225,7 @@
       "category": "주식",
       "lesson": "엔비디아 AI칩 수출규제 우려 심화 오판 — 실제 +7.09% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -234,7 +234,7 @@
       "category": "주식",
       "lesson": "코스피 한국 수출 의존도 반영 오판 — 실제 +1.52% (예측 반대)",
       "severity": "high",
-      "applied": 1,
+      "applied": 2,
       "reinforced": 0
     },
     {
@@ -263,7 +263,7 @@
       "category": "주식",
       "lesson": "나스닥 방향성 (급등 이후 지속 vs 되돌림) 오판 — 실제 -4.31% (예측 반대)",
       "severity": "high",
-      "applied": 69,
+      "applied": 70,
       "reinforced": 0
     },
     {

@@ -151,7 +151,7 @@
       "components": {
         "시장레짐": {
           "score": 20,
-          "reason": "위험선호"
+          "reason": "위험선호(표면) / 위험회피 재진입 경계(실질"
         },
         "추세방향": {
           "score": 12,
@@ -162,7 +162,7 @@
           "reason": "Fear&Greed 65.0 (탐욕)"
         },
         "자금흐름": {
-          "score": 0,
+          "score": -5,
           "reason": "유입2 / 유출2"
         },
         "반론강도": {
@@ -170,21 +170,21 @@
           "reason": "고위험0 / 중위험0"
         },
         "한국시장": {
-          "score": 2,
-          "reason": "중립"
+          "score": 5,
+          "reason": "코스피상승"
         },
         "숨은시그널": {
           "score": -1,
           "reason": "고신뢰0 / 저신뢰1"
         }
       },
-      "regime": "위험선호",
+      "regime": "위험선호(표면) / 위험회피 재진입 경계(실질)",
       "trend": "상승추세",
       "vix_level": "중립~탐욕",
-      "vix_val": 18.36,
+      "vix_val": 18.3,
       "vkospi_val": null,
       "fear_greed": 65.0,
-      "internal_raw": 97,
+      "internal_raw": 95,
       "divergence": true,
       "fred_score": null,
       "fred_indicators": {
@@ -202,7 +202,7 @@
     "components": {
       "시장레짐": {
         "score": 20,
-        "reason": "위험선호"
+        "reason": "위험선호(표면) / 위험회피 재진입 경계(실질"
       },
       "추세방향": {
         "score": 12,
@@ -213,7 +213,7 @@
         "reason": "Fear&Greed 65.0 (탐욕)"
       },
       "자금흐름": {
-        "score": 0,
+        "score": -5,
         "reason": "유입2 / 유출2"
       },
       "반론강도": {
@@ -221,21 +221,21 @@
         "reason": "고위험0 / 중위험0"
       },
       "한국시장": {
-        "score": 2,
-        "reason": "중립"
+        "score": 5,
+        "reason": "코스피상승"
       },
       "숨은시그널": {
         "score": -1,
         "reason": "고신뢰0 / 저신뢰1"
       }
     },
-    "regime": "위험선호",
+    "regime": "위험선호(표면) / 위험회피 재진입 경계(실질)",
     "trend": "상승추세",
     "vix_level": "중립~탐욕",
-    "vix_val": 18.36,
+    "vix_val": 18.3,
     "vkospi_val": null,
     "fear_greed": 65.0,
-    "internal_raw": 97,
+    "internal_raw": 95,
     "divergence": true,
     "fred_score": null,
     "fred_indicators": {

@@ -147,6 +147,23 @@ body{
 /* ── 유틸 */
 .pos{color:var(--gr);} .neg{color:var(--rd);} .neu{color:var(--mu);}
 .footer{text-align:center;font-size:11px;color:var(--mu);padding:20px 16px 8px;line-height:1.75;opacity:.6;}
+/* ── Jackal Hunter */
+.jrow{display:flex;align-items:center;padding:8px 0;border-bottom:.5px solid var(--bd);gap:8px;font-size:13px;}
+.jrow:last-child{border-bottom:none;}
+.jtk{font-weight:700;min-width:52px;font-size:12px;flex-shrink:0;}
+.jname{font-weight:600;font-size:13px;}
+.jmeta{font-size:10px;color:var(--mu);margin-top:2px;}
+.jscore{font-weight:800;font-size:15px;min-width:36px;text-align:right;flex-shrink:0;}
+.jbadge{font-size:10px;padding:3px 7px;border-radius:10px;font-weight:600;white-space:nowrap;flex-shrink:0;}
+.jb-entry{background:rgba(20,232,122,.15);color:#0DAE6B;}
+.jb-pass{background:rgba(100,100,110,.1);color:var(--mu);}
+.jstat{display:flex;gap:12px;padding:10px 0 4px;border-top:.5px solid var(--bd);margin-top:4px;}
+.js{font-size:11px;color:var(--mu);}
+.js b{color:var(--tx);font-weight:700;}
+.jgate{display:flex;align-items:center;gap:6px;padding:7px 12px;font-size:11px;border-radius:10px;margin-bottom:8px;}
+.jgate-ok{background:rgba(20,232,122,.08);color:#0DAE6B;}
+.jgate-warn{background:rgba(255,181,71,.1);color:#D4872A;}
+.jgate-danger{background:rgba(255,82,82,.1);color:#E03030;}
 </style>
 </head>
 <body>
@@ -155,22 +172,22 @@ body{
 <div class="hdr">
   <div>
     <div class="brand">ARIA</div>
-    <div class="hdr-time">2026.04.15 15:46 KST</div>
+    <div class="hdr-time">2026.04.15 19:00 KST</div>
   </div>
-  <div class="regime-badge" style="background:#FF5252;">위험회피</div>
+  <div class="regime-badge" style="background:#14E87A;">위험선호</div>
 </div>
 
 <!-- ② 결론 패널 -->
 <div class="sp">
   <div class="sp-top">
     <div class="sp-meta">
-      <span class="conf-pill" style="background:rgba(255,181,71,.15);color:#FFB547;">신뢰도 보통</span>
-      <span class="tag">반등 추세 (극단공포 내 단기 역랠리)</span>
+      <span class="conf-pill" style="background:rgba(255,82,82,.15);color:#FF5252;">신뢰도 낮음</span>
+      <span class="tag">상승추세</span>
       
     </div>
-    <p class="summ">극단공포(FG 16) 구간 3일 누적 +4% 반등 중, VIX 38 고변동성에서 차익실현 하락 vs 추가 반등 가능성 양립</p>
+    <p class="summ">S&amp;P500 6967·나스닥 23639 역대 고점권 도달했으나 유가 $140+ 공급충격·14일 연속 상승 블랙스완 경계·Devil 반론 우세로 신뢰도 낮음, 추격 매수 경계 최우선</p>
   </div>
-  
+  <div class="action-bar"><span class="ai">▶</span><span class="at">분할 익절 병행 추세 추종. 신규 진입 자제, 기존 포지션은 반도체·AI 인프라 섹터 위주로 부분 차익 실현. 나스닥·SK하이닉스 thesis killer 지표 매일 확인</span></div>
 </div>
 
 <!-- ③ KPI 4개 (라벨 짧게 고정) -->
@@ -184,7 +201,7 @@ body{
     <div class="kpi am">
       <div class="kl">정확도</div>
       <div class="kn">46.0%</div>
-      <div class="ks">방향 0% · 573/1247건</div>
+      <div class="ks">방향 45.7% · 576/1252건</div>
     </div>
   </div>
   <div class="kg">
@@ -211,7 +228,7 @@ body{
     </div>
     <div class="fc">
       <div class="fh"><div class="fd" style="background:var(--rd);"></div><span class="fhl">유출</span></div>
-      <div class="frow"><div class="fn">에너지</div><div class="fbg"><div class="fb" style="width:80%;background:#FF5252;"></div></div><span class="fv" style="color:#FF5252;">-8</span></div><div class="frow"><div class="fn">빅테크</div><div class="fbg"><div class="fb" style="width:36%;background:#FF5252;"></div></div><span class="fv" style="color:#FF5252;">-3</span></div><div class="frow"><div class="fn">소비재</div><div class="fbg"><div class="fb" style="width:24%;background:#FF5252;"></div></div><span class="fv" style="color:#FF5252;">-2</span></div>
+      <div class="frow"><div class="fn">에너지</div><div class="fbg"><div class="fb" style="width:80%;background:#FF5252;"></div></div><span class="fv" style="color:#FF5252;">-11</span></div><div class="frow"><div class="fn">헬스케어</div><div class="fbg"><div class="fb" style="width:48%;background:#FF5252;"></div></div><span class="fv" style="color:#FF5252;">-4</span></div><div class="frow"><div class="fn">소비재</div><div class="fbg"><div class="fb" style="width:24%;background:#FF5252;"></div></div><span class="fv" style="color:#FF5252;">-2</span></div>
     </div>
   </div>
 </div>
@@ -228,7 +245,7 @@ body{
 <!-- ⑥ 정확도 상세 -->
 <div class="sec">
   <div class="sh"><span class="st">예측 정확도</span><span class="sn">카테고리 · 샘플 수</span></div>
-  <div class="card" style="padding:8px 16px;"><div class="arow"><div class="am2"><div class="albl">주식</div><div class="asub">554/1166건</div></div><div class="abg"><div class="afill" style="width:48%;background:#FFB547;"></div></div><span class="apct" style="color:#FFB547;">48%</span></div><div class="arow"><div class="am2"><div class="albl">VIX</div><div class="asub">18/79건</div></div><div class="abg"><div class="afill" style="width:23%;background:#FF5252;"></div></div><span class="apct" style="color:#FF5252;">23%</span></div><div class="arow"><div class="am2"><div class="albl">기타</div><div class="asub">1/1건</div></div><div class="abg"><div class="afill" style="width:100%;background:#14E87A;"></div></div><span class="apct" style="color:#14E87A;">100%</span></div><div class="arow"><div class="am2"><div class="albl">환율</div><div class="asub">0/1건</div></div><div class="abg"><div class="afill" style="width:0%;background:#FF5252;"></div></div><span class="apct" style="color:#FF5252;">0%</span></div></div>
+  <div class="card" style="padding:8px 16px;"><div class="arow"><div class="am2"><div class="albl">주식</div><div class="asub">556/1168건</div></div><div class="abg"><div class="afill" style="width:48%;background:#FFB547;"></div></div><span class="apct" style="color:#FFB547;">48%</span></div><div class="arow"><div class="am2"><div class="albl">VIX</div><div class="asub">18/79건</div></div><div class="abg"><div class="afill" style="width:23%;background:#FF5252;"></div></div><span class="apct" style="color:#FF5252;">23%</span></div><div class="arow"><div class="am2"><div class="albl">기타</div><div class="asub">2/4건</div></div><div class="abg"><div class="afill" style="width:50%;background:#FFB547;"></div></div><span class="apct" style="color:#FFB547;">50%</span></div><div class="arow"><div class="am2"><div class="albl">환율</div><div class="asub">0/1건</div></div><div class="abg"><div class="afill" style="width:0%;background:#FF5252;"></div></div><span class="apct" style="color:#FF5252;">0%</span></div></div>
 </div>
 
 <!-- ⑦ 시장 상태 -->
@@ -236,9 +253,9 @@ body{
   <div class="sh"><span class="st">시장 상태</span></div>
   <div class="card" style="padding:12px;">
     <div class="sg">
-      <div class="si"><div class="sl">레짐</div><div class="sv" style="color:#FF5252;">위험회피</div></div>
-      <div class="si"><div class="sl">추세</div><div class="sv">반등 추세 (극단공포 내 단기 역랠리)</div></div>
-      <div class="si"><div class="sl">확신도</div><div class="sv" style="color:#FFB547;">보통</div></div>
+      <div class="si"><div class="sl">레짐</div><div class="sv" style="color:#14E87A;">위험선호</div></div>
+      <div class="si"><div class="sl">추세</div><div class="sv">상승추세</div></div>
+      <div class="si"><div class="sl">확신도</div><div class="sv" style="color:#FF5252;">낮음</div></div>
       <div class="si"><div class="sl">반론 강도</div><div class="sv" style="color:#14E87A;">약(0)</div></div>
     </div>
   </div>
@@ -251,32 +268,37 @@ body{
 <div class="sec">
   <div class="sh"><span class="st">오늘의 경고</span></div>
   <div class="ritem" style="border-left-color:#14E87A;"><div class="rtitle" style="color:#14E87A;">⬤ 특이 리스크 없음</div><div class="rdesc">주요 지표 정상 범위</div></div>
-  
+  <div class="cbar"><span class="ci">⚠️</span><span class="ct">14일 연속 상승 블랙스완 경계 도달. FG 65(Greed) 구간 — 과거 극단 낙관 직후 급락 반복 패턴 다수. 유가 $140+ 한국 제조업 원가 직격. 개인 추격 매수 최고조 = 단기 고점 신</span></div>
 </div>
 
 <!-- ⑩ 섹터 자금흐름 차트 -->
 <div class="sec"><div class="sh"><span class="st">섹터 자금흐름</span><span class="sn">30일 누적</span></div><div class="cc"><div class="cw" style="height:256px;"><canvas id="rotChart"></canvas></div></div></div>
 
 <!-- ⑪ 레짐 전환 패턴 -->
-
+<div class="sec"><div class="sh"><span class="st">레짐 전환 패턴</span></div><div class="card" style="padding:12px;"><div class="patg"><div class="pchip"><div class="plbl">혼조+횡보: 7회</div><div class="ppr">유지29%/전환71%</div></div><div class="pchip"><div class="plbl">선호+상승: 16회</div><div class="ppr">유지62%/전환38%</div></div><div class="pchip"><div class="plbl">회피+하락: 26회</div><div class="ppr">유지69%/전환31%</div></div><div class="pchip"><div class="plbl">선호+횡보: 6회</div><div class="ppr">유지67%/전환33%</div></div><div class="pchip pswan"><div class="plbl">🦢 블랙스완</div><div class="ppr">3회 · 평균 5.3일</div></div></div></div></div>
 
 <!-- ⑫ 포트폴리오 -->
 <div class="sec">
   <div class="sh"><span class="st">포트폴리오</span><span class="sn">오늘 손익</span></div>
-  <div class="card" style="padding:8px 16px;"><div class="prow"><span class="pname">엔비디아</span><span class="pval pos">+3.8%</span></div><div class="prow"><span class="pname">SK하이닉스</span><span class="pval pos">+3.49%</span></div><div class="prow"><span class="pname">삼성전자</span><span class="pval pos">+2.42%</span></div><div class="prow"><span class="pname">브로드컴</span><span class="pval pos">+0.27%</span></div><div class="prow"><span class="pname">카카오</span><span class="pval pos">+2.7%</span></div><div class="prow"><span class="pname">SCHD</span><span class="pval neg">-0.1%</span></div><div class="prow"><span class="pname">SOL 코리아고배당</span><span class="pval pos">+0.5%</span></div></div>
+  <div class="card" style="padding:8px 16px;"><div class="prow"><span class="pname">엔비디아</span><span class="pval pos">+3.8%</span></div><div class="prow"><span class="pname">SK하이닉스</span><span class="pval pos">+2.99%</span></div><div class="prow"><span class="pname">삼성전자</span><span class="pval pos">+2.18%</span></div><div class="prow"><span class="pname">브로드컴</span><span class="pval pos">+0.27%</span></div><div class="prow"><span class="pname">카카오</span><span class="pval pos">+3.12%</span></div><div class="prow"><span class="pname">SCHD</span><span class="pval neg">-0.1%</span></div><div class="prow"><span class="pname">SOL 코리아고배당</span><span class="pval pos">+0.59%</span></div></div>
 </div>
 
+
+<!-- ⑬ Jackal Hunter 타점 -->
+
+
+<!-- ⑭ 비용 -->
 <!-- ⑬ 비용 -->
 <div class="sec">
   <div class="sh"><span class="st">이번 달 비용</span></div>
   <div class="card" style="padding:6px 16px;">
-    <div class="crow"><span class="clbl">추정 비용</span><span class="cval">$30.00 · 약 44,400원</span></div>
-    <div class="crow"><span class="clbl">실행 횟수</span><span class="cval">25회</span></div>
+    <div class="crow"><span class="clbl">추정 비용</span><span class="cval">$31.20 · 약 46,176원</span></div>
+    <div class="crow"><span class="clbl">실행 횟수</span><span class="cval">26회</span></div>
   </div>
 </div>
 
 <div class="footer">
-  분석일 2026-04-11 · ARIA Multi-Agent v4.1<br>
+  분석일 2026-04-15 · ARIA Multi-Agent v4.1<br>
   Yahoo Finance · FRED · FSC · FearGreedChart · PCR
 </div>
 
@@ -302,9 +324,9 @@ if(sEl)new Chart(sEl,{type:'line',
 });
 const rEl=document.getElementById('rotChart');
 if(rEl)new Chart(rEl,{type:'bar',
-  data:{labels:["반도체/AI", "금융", "방산", "배당/가치주", "원자재", "부동산(리츠)", "헬스케어", "소비재"],datasets:[{
-    data:[8, 2, 0, 0, 0, 0, -2, -2],
-    backgroundColor:[8, 2, 0, 0, 0, 0, -2, -2].map(v=>v>=0?'rgba(20,232,122,.72)':'rgba(255,82,82,.68)'),
+  data:{labels:["반도체/AI", "금융", "빅테크", "방산", "배당/가치주", "원자재", "부동산(리츠)", "소비재"],datasets:[{
+    data:[8, 2, 0, 0, 0, 0, 0, -2],
+    backgroundColor:[8, 2, 0, 0, 0, 0, 0, -2].map(v=>v>=0?'rgba(20,232,122,.72)':'rgba(255,82,82,.68)'),
     borderRadius:4,barPercentage:.6
   }]},
   options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
