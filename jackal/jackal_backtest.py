@@ -397,7 +397,7 @@ def _run_signals(memory, tickers, hist, signal_rules, label=""):
                 f"스윙 D{peak['peak_day']} {peak['peak_pct']:+.1f}%({'✅' if swing_hit else '❌'})"
             )
 
-    return signal_results, regime_results, ticker_results, total_signals, skipped
+    return signal_results, regime_results, ticker_results, total_signals, skipped, funnel, blocked_entries, _dedupe_drop_log
 
 
 def run_backtest():
@@ -418,7 +418,7 @@ def run_backtest():
     print(f"\n📊 {total_days}개 거래일 분석 시작...\n")
 
     # 1차: 엄격한 임계값
-    signal_results, regime_results, ticker_results, total_signals, skipped = \
+    signal_results, regime_results, ticker_results, total_signals, skipped, funnel, blocked_entries, _dedupe_drop_log = \
         _run_signals(memory, tickers, hist, SIGNAL_RULES_STRICT, "엄격")
 
     # ── signal funnel + blocked accuracy 출력 ──────────────────────
