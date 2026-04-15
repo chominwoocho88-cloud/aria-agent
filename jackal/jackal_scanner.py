@@ -434,6 +434,11 @@ def _calc_signal_quality(signals: list, tech: dict, aria: dict,
     if "vol_accumulation" in sig and "momentum_dip" in sig:
         score += 5;  reasons.append("매집+급락조합+5")
 
+    # ── 3중 combo bonus: bb_touch + sector_rebound + rsi_oversold 동시 발동
+    # 백테스트 실증: 세 신호 동시 발동 시 스윙 성공률 90%+
+    if {"bb_touch", "sector_rebound", "rsi_oversold"}.issubset(sig):
+        score += 15; reasons.append("3중combo(BB+반등+RSI,90%+)+15")
+
     # ma_support 패밀리 페널티
     if sig == _MA_SUPPORT_SOLO:
         score -= 12; reasons.append("ma_support단독(61.8%)-12")
