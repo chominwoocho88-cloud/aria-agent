@@ -145,13 +145,13 @@
     },
     {
       "date": "2026-04-15",
-      "score": 74,
+      "score": 76,
       "level": "탐욕",
       "emoji": "😏",
       "components": {
         "시장레짐": {
           "score": 20,
-          "reason": "위험선호(표면) / 위험회피 재진입 경계(실질"
+          "reason": "위험선호 (섹터 분열형 주의)"
         },
         "추세방향": {
           "score": 12,
@@ -159,32 +159,32 @@
         },
         "변동성지수": {
           "score": 14,
-          "reason": "Fear&Greed 65.0 (탐욕)"
+          "reason": "Fear&Greed 66.0 (탐욕)"
         },
         "자금흐름": {
-          "score": -5,
-          "reason": "유입2 / 유출2"
+          "score": 5,
+          "reason": "유입3 / 유출3"
         },
         "반론강도": {
           "score": 0,
           "reason": "고위험0 / 중위험0"
         },
         "한국시장": {
-          "score": 5,
-          "reason": "코스피상승"
+          "score": 2,
+          "reason": "중립"
         },
         "숨은시그널": {
           "score": -1,
           "reason": "고신뢰0 / 저신뢰1"
         }
       },
-      "regime": "위험선호(표면) / 위험회피 재진입 경계(실질)",
+      "regime": "위험선호 (섹터 분열형 주의)",
       "trend": "상승추세",
-      "vix_level": "중립~탐욕",
-      "vix_val": 18.3,
+      "vix_level": "중립~탐욕 초입",
+      "vix_val": 18.15,
       "vkospi_val": null,
-      "fear_greed": 65.0,
-      "internal_raw": 95,
+      "fear_greed": 66.0,
+      "internal_raw": 100,
       "divergence": true,
       "fred_score": null,
       "fred_indicators": {
@@ -196,13 +196,13 @@
   ],
   "current": {
     "date": "2026-04-15",
-    "score": 74,
+    "score": 76,
     "level": "탐욕",
     "emoji": "😏",
     "components": {
       "시장레짐": {
         "score": 20,
-        "reason": "위험선호(표면) / 위험회피 재진입 경계(실질"
+        "reason": "위험선호 (섹터 분열형 주의)"
       },
       "추세방향": {
         "score": 12,
@@ -210,32 +210,32 @@
       },
       "변동성지수": {
         "score": 14,
-        "reason": "Fear&Greed 65.0 (탐욕)"
+        "reason": "Fear&Greed 66.0 (탐욕)"
       },
       "자금흐름": {
-        "score": -5,
-        "reason": "유입2 / 유출2"
+        "score": 5,
+        "reason": "유입3 / 유출3"
       },
       "반론강도": {
         "score": 0,
         "reason": "고위험0 / 중위험0"
       },
       "한국시장": {
-        "score": 5,
-        "reason": "코스피상승"
+        "score": 2,
+        "reason": "중립"
       },
       "숨은시그널": {
         "score": -1,
         "reason": "고신뢰0 / 저신뢰1"
       }
     },
-    "regime": "위험선호(표면) / 위험회피 재진입 경계(실질)",
+    "regime": "위험선호 (섹터 분열형 주의)",
     "trend": "상승추세",
-    "vix_level": "중립~탐욕",
-    "vix_val": 18.3,
+    "vix_level": "중립~탐욕 초입",
+    "vix_val": 18.15,
     "vkospi_val": null,
-    "fear_greed": 65.0,
-    "internal_raw": 95,
+    "fear_greed": 66.0,
+    "internal_raw": 100,
     "divergence": true,
     "fred_score": null,
     "fred_indicators": {
@@ -246,10 +246,10 @@
   },
   "trend": {
     "direction": "improving",
-    "change": 13.5,
-    "avg_7d": 57.8,
+    "change": 14.5,
+    "avg_7d": 58.2,
     "min_30d": 42,
-    "max_30d": 74,
-    "avg_30d": 57.8
+    "max_30d": 76,
+    "avg_30d": 58.2
   }
 }
