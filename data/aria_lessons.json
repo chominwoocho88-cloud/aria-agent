@@ -238,6 +238,26 @@
       "reinforced": 0
     },
     {
+      "date": "2026-04-10",
+      "source": "backtest",
+      "category": "주식",
+      "lesson": "S&P500 전일 -3.5% 후 기술적 반전 예측 적중 — 실제 +1.81% (예측 방향 일치, 수치 부",
+      "severity": "low",
+      "type": "strength",
+      "applied": 0,
+      "reinforced": 0
+    },
+    {
+      "date": "2026-04-10",
+      "source": "backtest",
+      "category": "주식",
+      "lesson": "반도체 섹터 차익실현 vs 모멘텀 지속 예측 적중 — 실제 +7.09% (예측: +1.5% 이상)",
+      "severity": "low",
+      "type": "strength",
+      "applied": 0,
+      "reinforced": 0
+    },
+    {
       "date": "2026-04-09",
       "source": "backtest",
       "category": "주식",
@@ -527,6 +547,43 @@
       "reinforced": 0
     },
     {
+      "date": "2026-04-09",
+      "source": "backtest",
+      "category": "주식",
+      "lesson": "반도체 섹터 모멘텀 지속 오판 — 실제 -6.38% (예측 반대)",
+      "severity": "high",
+      "applied": 0,
+      "reinforced": 0
+    },
+    {
+      "date": "2026-04-09",
+      "source": "backtest",
+      "category": "주식",
+      "lesson": "S&P500 급등 후 유지력 테스트 오판 — 실제 -3.46% (예측 반대)",
+      "severity": "high",
+      "applied": 0,
+      "reinforced": 0
+    },
+    {
+      "date": "2026-04-09",
+      "source": "backtest",
+      "category": "VIX",
+      "lesson": "VIX 34 하락 추세 이어가는지 확인 오판 — VIX 40.7 +21% 상승",
+      "severity": "medium",
+      "applied": 0,
+      "reinforced": 0
+    },
+    {
+      "date": "2026-04-09",
+      "source": "backtest",
+      "category": "주식",
+      "lesson": "나스닥 차익실현 조정 여부 예측 적중 — 실제 -4.31% (예측: -1.5% 이하)",
+      "severity": "low",
+      "type": "strength",
+      "applied": 0,
+      "reinforced": 0
+    },
+    {
       "date": "2026-04-08",
       "source": "backtest",
       "category": "레짐판단",
@@ -694,68 +751,8 @@
       "type": "strength",
       "applied": 0,
       "reinforced": 0
-    },
-    {
-      "date": "2026-04-08",
-      "source": "backtest",
-      "category": "주식",
-      "lesson": "S&P500 광범위 참여 확인 예측 적중 — 실제 +5.87% (예측 방향 일치, 수치 부",
-      "severity": "low",
-      "type": "strength",
-      "applied": 0,
-      "reinforced": 0
-    },
-    {
-      "date": "2026-04-08",
-      "source": "backtest",
-      "category": "주식",
-      "lesson": "코스피 반등 모멘텀 지속 예측 적중 — 실제 +2.01% (예측 방향 일치, 수치 부",
-      "severity": "low",
-      "type": "strength",
-      "applied": 0,
-      "reinforced": 0
-    },
-    {
-      "date": "2026-04-08",
-      "source": "backtest",
-      "category": "주식",
-      "lesson": "반도체 섹터(SK하이닉스) 3일 추세 확인 예측 적중 — 실제 +3.85% (예측: +3.0% 이상)",
-      "severity": "low",
-      "type": "strength",
-      "applied": 0,
-      "reinforced": 0
-    },
-    {
-      "date": "2026-04-08",
-      "source": "backtest",
-      "category": "주식",
-      "lesson": "나스닥 기술주 반등 모멘텀 지속 예측 적중 — 실제 +7.47% (예측 방향 일치, 수치 부",
-      "severity": "low",
-      "type": "strength",
-      "applied": 0,
-      "reinforced": 0
-    },
-    {
-      "date": "2026-04-08",
-      "source": "backtest",
-      "category": "주식",
-      "lesson": "반도체 섹터 3일 누적 강세 예측 적중 — 실제 +10.79% (예측 방향 일치, 수치 ",
-      "severity": "low",
-      "type": "strength",
-      "applied": 0,
-      "reinforced": 0
-    },
-    {
-      "date": "2026-04-08",
-      "source": "backtest",
-      "category": "VIX",
-      "lesson": "VIX 공포 극복 여부 예측 적중 — VIX 33.6 (전일 47.0, -28%)",
-      "severity": "low",
-      "type": "strength",
-      "applied": 0,
-      "reinforced": 0
     }
   ],
-  "total_lessons": 602,
+  "total_lessons": 697,
   "last_updated": "2026-04-10"
 }
