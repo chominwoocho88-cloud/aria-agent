@@ -1542,7 +1542,11 @@ def run_scan(force: bool = False) -> dict:
             if market == "KR" and not kr_open:
                 continue
 
-        if _is_on_cooldown(ticker, signals_fired_pre,
+        tech = fetch_technicals(ticker)
+        if not tech:
+            continue
+
+        if _is_on_cooldown(ticker,
                            quality_score=0,
                            vol_ratio=tech.get("vol_ratio", 0),
                            change_1d=tech.get("change_1d", 0)):
