@@ -2,7 +2,7 @@
   "version": 1,
   "last_updated": "2026-04-15",
   "note": "백테스트 29거래일 실증 기반 초기화",
-  "total_learning_cycles": 5,
+  "total_learning_cycles": 6,
   "sentiment": {
     "시장레짐": 1.0,
     "추세방향": 0.8,
@@ -20,7 +20,7 @@
     "원자재": 0.9,
     "기업": 1.0,
     "기타": 0.6,
-    "VIX": 0.35
+    "VIX": 0.3
   },
   "learning_log": [
     {
