@@ -1370,9 +1370,7 @@ def main():
     print(f"\n{'─'*50}")
     print("📊 가중치 업데이트...")
     try:
-        import sys, os
-        sys.path.insert(0, os.getcwd())
-        import sys, os; sys.path.insert(0, os.getcwd()); from aria_analysis import update_weights_from_accuracy
+        from aria_analysis import update_weights_from_accuracy
         acc = _load(ACCURACY_FILE, {})
         changes = update_weights_from_accuracy(acc)
         if changes:
