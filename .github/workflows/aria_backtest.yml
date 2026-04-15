@@ -1,8 +1,4 @@
-name: ARIA + Jackal Backtest
-
-# 한 번 실행으로 ARIA + Jackal 초기 학습 완료
-# ARIA:   accuracy.json / aria_lessons.json / aria_weights.json 초기화
-# Jackal: jackal_weights.json 초기화 (신호별 가중치 + 최적 보유 기간)
+name: ARIA Backtest
 
 on:
   workflow_dispatch:
@@ -10,6 +6,8 @@ on:
 jobs:
   run-backtest:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Node.js 24 opt-in (deprecation 경고 해결)
     permissions:
       contents: write
 
@@ -20,33 +18,28 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-          cache: "pip"
+          python-version: '3.11'
+          cache: pip
 
       - name: Install dependencies
         run: pip install anthropic rich httpx yfinance pandas
 
-      # ── 1. ARIA 백테스트 ───────────────────────────────────────
       - name: Run ARIA Backtest
         env:
           PYTHONIOENCODING: utf-8
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
-          KRX_API_KEY:       ${{ secrets.KRX_API_KEY }}
-          FSCAPI_KEY:        ${{ secrets.FSCAPI_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
-          echo "=== ARIA Backtest 시작 ==="
           python aria_backtest.py
 
-      # ── 2. Jackal 백테스트 (최근 30일) ────────────────────────
       - name: Run Jackal Backtest
         env:
           PYTHONIOENCODING: utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
-          echo "=== Jackal Backtest 시작 (최근 30일) ==="
           python jackal/jackal_backtest.py
 
-      # ── 3. 결과 저장 ───────────────────────────────────────────
       - name: Save learning data
         run: |
           git config user.name  "ARIA Bot"
@@ -66,6 +59,9 @@ jobs:
           git add data/aria_lessons.json 2>/dev/null || true
           git add data/aria_weights.json 2>/dev/null || true
           git add jackal/jackal_weights.json 2>/dev/null || true
+          git add dashboard.html         2>/dev/null || true   # 백테스트 후 대시보드 반영
+          git add data/memory.json       2>/dev/null || true   # 메모리 누적 상태 저장
+          git add jackal/jackal_shadow_log.json 2>/dev/null || true  # shadow outcome 추적
 
           git diff --staged --quiet || \
             git commit -m "🎓 Backtest: ARIA + Jackal 학습 완료 ($(date +'%Y-%m-%d'))"
