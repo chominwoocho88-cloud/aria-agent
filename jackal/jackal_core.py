@@ -1,15 +1,6 @@
 """
-jackal_core.py
-Jackal Core — 새 스윙 기회 탐색 엔진
-
-역할: 포트폴리오 모니터링 X, 항상 새 종목 발굴
-매시간 실행 흐름:
-  1. Shield   → 비용/보안 체크
-  2. Hunter   → ARIA 뉴스 기반 스윙 5종목 탐색 + 알림
-  3. Compact  → 필요시 로그 압축
-  4. Evolution → 24시간마다 hunt_log.json 자체 학습
+jackal_core.py — Jackal Core
 """
-
 import os
 import sys
 import json
@@ -50,7 +41,6 @@ class JackalCore:
         log.info("🦊 Jackal Core 시작")
         start = datetime.now()
 
-        # 1. Shield
         log.info("🛡️  Shield Scan...")
         shield = self.shield.scan()
         if shield.get("abort"):
@@ -62,25 +52,19 @@ class JackalCore:
         else:
             log.info("  이상 없음 ✅")
 
-        # 2. Hunter
         log.info("🎯 Hunter 실행...")
         hunt = run_hunt(force=force_hunt)
 
-        # 3. Compact
         compact = self.compact.check_and_compact(context_tokens)
         if compact.get("compacted"):
             log.info(f"📦 Compact: {compact['saved_tokens']:,} 토큰 절약")
 
-        # 4. Evolution (24시간마다 자체 학습)
         evolve = {}
         if force_evolve or self._should_evolve():
             log.info("🧬 Evolution 실행...")
             evolve = self.evolution.evolve()
             self.evolution.save_weights()
-            log.info(
-                f"  학습: {evolve.get('learned', 0)}건 | "
-                f"Skill: {len(evolve.get('new_skills', []))}개"
-            )
+            log.info(f"  학습: {evolve.get('learned', 0)}건 | Skill: {len(evolve.get('new_skills', []))}개")
         else:
             log.info("🧬 Evolution: 스킵 (24h 미경과)")
 
@@ -88,18 +72,15 @@ class JackalCore:
         self._print_summary(hunt, evolve, elapsed)
 
         return {
-            "status":  "ok",
-            "elapsed": elapsed,
-            "hunt":    hunt,
+            "status": "ok", "elapsed": elapsed, "hunt": hunt,
             "evolution": {
-                "ran":     bool(evolve),
+                "ran": bool(evolve),
                 "learned": evolve.get("learned", 0),
-                "skills":  len(evolve.get("new_skills", [])),
+                "skills": len(evolve.get("new_skills", [])),
             },
         }
 
     def _should_evolve(self) -> bool:
-        """jackal_weights.json["last_evolved_at"] 기반 — .last_evolve 파일 의존 제거"""
         weights_file = _BASE / "jackal_weights.json"
         if not weights_file.exists():
             return True
@@ -124,8 +105,7 @@ class JackalCore:
         print(f"  소요      : {elapsed}s")
         print(f"  Hunter    : 분석 {hunt.get('hunted', 0)}종목 | 알림 {hunt.get('alerted', 0)}건")
         if evolve:
-            print(f"  Evolution : 학습 {evolve.get('learned', 0)}건 | "
-                  f"Skill {len(evolve.get('new_skills', []))}개")
+            print(f"  Evolution : 학습 {evolve.get('learned', 0)}건 | Skill {len(evolve.get('new_skills', []))}개")
         else:
             print("  Evolution : ⏭️  skip")
         print("=" * 54 + "\n")
@@ -133,13 +113,10 @@ class JackalCore:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--force-hunt",   action="store_true",
-                        help="장 마감 무시 강제 실행")
-    parser.add_argument("--force-evolve", action="store_true",
-                        help="24h 미경과해도 Evolution 즉시 실행")
+    parser.add_argument("--force-hunt",   action="store_true")
+    parser.add_argument("--force-evolve", action="store_true")
     parser.add_argument("--tokens",       type=int, default=0)
     args = parser.parse_args()
-
     JackalCore().run(
         force_hunt=args.force_hunt,
         force_evolve=args.force_evolve,
