@@ -467,42 +467,68 @@ def _send_telegram(text: str) -> bool:
 def _build_alert_message(ticker: str, info: dict, tech: dict,
                           analyst: dict, devil: dict, final: dict,
                           aria: dict) -> str:
-    now_str  = datetime.now(KST).strftime("%m/%d %H:%M")
-    cur      = info["currency"]
-    strong   = final["signal_type"] == "강한매수"
-    header   = "🔥 <b>강한 매수 타점</b>" if strong else "🔵 <b>매수 검토 타점</b>"
+    now_str   = datetime.now(KST).strftime("%m/%d %H:%M")
+    cur       = info["currency"]
+    strong    = final["signal_type"] == "강한매수"
+    score     = final["final_score"]
     price_str = f"{tech['price']:,.2f}" if info["market"] == "US" else f"{tech['price']:,.0f}"
 
-    pnl_line = ""
-    if info.get("avg_cost") and info["market"] == "US":
-        pnl      = (tech["price"] - info["avg_cost"]) / info["avg_cost"] * 100
-        pnl_line = f"\n{'📈' if pnl >= 0 else '📉'} 내 수익률: {pnl:+.1f}%"
+    # 헤더
+    icon  = "🔥" if strong else "🎯"
+    label = "강한 매수 타점" if strong else "스윙 타점"
 
+    # 점수 색상
+    score_icon = "🟢" if score >= STRONG_THRESHOLD else "🟡"
+
+    # PnL (포트폴리오 미국 주식만)
+    pnl_str = ""
+    if info.get("avg_cost") and info["market"] == "US":
+        pnl     = (tech["price"] - info["avg_cost"]) / info["avg_cost"] * 100
+        pnl_str = f"  ({'📈' if pnl >= 0 else '📉'}{pnl:+.1f}%)"
+
+    # Devil 판정 — 내용 없으면 줄 자체 생략
+    d_verdicts = {"동의": "✅ 동의", "부분동의": "⚠️ 부분동의", "반대": "❌ 반대"}
+    d_label    = d_verdicts.get(devil.get("verdict", ""), "")
+    d_objs     = devil.get("objections", [])
+    d_comment  = (d_objs[0][:55] if d_objs else "").strip()
+
+    # 진입 / 손절 (None 이면 줄 생략)
     entry = final.get("entry_price")
     stop  = final.get("stop_loss")
 
-    # Devil 판정
-    verdict_icon = {"동의": "✅", "부분동의": "⚠️", "반대": "❌"}.get(devil.get("verdict",""), "")
-    devil_line = f"\n🔴 Devil {verdict_icon}: {devil.get('objections',[None])[0] or ''}"[:60] if devil.get("objections") else ""
+    lines = [
+        f"{icon} <b>Jackal Hunter — {label}</b>",
+        "━━━━━━━━━━━━━━━━━━━━",
+        f"<b>{info['name']}</b>  <code>{ticker}</code>",
+        f"💰 {cur}{price_str}  1일:{tech['change_1d']:+.1f}%  5일:{tech['change_5d']:+.1f}%{pnl_str}",
+        "━━━━━━━━━━━━━━━━━━━━",
+        f"{score_icon} <b>{score:.0f}/100</b>  {final['signal_type']}  [{analyst.get('confidence','')}]",
+        f"⚡ Analyst {analyst['analyst_score']}  →  Devil {devil['devil_score']}  →  Final {score:.0f}",
+        f"📊 RSI {tech['rsi']} | BB {tech['bb_pos']}% | 거래량 {tech['vol_ratio']:.1f}x",
+    ]
 
-    fred = aria  # macro already in aria context for message
+    # Analyst 근거
+    bull = (analyst.get("bull_case") or "").strip()
+    if bull:
+        lines.append(f"🐂 {bull[:80]}")
 
-    return (
-        f"{header}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"<b>{info['name']} ({ticker})</b>\n"
-        f"💰 {cur}{price_str} ({tech['change_1d']:+.1f}%){pnl_line}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🤖 최종 점수: <b>{final['final_score']:.0f}/100</b>\n"
-        f"📊 Analyst {analyst['analyst_score']} → Devil {devil['devil_score']} → Final {final['final_score']:.0f}\n"
-        f"📉 RSI {tech['rsi']} | BB {tech['bb_pos']}% | 거래량 {tech['vol_ratio']:.1f}x\n"
-        f"💡 {final.get('reason','')}{devil_line}\n"
-        f"{'🎯 진입가: ' + cur + str(entry) if entry else ''}"
-        f"{'  🛑 손절: ' + cur + str(stop) if stop else ''}\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"😐 센티먼트: {aria['sentiment_score']}점 | 레짐: {aria['regime'][:20] if aria['regime'] else 'N/A'}\n"
-        f"⏰ {now_str} KST | Jackal"
-    )
+    # Devil 반박 (있을 때만)
+    if d_comment:
+        lines.append(f"🔴 Devil {d_label}: {d_comment}")
+    elif d_label:
+        lines.append(f"🔴 Devil {d_label}")
+
+    lines.append("━━━━━━━━━━━━━━━━━━━━")
+
+    # 진입 / 손절
+    if entry:
+        lines.append(f"🎯 진입: {cur}{entry}{'  🛑 손절: ' + cur + str(stop) if stop else ''}")
+    elif stop:
+        lines.append(f"🛑 손절: {cur}{stop}")
+
+    lines.append(f"⏰ {now_str} KST | Jackal Hunter")
+
+    return "\n".join(lines)
 
 
 def _save_recommendation(extra: dict, aria: dict):
@@ -626,46 +652,56 @@ def _build_summary_message(results: list, macro: dict, aria: dict) -> str:
     """타점 없을 때 스캔 결과 요약"""
     now_str = datetime.now(KST).strftime("%m/%d %H:%M")
     fred    = macro.get("fred", {})
-    lines   = ["📊 <b>Jackal 스캔 완료 — 타점 없음</b>",
-               "━━━━━━━━━━━━━━━━━━━━"]
 
-    # 포트폴리오 / 추천 종목 구분
-    portfolio_results = [r for r in results if r.get("is_portfolio", True)]
-    extra_results     = [r for r in results if not r.get("is_portfolio", True)]
+    # 최고 점수 종목
+    top_score = max((r["final_score"] for r in results), default=0)
 
-    if portfolio_results:
-        lines.append("<b>📋 보유 포트폴리오</b>")
-    for r in portfolio_results:
-        sig  = r.get("signal_type", "관망")
-        icon = {"강한매수": "🔴", "매수검토": "🟡", "관망": "⚪", "매도주의": "🔵"}.get(sig, "⚪")
-        v    = r.get("devil_verdict", "")
-        dv   = f" | Devil:{v}" if v else ""
-        lines.append(f"{icon} {r['name']}: {r['final_score']:.0f}점 | RSI {r['rsi']} | {sig}{dv}")
+    lines = [
+        "📊 <b>Jackal Hunter — 타점 없음</b>",
+        "━━━━━━━━━━━━━━━━━━━━",
+        f"최고점수: {top_score:.0f}/100 (임계값 {ALERT_THRESHOLD})",
+        "",
+    ]
 
-    if extra_results:
-        lines.append("")
-        lines.append("<b>💡 ARIA 추천 종목 (포트폴리오 외)</b>")
-    for r in extra_results:
-        sig  = r.get("signal_type", "관망")
-        icon = {"강한매수": "🔴", "매수검토": "🟡", "관망": "⚪", "매도주의": "🔵"}.get(sig, "⚪")
-        reason = r.get("aria_reason", "")
-        lines.append(f"{icon} {r['name']} ({r['ticker']}): {r['final_score']:.0f}점 | {sig}")
-        if reason:
-            lines.append(f"   └ {reason}")
+    # 신호 아이콘: 반등가능 > 중립 > 매도주의
+    def _sig_icon(sig: str, score: float) -> str:
+        if sig == "강한매수":  return "🟢"
+        if sig == "매수검토":  return "🟡"
+        if sig == "매도주의":  return "🔴"
+        return "⚪"
+
+    # 점수 내림차순 정렬
+    sorted_r = sorted(results, key=lambda x: x["final_score"], reverse=True)
+
+    for r in sorted_r:
+        sig    = r.get("signal_type", "관망")
+        icon   = _sig_icon(sig, r["final_score"])
+        ticker = r["ticker"]
+        name   = r["name"]
+        # 한국 숫자 티커면 이름만
+        label  = f"<b>{name}</b> ({ticker})" if not ticker[:6].isdigit() else f"<b>{name}</b>"
+        dv     = r.get("devil_verdict", "")
+        dv_str = f" | Devil {dv}" if dv else ""
+        # 신호 한글 간략화
+        sig_short = {"강한매수": "강한매수", "매수검토": "반등가능", "관망": "중립", "매도주의": "약세"}.get(sig, sig)
+        lines.append(
+            f"{icon} {label}  {r['final_score']:.0f}점"
+            f" | RSI {r['rsi']} | 5일 {r.get('change_5d','N/A')}%"
+            f" | {sig_short}{dv_str}"
+        )
 
     lines.append("━━━━━━━━━━━━━━━━━━━━")
+
+    # 매크로 요약
     fred_parts = []
-    if fred.get("vix"):         fred_parts.append(f"VIX {fred['vix']}")
-    if fred.get("hy_spread"):   fred_parts.append(f"HY {fred['hy_spread']}%")
-    if fred.get("yield_curve") is not None:
-        fred_parts.append(f"금리차 {fred['yield_curve']:+.2f}%")
+    if fred.get("vix"):       fred_parts.append(f"VIX {fred['vix']}")
+    if fred.get("hy_spread"): fred_parts.append(f"HY {fred['hy_spread']}%")
     if fred_parts:
         lines.append("📈 " + " | ".join(fred_parts))
 
-    lines.append(f"😐 센티먼트: {aria['sentiment_score']}점 ({aria['sentiment_level']})")
     if aria.get("regime"):
-        lines.append(f"🌐 레짐: {aria['regime'][:30]}")
-    lines.append(f"⏰ {now_str} KST | Jackal")
+        lines.append(f"🌐 {aria['regime'][:35]}")
+    lines.append(f"⏰ {now_str} KST | Jackal Hunter")
     return "\n".join(lines)
 
 
@@ -826,14 +862,15 @@ def run_scan(force: bool = False) -> dict:
         log.info(f"    Final: {final['final_score']:.0f}점 | {final['signal_type']} | is_entry={final['is_entry']}")
 
         results.append({
-            "ticker":        ticker,
-            "name":          info["name"],
-            "final_score":   final["final_score"],
-            "signal_type":   final["signal_type"],
-            "devil_verdict":  devil.get("verdict", ""),
-            "rsi":           tech["rsi"],
-            "is_portfolio":  info.get("portfolio", True),
-            "aria_reason":   info.get("reason", ""),
+            "ticker":       ticker,
+            "name":         info["name"],
+            "final_score":  final["final_score"],
+            "signal_type":  final["signal_type"],
+            "devil_verdict": devil.get("verdict", ""),
+            "rsi":          tech["rsi"],
+            "change_5d":    tech.get("change_5d", "N/A"),
+            "is_portfolio": info.get("portfolio", True),
+            "aria_reason":  info.get("reason", ""),
         })
 
         # ── 알림 발송 ─────────────────────────────────────────────
