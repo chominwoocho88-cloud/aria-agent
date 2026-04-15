@@ -393,10 +393,10 @@
   "last_macro_gate": {
     "risk_level": "normal",
     "score_penalty": 0,
-    "vix": 18.0,
+    "vix": 18.1,
     "yield_curve": 0.67,
-    "hy_chg5": 0.34,
+    "hy_chg5": 0.31,
     "reason": "정상",
-    "checked_at": "2026-04-16T04:51:30.708103+09:00"
+    "checked_at": "2026-04-16T05:08:47.368807+09:00"
   }
 }
