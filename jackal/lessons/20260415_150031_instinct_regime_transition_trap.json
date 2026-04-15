@@ -1,0 +1,7 @@
+{
+  "name": "instinct_regime_transition_trap",
+  "warning": "레짐 전환 구간에서는 기존 신호들이 무력화됨",
+  "reason": "시장 방향성 불확실성으로 인한 기술적 분석 신뢰도 급락",
+  "regime_context": "위험회피→위험선호 전환중, 위험선호/위험회피 전환중",
+  "timestamp": "2026-04-15T15:00:31.972504"
+}

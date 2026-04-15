@@ -1,0 +1,7 @@
+{
+  "name": "high_accuracy_signal_filter",
+  "description": "높은 정확도 신호(bb_touch, sector_rebound, rsi_oversold)에 더 높은 가중치를 부여하여 전체 정확도 향상",
+  "trigger": "bb_touch(96.4%), sector_rebound(95.5%), rsi_oversold(92.3%) 신호 발생 시",
+  "action": "해당 신호들에 추가 가중치 0.1-0.15 부여하여 우선순위 상향",
+  "created_at": "2026-04-15T15:00:31.971909"
+}

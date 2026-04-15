@@ -1,0 +1,7 @@
+{
+  "name": "instinct_rsi_divergence_weakness",
+  "warning": "RSI 다이버전스 신호는 스윙(52.6%)과 단기(31.6%) 모두에서 낮은 성과",
+  "reason": "시장 노이즈나 거짓 신호 빈발, 다른 보조지표와의 조합 부족",
+  "regime_context": "모든 레짐에서 일관되게 저조한 성과",
+  "timestamp": "2026-04-15T15:00:31.972322"
+}
