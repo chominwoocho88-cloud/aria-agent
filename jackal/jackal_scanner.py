@@ -663,10 +663,10 @@ def _calc_signal_quality(signals: list, tech: dict, aria: dict,
     # ── G. signal_family별 스킵 임계값 + VIX 동적 조정 ──────────
     # Doc2/3 합의: VIX 완화는 crash_rebound 전용 (ma_support, general 제외)
     THRESHOLDS = {
-        "crash_rebound":   40,   # 극단 반등: 완화
+        "crash_rebound":   35,   # 3중 combo 가능 family → 임계값 추가 완화
         "general":         45,   # 기본
-        "ma_support_weak": 47,   # ma+momentum 50% → 완화
-        "ma_support_solo": 46,   # 61.8% 검증 → 50에서 완화
+        "ma_support_weak": 47,
+        "ma_support_solo": 46,
     }
     skip_threshold = THRESHOLDS.get(family, 45)
 
