@@ -17,6 +17,30 @@ API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 from aria_paths import (
     MEMORY_FILE, ACCURACY_FILE, LESSONS_FILE, WEIGHTS_FILE,
 )
+from aria_paths import DATA_DIR as _DATA_DIR
+
+# ── 교훈 3파일 경로 (3-file lesson system) ────────────────────────────────────
+LESSONS_FAILURE_FILE  = _DATA_DIR / "lessons_failure.json"   # cap 120 — 실패 교훈
+LESSONS_STRENGTH_FILE = _DATA_DIR / "lessons_strength.json"  # cap 30  — 강점 교훈
+LESSONS_REGIME_FILE   = _DATA_DIR / "lessons_regime.json"    # 레짐별 cap 40
+
+_REGIME_MAP = {
+    "위험회피에서 위험선호": "전환중",
+    "위험회피→위험선호":    "전환중",
+    "위험선호/위험회피":    "혼조",
+    "위험선호에서 위험회피": "전환중",
+}
+_BASE_REGIMES = ("위험선호", "위험회피", "전환중", "혼조")
+
+def _normalize_regime(regime: str) -> str:
+    for k, v in _REGIME_MAP.items():
+        if k in regime:
+            return v
+    for base in _BASE_REGIMES:
+        if base in regime:
+            return base
+    return "혼조"
+
 MODEL         = "claude-haiku-4-5-20251001"
 
 # ── 실제 30거래일 데이터 (2026-03-03 ~ 2026-04-11) ──────────────────────────
@@ -696,7 +720,7 @@ Return ONLY valid JSON. No markdown.
   "confidence_overall": "낮음/보통/높음",
   "one_line_summary": "",
   "thesis_killers": [
-    {"event":"나스닥/코스피/반도체/VIX 등 수치 검증 가능한 이벤트",
+    {"event":"나스닥/코스피/반도체/S&P500 등 주가 수치 검증 가능한 이벤트 (VIX·환율 주제 절대 금지)",
      "timeframe":"1일 또는 3일","confirms_if":"숫자 포함 조건","invalidates_if":"숫자 포함 조건"}
   ],
   "outflows": [{"zone":"","reason":"","severity":"높음/보통/낮음"}],
@@ -705,26 +729,138 @@ Return ONLY valid JSON. No markdown.
 }"""
 
 
-def _load_lessons_context() -> str:
-    """aria_lessons.json에서 핵심 약점 패턴 로드 → 프롬프트 주입용."""
+def _save_lesson(lesson: dict) -> None:
+    """
+    교훈을 severity/type에 따라 분리 파일에 저장.
+    [failure] → lessons_failure.json  (cap 120)
+    [strength]→ lessons_strength.json (cap 30)
+    [regime]  → lessons_regime.json   (cap 40/레짐)
+    + 대시보드/알림 호환을 위해 LESSONS_FILE 에도 동기 write
+    """
+    date    = lesson.get("date", "")
+    sev     = lesson.get("severity", "medium")
+    ltype   = lesson.get("type", "failure")
+    regime  = lesson.get("regime", "")
+
+    # ── 분리 파일 저장 ────────────────────────────────────────────
+    if sev == "low" or ltype == "strength":
+        data = _load(LESSONS_STRENGTH_FILE, {"lessons": []})
+        data["lessons"].append(lesson)
+        data["lessons"] = sorted(data["lessons"],
+                                 key=lambda x: x.get("date",""), reverse=True)[:30]
+        _save(LESSONS_STRENGTH_FILE, data)
+    elif regime:
+        data = _load(LESSONS_REGIME_FILE, {"regimes": {}, "last_updated": ""})
+        bucket = data["regimes"].setdefault(regime, [])
+        bucket.append(lesson)
+        data["regimes"][regime] = sorted(bucket,
+                                         key=lambda x: x.get("date",""), reverse=True)[:40]
+        data["last_updated"] = date
+        _save(LESSONS_REGIME_FILE, data)
+    else:
+        data = _load(LESSONS_FAILURE_FILE, {"lessons": []})
+        data["lessons"].append(lesson)
+        data["lessons"] = sorted(data["lessons"],
+                                 key=lambda x: x.get("date",""), reverse=True)[:120]
+        _save(LESSONS_FAILURE_FILE, data)
+
+    # ── 레거시 LESSONS_FILE 동기 write (대시보드 / 알림 호환) ─────
+    legacy = _load(LESSONS_FILE, {"lessons": [], "total_lessons": 0, "last_updated": ""})
+    legacy["lessons"].append(lesson)
+    legacy["lessons"] = sorted(legacy["lessons"],
+                               key=lambda x: x.get("date",""), reverse=True)[:80]
+    legacy["total_lessons"] = len(legacy["lessons"])
+    legacy["last_updated"] = date or legacy.get("last_updated", "")
+    _save(LESSONS_FILE, legacy)
+
+
+def _load_lessons_context(current_date: str = None,
+                           current_regime: str = "") -> str:
+    """
+    [Redesigned] 교훈 주입 — 날짜 필터 + 레짐 유사도 + severity 가중치.
+
+    current_date : 이 날짜 이전에 생성된 교훈만 사용 (미래 데이터 누출 차단)
+                   None 이면 필터 없음 (라이브 시스템 호환)
+    current_regime: 동일/유사 레짐 교훈 우선 선택
+
+    주입 원칙: failure 1개 + (regime or strength) 1개 = 최대 2개
+    """
+    REGIME_SIM = {
+        "위험선호":  {"위험선호", "전환중", "혼조"},
+        "위험회피":  {"위험회피", "전환중", "혼조"},
+        "전환중":    {"전환중", "위험선호", "위험회피", "혼조"},
+        "혼조":      {"혼조", "전환중", "위험선호", "위험회피"},
+    }
+    similar = REGIME_SIM.get(current_regime, set())
+
+    SEV_W = {"high": 1.0, "medium": 0.65, "low": 0.15}
+
+    def _rank(lessons: list) -> list:
+        scored = []
+        for l in lessons:
+            # ① 시간 여행 차단 — 미래 교훈 완전 제외
+            if current_date and l.get("date", "") >= current_date:
+                continue
+            w = SEV_W.get(l.get("severity", "medium"), 0.5)
+            # ② 동일/유사 레짐 보너스 +30%
+            if l.get("regime", "") in similar:
+                w *= 1.3
+            scored.append((w, l))
+        return [l for _, l in sorted(scored, key=lambda x: x[0], reverse=True)]
+
+    selected: list = []
+
     try:
-        lessons_file = DATA_DIR / "aria_lessons.json"
-        if not lessons_file.exists():
-            return ""
-        lessons = json.loads(lessons_file.read_text(encoding="utf-8"))
-        if not lessons:
-            return ""
-        # 가장 최근 교훈 중 '약점' 관련만 추출
-        weak_lessons = []
-        for lesson in lessons[-20:]:   # 최근 20개
-            text = str(lesson.get("lesson", ""))
-            if any(k in text for k in ["주의", "실패", "약점", "틀린", "금지", "과매도", "반등 예측"]):
-                weak_lessons.append(f"  • {text[:80]}")
-        if not weak_lessons:
-            return ""
-        return "\n[과거 예측 약점 — 반드시 참고]\n" + "\n".join(weak_lessons[:5]) + "\n"
+        # Failure 교훈 (1개)
+        failure_ranked = _rank(
+            _load(LESSONS_FAILURE_FILE, {"lessons": []}).get("lessons", []))
+        if failure_ranked:
+            selected.append(failure_ranked[0])
     except Exception:
+        pass
+
+    try:
+        # Regime 전용 교훈 (1개)
+        regime_data = _load(LESSONS_REGIME_FILE, {"regimes": {}})
+        regime_lessons: list = []
+        for r in (similar or {current_regime} if current_regime else set()):
+            regime_lessons.extend(regime_data.get("regimes", {}).get(r, []))
+        regime_ranked = _rank(regime_lessons)
+        if regime_ranked:
+            selected.append(regime_ranked[0])
+        else:
+            # Regime 없으면 Strength 교훈 대체
+            strength_ranked = _rank(
+                _load(LESSONS_STRENGTH_FILE, {"lessons": []}).get("lessons", []))
+            if strength_ranked:
+                selected.append(strength_ranked[0])
+    except Exception:
+        pass
+
+    if not selected:
+        # Fallback: 레거시 파일
+        try:
+            legacy_lessons = _load(LESSONS_FILE, {"lessons": []}).get("lessons", [])
+            for l in legacy_lessons:
+                if current_date and l.get("date", "") >= current_date:
+                    continue
+                text = str(l.get("lesson", ""))
+                if any(k in text for k in ["주의", "실패", "약점", "틀린", "금지"]):
+                    selected.append(l)
+                    if len(selected) >= 2:
+                        break
+        except Exception:
+            pass
+
+    if not selected:
         return ""
+
+    lines = ["\n[과거 예측 약점 — 반드시 참고 (최대 2개)]"]
+    for l in selected:
+        regime_tag = f"[{l.get('regime','')}] " if l.get("regime") else ""
+        sev_tag    = "⛔" if l.get("severity") == "high" else "⚠️"
+        lines.append(f"  {sev_tag} {regime_tag}{l.get('lesson','')[:80]}")
+    return "\n".join(lines) + "\n"
 
 
 def generate_analysis(date, market_data, dry=False):
@@ -784,19 +920,48 @@ def generate_analysis(date, market_data, dry=False):
     elif vix_val > 30:
         signals.append(f"⚠️ VIX {vix_val:.0f} 고변동성: confirms_if 임계값 ±1.5% 이상 사용")
 
+    # [3-layer VIX/FX Block] Analyst 프롬프트 수준에서 차단 신호 주입
+    signals.append(
+        "🚫 [VIX/환율 thesis_killer 생성 금지] "
+        "VIX와 원달러 환율은 thesis_killer의 event 주제로 절대 사용하지 말 것. "
+        "VIX는 변동성 맥락 설명에만 사용. "
+        "나스닥/코스피/반도체 주가만 thesis_killer 대상으로 사용할 것."
+    )
+
     signal_str = ""
     if signals:
         signal_str = "\n[현재 시장 경고신호 — 반드시 반영]\n" + "\n".join(signals) + "\n"
 
-    # 과거 약점 교훈 주입
-    lessons_ctx = _load_lessons_context()
+    # [경계 N/A 날짜 처리] 전일 데이터 없을 때 명시적 경고
+    na_fields = [k for k in ("sp500_change","nasdaq_change") if d.get(k,"") == "N/A"]
+    na_warning = ""
+    if na_fields:
+        na_warning = (
+            "\n[⚠️ 전일 가격 데이터 없음 (N/A)]\n"
+            "전일 변화율 데이터를 알 수 없음. "
+            "thesis_killer에서 '전일 급등/급락'을 가정하지 말 것. "
+            "현재 가격 수준과 Fear&Greed/VIX만으로 방향 판단할 것.\n"
+        )
+
+    # 과거 약점 교훈 주입 — 날짜 필터 + 레짐 필터 적용
+    # current_regime은 이 시점에서 알 수 없으므로 HIST_DATA에서 전일 레짐 참조
+    prev_regime = ""
+    try:
+        dates_before = [d_ for d_ in DATES if d_ < date]
+        if dates_before:
+            prev_regime = HIST_DATA.get(dates_before[-1], {}).get("regime", "")
+    except Exception:
+        pass
+    lessons_ctx = _load_lessons_context(current_date=date, current_regime=prev_regime)
+
     # 시계열 컨텍스트 (레짐 연속일, VIX/FG 방향, 자기 피드백)
     trend_ctx = _build_trend_context(date, HIST_DATA, _backtest_results)
 
     user_msg = (
         f"{lessons_ctx}"
+        f"{na_warning}"
         f"{trend_ctx}"
-        f"분석 날짜: {date}\n이벤트: {d['note']}\n\n"
+        f"분석 날짜: {date}\n이벤트: {d.get('note','')}\n\n"
         f"S&P500: {d.get('sp500','N/A')} ({d.get('sp500_change','N/A')})\n"
         f"나스닥: {d.get('nasdaq','N/A')} ({d.get('nasdaq_change','N/A')})\n"
         f"VIX: {d.get('vix','N/A')}\n코스피: {d.get('kospi','N/A')} ({d.get('kospi_change','N/A')})\n"
@@ -1176,61 +1341,60 @@ def update_accuracy(results, date):
 
 
 def extract_lessons(results, analysis, date):
-    lessons = _load(LESSONS_FILE, {"lessons":[],"total_lessons":0,"last_updated":""})
-    fg     = float(HIST_DATA.get(date,{}).get("fear_greed","50"))
-    regime = analysis.get("market_regime","")
-    trend  = analysis.get("trend_phase","")
+    """
+    [Redesigned] 교훈을 3개 파일에 분리 저장.
+    각 교훈에 regime 태그 추가 → 레짐 기반 필터링 지원.
+    """
+    fg     = float(HIST_DATA.get(date, {}).get("fear_greed", "50"))
+    regime = analysis.get("market_regime", "")
+    trend  = analysis.get("trend_phase", "")
+    sp_chg = _pct(HIST_DATA.get(date, {}).get("sp500_change", "0"))
 
-    # 오판 교훈
+    # ── 오판 교훈 (failure) ────────────────────────────────────────
     for r in results:
         if r["verdict"] == "invalidated":
-            text = f"{r['event'][:35]} 오판 — {r.get('evidence','')[:30]}"
-            sev  = "high" if "주식" in r["category"] else "medium"
-            lessons["lessons"].append({
-                "date":date,"source":"backtest","category":r["category"],
-                "lesson":text,"severity":sev,"applied":0,"reinforced":0
+            _save_lesson({
+                "date": date, "regime": regime, "source": "backtest",
+                "category": r["category"], "type": "failure",
+                "severity": "high" if "주식" in r["category"] else "medium",
+                "lesson": f"{r['event'][:35]} 오판 — {r.get('evidence','')[:30]}",
+                "applied": 0, "reinforced": 0,
             })
-            lessons["total_lessons"] += 1
 
-    # 구조적 교훈
-    sp_chg = _pct(HIST_DATA.get(date,{}).get("sp500_change","0"))
+    # ── 구조적 교훈 (regime-specific failure) ────────────────────
     if fg <= 10 and sp_chg <= -3:
-        lessons["lessons"].append({
-            "date":date,"source":"backtest","category":"레짐판단",
-            "lesson":f"FG {fg} + S&P {sp_chg:+.1f}% — 극단공포 폭락기, 반등 타이밍 연구 필요",
-            "severity":"high","applied":0,"reinforced":0
+        _save_lesson({
+            "date": date, "regime": regime, "source": "backtest",
+            "category": "레짐판단", "type": "failure", "severity": "high",
+            "lesson": f"FG {fg} + S&P {sp_chg:+.1f}% — 극단공포 폭락기, 반등 타이밍 연구 필요",
+            "applied": 0, "reinforced": 0,
         })
-        lessons["total_lessons"] += 1
 
     if fg <= 20 and "선호" in regime:
-        lessons["lessons"].append({
-            "date":date,"source":"backtest","category":"레짐판단",
-            "lesson":f"FG {fg}(극단공포)인데 위험선호 판단 — 공포 구간 낙관 과잉",
-            "severity":"high","applied":0,"reinforced":0
+        _save_lesson({
+            "date": date, "regime": regime, "source": "backtest",
+            "category": "레짐판단", "type": "failure", "severity": "high",
+            "lesson": f"FG {fg}(극단공포)인데 위험선호 판단 — 공포 구간 낙관 과잉",
+            "applied": 0, "reinforced": 0,
         })
-        lessons["total_lessons"] += 1
 
     if "하락" in trend and sp_chg > 2:
-        lessons["lessons"].append({
-            "date":date,"source":"backtest","category":"추세판단",
-            "lesson":f"하락추세 판단인데 S&P {sp_chg:+.1f}% 급등 — 반등 포착 실패",
-            "severity":"medium","applied":0,"reinforced":0
+        _save_lesson({
+            "date": date, "regime": regime, "source": "backtest",
+            "category": "추세판단", "type": "failure", "severity": "medium",
+            "lesson": f"하락추세 판단인데 S&P {sp_chg:+.1f}% 급등 — 반등 포착 실패",
+            "applied": 0, "reinforced": 0,
         })
-        lessons["total_lessons"] += 1
 
-    # 강점 교훈 (적중한 경우)
-    confirmed = [r for r in results if r["verdict"] == "confirmed"]
-    for r in confirmed:
-        if r["category"] in ["주식","VIX"]:
-            lessons["lessons"].append({
-                "date":date,"source":"backtest","category":r["category"],
-                "lesson":f"{r['event'][:30]} 예측 적중 — {r.get('evidence','')[:25]}",
-                "severity":"low","type":"strength","applied":0,"reinforced":0
+    # ── 강점 교훈 (strength) ──────────────────────────────────────
+    for r in results:
+        if r["verdict"] == "confirmed" and r["category"] == "주식":
+            _save_lesson({
+                "date": date, "regime": regime, "source": "backtest",
+                "category": r["category"], "type": "strength", "severity": "low",
+                "lesson": f"{r['event'][:30]} 적중 — {r.get('evidence','')[:25]}",
+                "applied": 0,
             })
-
-    lessons["lessons"] = sorted(lessons["lessons"],key=lambda x:x["date"],reverse=True)[:80]
-    lessons["last_updated"] = date
-    _save(LESSONS_FILE, lessons)
 
 
 def save_to_memory(analysis):
@@ -1418,11 +1582,18 @@ def _fetch_recent_data() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _count_lessons() -> int:
-    """현재 저장된 교훈 수."""
+    """3개 교훈 파일의 전체 교훈 수 합산."""
     try:
-        return len(_load(LESSONS_FILE, {"lessons": []}).get("lessons", []))
+        n_fail  = len(_load(LESSONS_FAILURE_FILE,  {"lessons": []}).get("lessons", []))
+        n_str   = len(_load(LESSONS_STRENGTH_FILE, {"lessons": []}).get("lessons", []))
+        regime_data = _load(LESSONS_REGIME_FILE, {"regimes": {}})
+        n_reg   = sum(len(v) for v in regime_data.get("regimes", {}).values())
+        return n_fail + n_str + n_reg
     except Exception:
-        return 0
+        try:
+            return len(_load(LESSONS_FILE, {"lessons": []}).get("lessons", []))
+        except Exception:
+            return 0
 
 
 def _run_phase_dates(dates_slice: list, phase_label: str,
@@ -1516,13 +1687,13 @@ def run_walk_forward(dry: bool = False) -> None:
 
     # ── Phase별 순차 학습 ─────────────────────────────────────────
     for phase_idx, ym in enumerate(months_sorted, 1):
-        dates_slice   = monthly[ym]
+        dates_slice    = monthly[ym]
         lessons_before = _count_lessons()
-        lessons_now    = _load(LESSONS_FILE, {}).get("lessons", [])
+        lessons_now_n  = lessons_before   # 3파일 합산 교훈 수
 
         print(f"\n{'─' * 65}")
         print(f"  📚 Phase {phase_idx}/{len(months_sorted)} : {ym} "
-              f"({len(dates_slice)}거래일 | 적용 교훈 {len(lessons_now)}개)")
+              f"({len(dates_slice)}거래일 | 적용 교훈 {lessons_now_n}개)")
         print(f"{'─' * 65}")
 
         acc, judged, correct, _ = _run_phase_dates(
@@ -1536,8 +1707,9 @@ def run_walk_forward(dry: bool = False) -> None:
     # ── Final Pass 준비 ────────────────────────────────────────────
     total_lessons = _count_lessons()
     print(f"\n{'=' * 65}")
-    print(f"  🎯 Final Pass — {len(DATES)}거래일 ({total_lessons}개 교훈 모두 반영)")
-    print(f"  accuracy.json + memory.json 초기화 후 전체 재분석")
+    print(f"  🎯 Final Pass — {len(DATES)}거래일 ({total_lessons}개 교훈 누적)")
+    print(f"  accuracy.json + memory.json + 교훈 3파일 초기화 후 재분석")
+    print(f"  (시간 여행 차단: 날짜 필터가 Final Pass에서도 자동 적용)")
     print(f"{'=' * 65}")
 
     # accuracy.json / memory.json 초기화 (Final Pass 결과만 저장)
@@ -1551,6 +1723,18 @@ def run_walk_forward(dry: bool = False) -> None:
         "_lessons_applied": total_lessons,
     })
     _save(MEMORY_FILE, [])
+
+    # [시간 여행 차단] 교훈 3파일 초기화
+    # Final Pass에서는 날짜 필터(current_date 파라미터)가 미래 교훈을 자동 차단하므로
+    # 파일 자체를 초기화하고 Final Pass 진행 중 자연스럽게 재구축됨
+    # → 이전 Phase에서 쌓인 '미래' 교훈이 과거 날짜 분석에 주입되는 것을 완전 차단
+    for path in (LESSONS_FAILURE_FILE, LESSONS_STRENGTH_FILE, LESSONS_REGIME_FILE):
+        _save(path, {"lessons": [], "regimes": {}, "last_updated": "",
+                     "_note": "Final Pass re-accumulation"})
+    _save(LESSONS_FILE, {"lessons": [], "total_lessons": 0, "last_updated": "",
+                          "_note": "Final Pass re-accumulation"})
+    print(f"  ✅ 교훈 파일 초기화 완료 (Final Pass 중 날짜 순서대로 재구축)")
+
     _backtest_results = []
 
     final_acc, final_j, final_c, final_results = _run_phase_dates(
@@ -1582,12 +1766,11 @@ def run_walk_forward(dry: bool = False) -> None:
     print(f"  Final Pass{'':>5} {'전체':>8} {final_acc:>6}%  {final_c:>5}/{final_j}")
     print(f"{'=' * 65}")
 
-    lessons_data = _load(LESSONS_FILE, {})
-    acc_data     = _load(ACCURACY_FILE, {})
+    acc_data = _load(ACCURACY_FILE, {})
     print(f"\n  누적 교훈 : {_count_lessons()}개")
     print(f"  강점      : {acc_data.get('strong_areas', [])}")
     print(f"  약점      : {acc_data.get('weak_areas',   [])}")
-    print(f"  → 다음 MORNING 실행 시 {total_lessons}개 교훈 자동 반영")
+    print(f"  → 다음 MORNING 실행 시 자동 반영")
 
     # 요약 테이블 출력
     print_summary_table(final_results)
