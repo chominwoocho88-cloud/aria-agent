@@ -280,33 +280,8 @@ def _analyze_trend(history: list) -> dict:
     }
 
 
-def _normalize_sentiment_components(entry: dict) -> dict:
-    """
-    [Bug Fix] sentiment.json components 스키마 정규화.
-    구버전: {"시장레짐": {"score": 20, "reason": "..."}, ...}  (dict)
-    신버전: {"시장레짐": 70, ...}                             (int 0-100)
-    두 형태가 혼재할 때 트렌드 계산에서 TypeError 방지.
-    """
-    comps = entry.get("components", {})
-    if not comps:
-        return entry
-    normalized = {}
-    for k, v in comps.items():
-        if isinstance(v, dict):
-            # 구버전: score 키가 있으면 그 값, 없으면 50 기본값
-            normalized[k] = int(v.get("score", 50))
-        elif isinstance(v, (int, float)):
-            normalized[k] = int(v)
-        else:
-            normalized[k] = 50
-    entry = {**entry, "components": normalized}
-    return entry
-
-
 def run_sentiment(report: dict, market_data: dict = None) -> dict:
     data    = _load(SENTIMENT_FILE, {"history": [], "current": None})
-    # [Bug Fix] 기존 이력의 dict 형태 components를 int로 정규화
-    data["history"] = [_normalize_sentiment_components(h) for h in data.get("history", [])]
     new     = calculate_sentiment(report, market_data)
     history = data.get("history", [])
 
@@ -479,45 +454,98 @@ Return ONLY valid JSON. No markdown.
 
 
 def _verify_price(thesis_killers: list, market_data: dict) -> list:
+    """
+    [Bug Fix] 백테스트 check_direction() 로직 적용.
+    기존: 임계값 초과만 confirmed → dead zone 속출 → 방향 맞아도 오답 처리
+    수정: 방향 일치 + ±0.3% 이상이면 partial confirmed 인정
+          VIX / 환율 자동 unclear (정확도 22.8% / 0%)
+    """
+    import re as _re
+
+    def _pct(v):
+        try: return float(str(v or "0").replace("%", "").replace("+", ""))
+        except: return 0.0
+
+    nq  = _pct(market_data.get("nasdaq_change"))
+    sp  = _pct(market_data.get("sp500_change"))
+    ks  = _pct(market_data.get("kospi_change"))
+    sk  = _pct(market_data.get("sk_hynix_change"))
+    sam = _pct(market_data.get("samsung_change"))
+    nv  = _pct(market_data.get("nvda_change"))
+
+    def _extract_thr(text):
+        nums = _re.findall(r"[+-]?\d+\.?\d*", str(text))
+        return float(nums[0]) if nums else None
+
+    def check_direction(chg: float, conf: str, inv: str) -> tuple:
+        """
+        방향 + 임계값으로 verdict 결정.
+        임계값 완전 달성 → confirmed(100%)
+        방향 일치 + ±0.3% 이상 → confirmed(partial)
+        반대 방향 + ±0.3% 이상 → invalidated
+        그 외 → unclear
+        """
+        thr = abs(_extract_thr(conf) or 1.0)
+        c_l, i_l = conf.lower(), inv.lower()
+        up   = any(w in c_l for w in ["상승","반등","올라","증가","+"])
+        down = any(w in c_l for w in ["하락","급락","내려","감소","-"])
+
+        if up:
+            if chg >= thr:         return "confirmed",   f"실제 {chg:+.2f}% (예측 +{thr:.1f}% 이상)"
+            if 0.3 <= chg < thr:   return "confirmed",   f"실제 {chg:+.2f}% (방향 일치, 수치 부분달성)"
+            if chg <= -0.3:        return "invalidated", f"실제 {chg:+.2f}% (예측 반대)"
+        if down:
+            if chg <= -thr:        return "confirmed",   f"실제 {chg:+.2f}% (예측 -{thr:.1f}% 이하)"
+            if -thr < chg <= -0.3: return "confirmed",   f"실제 {chg:+.2f}% (방향 일치, 수치 부분달성)"
+            if chg >= 0.3:         return "invalidated", f"실제 {chg:+.2f}% (예측 반대)"
+
+        return "unclear", f"변동 미미 ({chg:+.2f}%)"
+
     results = []
     for tk in thesis_killers:
-        event     = tk.get("event", "")
-        confirms  = tk.get("confirms_if", "")
-        invalids  = tk.get("invalidates_if", "")
-        verdict   = "unclear"
-        evidence  = ""
-        category  = tk.get("category", "기타")
+        event    = tk.get("event", "")
+        confirms = tk.get("confirms_if", "")
+        invalids = tk.get("invalidates_if", "")
+        ev_l     = event.lower()
+        verdict, evidence, category = "unclear", "", tk.get("category", "기타")
 
-        # 간단한 가격 기반 검증
-        import re as _re
-        nums_c = _re.findall(r"[-+]?\d+\.?\d*", confirms)
-        nums_i = _re.findall(r"[-+]?\d+\.?\d*", invalids)
+        # 환율: 정확도 0% → 자동 제외
+        if any(k in ev_l for k in ["환율","원달러","krw","원화"]):
+            category = "환율"
+            verdict, evidence = "unclear", "환율 예측 제외 (정확도 0%)"
 
-        # 나스닥/S&P 검증
-        if "나스닥" in event or "nasdaq" in event.lower():
-            chg = market_data.get("nasdaq_change", "")
-            try:
-                chg_f = float(str(chg).replace("%", "").replace("+", ""))
-                if nums_c:
-                    thr = float(nums_c[0])
-                    if "+" in confirms and chg_f >= thr:
-                        verdict = "confirmed"; evidence = f"나스닥 {chg_f:+.1f}%"
-                    elif "-" in invalids and chg_f <= -abs(float(nums_i[0])) if nums_i else False:
-                        verdict = "invalidated"; evidence = f"나스닥 {chg_f:+.1f}%"
-            except Exception:
-                pass
+        # VIX: 정확도 22.8% → 자동 제외
+        elif any(k in ev_l for k in ["vix","변동성","공포지수"]):
+            category = "VIX"
+            verdict, evidence = "unclear", "VIX 예측 제외 (정확도 22.8%)"
 
-        # 코스피 검증
-        elif "코스피" in event or "kospi" in event.lower():
-            chg = market_data.get("kospi_change", "")
-            try:
-                chg_f = float(str(chg).replace("%", "").replace("+", ""))
-                if nums_c and chg_f >= float(nums_c[0]):
-                    verdict = "confirmed"; evidence = f"코스피 {chg_f:+.1f}%"
-                elif nums_i and chg_f <= -abs(float(nums_i[0])):
-                    verdict = "invalidated"; evidence = f"코스피 {chg_f:+.1f}%"
-            except Exception:
-                pass
+        # 나스닥 / 기술주 / S&P
+        elif any(k in ev_l for k in ["나스닥","nasdaq","기술주"]):
+            category = "주식"
+            verdict, evidence = check_direction(nq, confirms, invalids)
+        elif any(k in ev_l for k in ["s&p","sp500","s&p500"]):
+            category = "주식"
+            verdict, evidence = check_direction(sp, confirms, invalids)
+
+        # 코스피
+        elif any(k in ev_l for k in ["코스피","kospi","한국 주식"]):
+            category = "주식"
+            verdict, evidence = check_direction(ks, confirms, invalids)
+
+        # 개별 종목
+        elif any(k in ev_l for k in ["sk하이닉스","하이닉스","sk hynix"]):
+            category = "주식"
+            verdict, evidence = check_direction(sk, confirms, invalids)
+        elif any(k in ev_l for k in ["삼성전자","삼성"]):
+            category = "주식"
+            verdict, evidence = check_direction(sam, confirms, invalids)
+        elif any(k in ev_l for k in ["엔비디아","nvidia","nvda"]):
+            category = "주식"
+            verdict, evidence = check_direction(nv, confirms, invalids)
+        elif any(k in ev_l for k in ["반도체","semiconductor","hbm"]):
+            category = "주식"
+            chg = max([sk, nv], key=abs)
+            verdict, evidence = check_direction(chg, confirms, invalids)
 
         results.append({
             "event":    event,
