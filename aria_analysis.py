@@ -28,7 +28,7 @@ from aria_paths import (
 )
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL   = os.environ.get("ARIA_MODEL", "claude-sonnet-4-6")
+MODEL   = os.environ.get("ARIA_MODEL", os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-6"))
 client  = anthropic.Anthropic(api_key=API_KEY)
 
 
