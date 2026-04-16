@@ -30,7 +30,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
         run: |
-          python aria_backtest.py
+          python aria_backtest.py --months 6
 
       - name: Run Jackal Backtest
         env:
