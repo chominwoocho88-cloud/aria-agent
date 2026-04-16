@@ -74,7 +74,7 @@ SECTOR_POOLS = {
     ],
     "에너지": [
         "XOM", "CVX", "OXY", "COP", "SLB",
-        "MPC", "VLO", "PSX", "HES", "DVN",
+        "MPC", "VLO", "PSX", "DVN",          # [Fix] HES 상폐(delisted) 제거
         "010950.KS", "096770.KS",
     ],
     "금융": [
@@ -686,14 +686,17 @@ def _stage2_aria_context(top50: list, aria: dict) -> list:
         ticker = item["ticker"]
         boost  = 0
 
-        # 섹터 유입 보정
+        # 섹터 유입/유출 보정
         for sector, tickers in SECTOR_POOLS.items():
             if ticker in tickers:
                 sector_lower = sector.lower()
                 if any(k in inflows for k in sector_lower.replace("/", " ").split()):
                     boost += 10
                 if any(k in outflows for k in sector_lower.replace("/", " ").split()):
-                    boost -= 8
+                    # [Fix] 아웃플로우 패널티 강화: -8 → -20
+                    # 기존 -8점으로는 에너지 아웃플로우 종목이 Stage1 고점수(100pt+)를 넘지 못했음
+                    # DVN 116pts - 8 = 108pts → 여전히 최상위. -20으로 강화
+                    boost -= 20
 
         # 레짐 보정
         boost += regime_boost
