@@ -132,7 +132,7 @@ jobs:
           git config user.name  "ARIA Bot"
           git config user.email "aria@github-actions"
 
-          git add data/          2>/dev/null || true
+          git add data/          2>/dev/null || true   # memory_archive.json 포함
           git add reports/       2>/dev/null || true
           git add dashboard.html 2>/dev/null || true
 
