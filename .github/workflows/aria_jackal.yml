@@ -59,8 +59,8 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        # [Bug Fix] 버전 고정: yfinance 미고정 시 최신버전(1.2.x) 자동 설치 → ARIA의 0.2.55와 불일치
-        run: pip install anthropic httpx yfinance==0.2.55
+        # [Bug Fix] anthropic==0.94.0 고정 (ARIA requirements.txt와 통일, 0.95.0 미검증)
+        run: pip install anthropic==0.94.0 httpx yfinance==0.2.55
 
       - name: Run Jackal
         env:
