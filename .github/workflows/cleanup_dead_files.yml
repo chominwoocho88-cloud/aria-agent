@@ -1,0 +1,294 @@
+name: 🧹 Cleanup Dead Files
+
+# ══════════════════════════════════════════════════════════════════
+# 목적: 일회성 마이그레이션 스크립트 / 레거시 파일 / 구버전 데이터 삭제
+#
+# 삭제 대상 분류:
+#   A. 일회성 버그픽스 스크립트   (이미 적용 완료)
+#   B. 개발용 디버그/테스트 도구  (프로덕션 불필요)
+#   C. 임시 경로 shim             (Bug4/Bug9 수정으로 불필요)
+#   D. 일회성 워크플로우           (이미 실행 완료)
+#   E. 레거시 상태 파일            (last_evolved_at으로 대체됨)
+#   F. 구버전 루트 데이터 파일     (1년 이상 지난 분석 결과)
+#
+# ⚠️  주의: workflow_dispatch 수동 실행 전용
+#           dry_run=true로 먼저 확인 후 실행 권장
+# ══════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "true = 삭제 없이 대상 목록만 출력 (반드시 먼저 확인)"
+        required: false
+        default: "true"
+      confirm:
+        description: "실제 삭제하려면 'DELETE' 입력"
+        required: false
+        default: ""
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ────────────────────────────────────────────────────────────
+      # STEP 1: 삭제 대상 목록 정의 및 존재 여부 확인
+      # ────────────────────────────────────────────────────────────
+      - name: List deletion targets
+        run: |
+          python3 - << 'EOF'
+          from pathlib import Path
+
+          ROOT = Path(".")
+
+          targets = {
+              "A. 버그픽스 마이그레이션 스크립트 (이미 적용 완료)": [
+                  "apply_bugfixes.py",
+              ],
+              "B. 개발용 디버그 / 테스트 도구": [
+                  "debug_patterns.py",
+                  "verify_bugs_inline.py",
+                  "test_fsc_api.py",
+              ],
+              "C. 임시 경로 shim (Bug4·Bug9 수정으로 불필요, 주석에 '임시' 명시)": [
+                  "sync_legacy_paths.py",
+              ],
+              "D. 일회성 워크플로우 (이미 실행 완료)": [
+                  ".github/workflows/apply_bugfixes.yml",
+                  ".github/workflows/FINAL_VERIFY.yml",
+              ],
+              "E. 레거시 상태 파일 (jackal_weights.json last_evolved_at으로 대체됨)": [
+                  "jackal/.last_evolve",
+              ],
+              "F. 구버전 루트 데이터 (1년 이상 경과, reports/ 로 관리 체계 이전 완료)": [
+                  "2025-05-14.json",
+                  "2025-05-15.json",
+              ],
+          }
+
+          print()
+          print("=" * 62)
+          print("  🧹 ARIA + Jackal 삭제 대상 목록")
+          print("=" * 62)
+
+          total = 0
+          for category, files in targets.items():
+              print(f"\n  📂 {category}")
+              for f in files:
+                  p = ROOT / f
+                  exists = "✅ 존재" if p.exists() else "⬜ 없음"
+                  size   = f" ({p.stat().st_size:,} bytes)" if p.exists() else ""
+                  print(f"     {exists}  {f}{size}")
+                  if p.exists():
+                      total += 1
+
+          print()
+          print(f"  총 삭제 대상: {total}개 파일 (존재하는 파일만)")
+          print("=" * 62)
+          print()
+          print("  ⚠️  추가 수동 작업 필요 (이 스크립트 범위 밖):")
+          print("  1. aria_daily.yml의 'Sync paths' 스텝 제거")
+          print("     (sync_legacy_paths.py 삭제 후 해당 스텝도 제거 필요)")
+          print("  2. aria_jackal.yml의 ANTHROPIC_MODEL 수정")
+          print('     현재: "claude-sonnet-4-20250514"  ← 잘못된 모델명!')
+          print('     수정: "claude-sonnet-4-6"')
+          print("=" * 62)
+          EOF
+
+      # ────────────────────────────────────────────────────────────
+      # STEP 2: 실제 삭제 (dry_run=false AND confirm='DELETE' 일 때만)
+      # ────────────────────────────────────────────────────────────
+      - name: Execute deletion
+        if: >
+          github.event.inputs.dry_run == 'false' &&
+          github.event.inputs.confirm == 'DELETE'
+        run: |
+          python3 - << 'EOF'
+          from pathlib import Path
+
+          ROOT = Path(".")
+
+          DELETE_LIST = [
+              # A. 버그픽스 마이그레이션
+              "apply_bugfixes.py",
+              # B. 디버그/테스트 도구
+              "debug_patterns.py",
+              "verify_bugs_inline.py",
+              "test_fsc_api.py",
+              # C. 임시 경로 shim
+              "sync_legacy_paths.py",
+              # D. 일회성 워크플로우
+              ".github/workflows/apply_bugfixes.yml",
+              ".github/workflows/FINAL_VERIFY.yml",
+              # E. 레거시 상태 파일
+              "jackal/.last_evolve",
+              # F. 구버전 루트 데이터
+              "2025-05-14.json",
+              "2025-05-15.json",
+          ]
+
+          deleted = []
+          skipped = []
+
+          for rel in DELETE_LIST:
+              p = ROOT / rel
+              if p.exists():
+                  p.unlink()
+                  deleted.append(rel)
+                  print(f"  🗑️  삭제: {rel}")
+              else:
+                  skipped.append(rel)
+                  print(f"  ⬜ 없음(스킵): {rel}")
+
+          print()
+          print(f"✅ 삭제 완료: {len(deleted)}개")
+          print(f"⬜ 스킵(없음): {len(skipped)}개")
+          EOF
+
+      # ────────────────────────────────────────────────────────────
+      # STEP 3: aria_daily.yml에서 sync_legacy_paths 스텝 제거
+      #         (sync_legacy_paths.py 삭제와 함께 처리)
+      # ────────────────────────────────────────────────────────────
+      - name: Remove sync_legacy_paths step from aria_daily.yml
+        if: >
+          github.event.inputs.dry_run == 'false' &&
+          github.event.inputs.confirm == 'DELETE'
+        run: |
+          python3 - << 'EOF'
+          from pathlib import Path
+
+          f = Path(".github/workflows/aria_daily.yml")
+          if not f.exists():
+              print("aria_daily.yml 없음 — 스킵")
+              exit(0)
+
+          src = f.read_text(encoding="utf-8")
+
+          # Sync paths 스텝 블록 제거
+          # "      - name: Sync paths\n        run: python sync_legacy_paths.py ..." 패턴
+          import re
+          pattern = r"\n      # ── 경로 동기화 ─+\n      # data\/ 기준 저장 파일을 루트로 복사 \(일부 코드가 루트 경로 참조 시 대비\)\n      - name: Sync paths\n        run: python sync_legacy_paths\.py --direction data_to_root\n"
+          cleaned = re.sub(pattern, "\n", src)
+
+          # 패턴 매칭 실패 시 줄 단위로 제거
+          if cleaned == src:
+              lines = src.splitlines(keepends=True)
+              new_lines = []
+              skip_next = False
+              for i, line in enumerate(lines):
+                  if "Sync paths" in line and "name:" in line:
+                      skip_next = True
+                      # 이전 주석 줄도 제거
+                      if new_lines and "경로 동기화" in new_lines[-1]:
+                          new_lines.pop()
+                      if new_lines and "data/ 기준" in new_lines[-1]:
+                          new_lines.pop()
+                      continue
+                  if skip_next:
+                      if line.strip().startswith("run:") or "sync_legacy_paths" in line:
+                          continue
+                      else:
+                          skip_next = False
+                  new_lines.append(line)
+              cleaned = "".join(new_lines)
+
+          if cleaned != src:
+              f.write_text(cleaned, encoding="utf-8")
+              print("✅ aria_daily.yml에서 Sync paths 스텝 제거 완료")
+          else:
+              print("⚠️  Sync paths 스텝 자동 제거 실패 — 수동 확인 필요")
+              print("    삭제 대상 라인: 'python sync_legacy_paths.py --direction data_to_root'")
+          EOF
+
+      # ────────────────────────────────────────────────────────────
+      # STEP 4: aria_jackal.yml 모델명 버그 수정 (CRITICAL)
+      #         claude-sonnet-4-20250514 → claude-sonnet-4-6
+      # ────────────────────────────────────────────────────────────
+      - name: Fix aria_jackal.yml ANTHROPIC_MODEL bug
+        if: >
+          github.event.inputs.dry_run == 'false' &&
+          github.event.inputs.confirm == 'DELETE'
+        run: |
+          python3 - << 'EOF'
+          from pathlib import Path
+
+          f = Path(".github/workflows/aria_jackal.yml")
+          if not f.exists():
+              print("aria_jackal.yml 없음 — 스킵")
+              exit(0)
+
+          src = f.read_text(encoding="utf-8")
+          OLD = 'ANTHROPIC_MODEL:     "claude-sonnet-4-20250514"'
+          NEW = 'ANTHROPIC_MODEL:     "claude-sonnet-4-6"'
+
+          if OLD in src:
+              f.write_text(src.replace(OLD, NEW), encoding="utf-8")
+              print("✅ aria_jackal.yml ANTHROPIC_MODEL 수정 완료")
+              print(f'   {OLD}')
+              print(f'→  {NEW}')
+          else:
+              print("⚠️  이미 수정됐거나 패턴 불일치 — 수동 확인 필요")
+              for i, line in enumerate(src.splitlines()):
+                  if "ANTHROPIC_MODEL" in line:
+                      print(f"  line {i+1}: {line.strip()}")
+          EOF
+
+      # ────────────────────────────────────────────────────────────
+      # STEP 5: dry_run 방어 (confirm 없이 실수로 실행 시)
+      # ────────────────────────────────────────────────────────────
+      - name: Dry run notice
+        if: >
+          github.event.inputs.dry_run != 'false' ||
+          github.event.inputs.confirm != 'DELETE'
+        run: |
+          echo ""
+          echo "🔍 DRY RUN 모드 — 실제 삭제 없음"
+          echo ""
+          echo "실제 삭제하려면:"
+          echo "  dry_run  = false"
+          echo "  confirm  = DELETE"
+          echo "두 값을 모두 설정하고 재실행하세요."
+          echo ""
+
+      # ────────────────────────────────────────────────────────────
+      # STEP 6: 커밋 & 푸시
+      # ────────────────────────────────────────────────────────────
+      - name: Commit cleanup
+        if: >
+          github.event.inputs.dry_run == 'false' &&
+          github.event.inputs.confirm == 'DELETE'
+        run: |
+          git config user.name  "ARIA Bot"
+          git config user.email "aria@github-actions"
+
+          git add -A
+
+          git diff --cached --quiet && echo "변경 없음" && exit 0
+
+          git commit -m "🧹 Cleanup: 불필요 파일 삭제 + aria_jackal.yml 모델명 버그 수정 [skip ci]
+
+          삭제:
+          - apply_bugfixes.py (버그픽스 마이그레이션 완료)
+          - debug_patterns.py (개발용 디버그 도구)
+          - verify_bugs_inline.py (개발용 검증 도구)
+          - test_fsc_api.py (API 테스트 스크립트)
+          - sync_legacy_paths.py (임시 경로 shim — 주석에 '임시' 명시)
+          - .github/workflows/apply_bugfixes.yml (일회성 워크플로우)
+          - .github/workflows/FINAL_VERIFY.yml (일회성 검증 워크플로우)
+          - jackal/.last_evolve (last_evolved_at으로 대체)
+          - 2025-05-14.json, 2025-05-15.json (1년 이상 경과 레거시)
+
+          수정:
+          - aria_daily.yml: Sync paths 스텝 제거
+          - aria_jackal.yml: ANTHROPIC_MODEL 잘못된 모델명 수정"
+
+          git push || {
+            git pull --rebase origin main || git rebase --abort
+            git push
+          }
