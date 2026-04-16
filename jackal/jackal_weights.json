@@ -200,12 +200,12 @@
   "last_evolved_at": "2026-04-16T08:20:53.791888",
   "last_macro_gate": {
     "risk_level": "normal",
-    "score_penalty": 0,
+    "score_penalty": 5,
     "vix": 20.0,
     "yield_curve": 0.0,
     "hy_chg5": 0.0,
-    "reason": "정상",
-    "checked_at": "2026-04-17T07:01:56.588655+09:00"
+    "reason": "ARIA위험회피",
+    "checked_at": "2026-04-17T08:11:50.530580+09:00"
   },
   "_reset_at": "2026-04-16T16:44:02.036366+09:00",
   "_note": "aria_reset.py 실행으로 초기화됨",
