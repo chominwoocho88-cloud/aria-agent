@@ -7,11 +7,11 @@ name: Jackal Tracker
 
 on:
   schedule:
-    # 6시간마다 실행 (미국장/한국장 모두 커버)
-    - cron: "0 3  * * 1-6"   # KST 12:00 (한국장 오후)
-    - cron: "0 9  * * 2-7"   # KST 18:00 (한국장 마감 후)
-    - cron: "0 15 * * 2-7"   # KST 00:00 (미국장 중반)
-    - cron: "0 21 * * 2-7"   # KST 06:00 (미국장 마감 후)
+    # 6시간마다 실행 — 요일 무관 (처리 여부는 MIN_ELAPSED_HOURS=26이 판단)
+    - cron: "0 3  * * *"   # UTC 03:00 = KST 12:00
+    - cron: "0 9  * * *"   # UTC 09:00 = KST 18:00
+    - cron: "0 15 * * *"   # UTC 15:00 = KST 00:00
+    - cron: "0 21 * * *"   # UTC 21:00 = KST 06:00
 
   workflow_dispatch:
     inputs:
