@@ -28,7 +28,7 @@ MODEL_REPORTER_LITE = os.environ.get("ARIA_MODEL_LITE",   _DEFAULT_SONNET)
 
 # ── 토큰 예산 (비용 최적화: 실측 기반 상한 설정)
 _TOK = {
-    "HUNTER":         1500,   # 2000 → 1500  (-25%)
+    "HUNTER":         2500,   # Hunter는 웹서치 포함 — 2500 실사용에 맞춤
     "ANALYST":        1400,   # 1800 → 1400  (-22%)
     "DEVIL":          1500,   # 2000 → 1500  (-25%)
     "REPORTER_FULL":  3000,   # 4000 → 3000  (-25%) MORNING
@@ -234,7 +234,7 @@ def agent_hunter(date_str: str, mode: str, market_data: dict = None, memory: lis
         + market_ctx
         + search_instruction
         + "\nReturn JSON.",
-        use_search=True, model=MODEL_HUNTER, max_tokens=2500,  # 1500→2500 신호 확대
+        use_search=True, model=MODEL_HUNTER, max_tokens=_TOK["HUNTER"],  # _TOK 통일
     )
     result = parse_json(raw)
     result["mode"] = mode
