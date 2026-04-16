@@ -496,7 +496,15 @@
     }
   },
   "last_evolved_at": "2026-04-16T06:26:29.877022",
-  "last_macro_gate": {},
+  "last_macro_gate": {
+    "risk_level": "normal",
+    "score_penalty": 0,
+    "vix": 18.2,
+    "yield_curve": 0.67,
+    "hy_chg5": 0.34,
+    "reason": "정상",
+    "checked_at": "2026-04-16T16:12:06.492924+09:00"
+  },
   "_reset_at": "2026-04-16T14:27:24.924803+09:00",
   "_note": "aria_reset.py 실행으로 초기화됨",
   "last_backtest": "2026-04-16T06:16:58.541853",
