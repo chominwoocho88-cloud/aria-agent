@@ -182,9 +182,15 @@ class JackalShield:
     def _check_skills(self) -> list:
         skills_dir = _BASE / "skills"
         if not skills_dir.exists():
+            # 신규 설치 또는 아직 Evolution 미실행 → 이슈 아님, 디버그만
+            log.debug("skills/ 디렉토리 없음 (Evolution 미실행 or 신규 설치)")
+            return []
+        files = list(skills_dir.iterdir())
+        if not files:
+            log.debug("skills/ 비어있음 (아직 Skill 미생성)")
             return []
         issues = []
-        for p in skills_dir.iterdir():
+        for p in files:
             if p.suffix != ".json":
                 issues.append(f"{p.name} (비JSON 파일)")
                 continue
