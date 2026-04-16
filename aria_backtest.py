@@ -1345,7 +1345,8 @@ def _fetch_dynamic_hist(months: int = 6) -> None:
         closes = raw["Close"] if "Close" in raw.columns else raw
         dates_list = [d.strftime("%Y-%m-%d") for d in closes.index]
 
-        prev_vals: dict = {}
+        prev_vals: dict     = {}
+        prev_was_hardcoded  = False   # [Bug Fix] 하드코딩↔yfinance 경계 플래그
         added = 0
 
         for i, d_str in enumerate(dates_list):
@@ -1361,9 +1362,11 @@ def _fetch_dynamic_hist(months: int = 6) -> None:
                             valid = False
                         continue
                     row[key] = round(val, 2)
-                    # 전일 대비 변화율
+                    # [Bug Fix] 경계 직후(prev_was_hardcoded=True)이면 N/A
+                    # 하드코딩 값(예: 5996.66)과 yfinance 값(예: 6796.86) 차이가
+                    # 실제 변화율이 아닌 데이터 소스 차이이므로 변화율 무효화
                     prev = prev_vals.get(key)
-                    if prev and prev > 0:
+                    if prev and prev > 0 and not prev_was_hardcoded:
                         chg = (val - prev) / prev * 100
                         row[f"{key}_change"] = f"{chg:+.2f}%"
                     else:
@@ -1372,15 +1375,13 @@ def _fetch_dynamic_hist(months: int = 6) -> None:
                 except Exception:
                     row[f"{key}_change"] = "N/A"
 
-            # 하드코딩 날짜: prev_vals 업데이트만 하고 데이터는 덮지 않음
+            # 하드코딩 날짜: 데이터는 덮지 않고 플래그만 설정
+            # [Bug Fix] prev_vals는 건드리지 않음 → 다음 yfinance 날에서 N/A 처리
             if d_str in HIST_DATA:
-                for key in YF_MAP.values():
-                    if key in HIST_DATA[d_str] and HIST_DATA[d_str][key]:
-                        try:
-                            prev_vals[key] = float(HIST_DATA[d_str][key])
-                        except Exception:
-                            pass
+                prev_was_hardcoded = True
                 continue
+
+            prev_was_hardcoded = False   # yfinance 날 처리 완료 → 다음날 정상 계산
 
             if not valid or not row.get("sp500"):
                 continue
@@ -1410,20 +1411,214 @@ def _fetch_dynamic_hist(months: int = 6) -> None:
 def _fetch_recent_data() -> None:
     """하위호환 래퍼 — _fetch_dynamic_hist(months=1) 호출."""
     _fetch_dynamic_hist(months=1)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Walk-Forward Optimization
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _count_lessons() -> int:
+    """현재 저장된 교훈 수."""
+    try:
+        return len(_load(LESSONS_FILE, {"lessons": []}).get("lessons", []))
+    except Exception:
+        return 0
+
+
+def _run_phase_dates(dates_slice: list, phase_label: str,
+                     dry: bool, save_accuracy: bool) -> tuple:
+    """
+    지정 날짜 범위를 분석→검증→교훈추출.
+    save_accuracy=True 이면 accuracy.json 도 업데이트.
+    Returns: (accuracy_pct, judged, correct, {date: (results, note)})
+    """
+    global _backtest_results
+
+    phase_judged = phase_correct = 0
+    all_results: dict = {}
+
+    dates_all = DATES
+    for i, date in enumerate(dates_slice):
+        md        = HIST_DATA[date]
+        date_idx  = dates_all.index(date)
+        next_date = dates_all[date_idx + 1] if date_idx + 1 < len(dates_all) else None
+        next_data = HIST_DATA.get(next_date, {}) if next_date else {}
+
+        analysis = generate_analysis(date, md, dry=dry)
+        analysis["vix_at_time"] = md.get("vix", 20)
+        analysis["vix_band"]    = classify_vix_band(md.get("vix", 20))
+        analysis["task_type"]   = classify_task_type(
+            md.get("note", ""), md.get("vix", 20), md.get("fear_greed", 50))
+        save_to_memory(analysis)
+        HIST_DATA.setdefault(date, {})["regime"]       = analysis.get("market_regime", "")
+        HIST_DATA.setdefault(date, {})["fear_greed"]   = md.get("fear_greed", "50")
+        HIST_DATA.setdefault(date, {})["vix"]          = md.get("vix", "20")
+        HIST_DATA.setdefault(date, {})["sp500_change"] = md.get("sp500_change", "0")
+
+        if not next_data:
+            continue
+
+        results = verify_predictions(analysis, next_data)
+        judged  = [r for r in results if r["verdict"] != "unclear"]
+        correct = [r for r in judged  if r["verdict"] == "confirmed"]
+        wrong   = [r for r in judged  if r["verdict"] == "invalidated"]
+
+        for r in results:
+            _backtest_results.append({
+                "date":    date,
+                "regime":  analysis.get("market_regime", ""),
+                "verdict": r.get("verdict", "unclear"),
+                "event":   r.get("event", ""),
+            })
+
+        extract_lessons(results, analysis, date)  # 항상 교훈 추출
+
+        if save_accuracy:
+            acc_pct_today, _, _ = update_accuracy(results, date)
+            icon = "✅" if acc_pct_today >= 70 else "⚠️" if acc_pct_today >= 50 else "❌"
+            print(f"  {icon}[{i+1:>3}/{len(dates_slice)}] {date} "
+                  f"{acc_pct_today:>5}% ({len(correct)}/{len(judged)}) TK:{len(results)}")
+        else:
+            today_acc = round(len(correct)/len(judged)*100, 1) if judged else 0
+            print(f"  📖[{i+1:>3}/{len(dates_slice)}] {date} "
+                  f"{today_acc:>5}% ({len(correct)}/{len(judged)}) TK:{len(results)}")
+
+        phase_judged  += len(judged)
+        phase_correct += len(correct)
+        all_results[date] = (results, md.get("note", ""))
+
+    phase_acc = round(phase_correct / phase_judged * 100, 1) if phase_judged else 0
+    return phase_acc, phase_judged, phase_correct, all_results
+
+
+def run_walk_forward(dry: bool = False) -> None:
+    """
+    Walk-Forward Optimization.
+
+    Phase 1~N : 월별 순차 학습 (교훈만 누적, accuracy는 저장 안 함)
+    Final Pass: 전체 기간 재분석 — N개월치 교훈을 Day 1부터 반영
+    """
+    global _backtest_results
+
+    from collections import defaultdict
+    monthly: dict = defaultdict(list)
+    for d in DATES:
+        monthly[d[:7]].append(d)
+    months_sorted = sorted(monthly.keys())
+
+    print("\n" + "=" * 65)
+    print(f"  Walk-Forward Optimization — {len(months_sorted)}개 Phase + Final Pass")
+    print(f"  기간: {DATES[0]} ~ {DATES[-1]} ({len(DATES)}거래일)")
+    print("=" * 65)
+
+    phase_summary = []
+    _backtest_results = []
+
+    # ── Phase별 순차 학습 ─────────────────────────────────────────
+    for phase_idx, ym in enumerate(months_sorted, 1):
+        dates_slice   = monthly[ym]
+        lessons_before = _count_lessons()
+        lessons_now    = _load(LESSONS_FILE, {}).get("lessons", [])
+
+        print(f"\n{'─' * 65}")
+        print(f"  📚 Phase {phase_idx}/{len(months_sorted)} : {ym} "
+              f"({len(dates_slice)}거래일 | 적용 교훈 {len(lessons_now)}개)")
+        print(f"{'─' * 65}")
+
+        acc, judged, correct, _ = _run_phase_dates(
+            dates_slice, ym, dry=dry, save_accuracy=False)
+
+        lessons_new = _count_lessons() - lessons_before
+        print(f"\n  → Phase {phase_idx} 완료: {acc}% ({correct}/{judged}) "
+              f"| 교훈 +{lessons_new}개 (누계 {_count_lessons()}개)")
+        phase_summary.append((ym, acc, judged, correct))
+
+    # ── Final Pass 준비 ────────────────────────────────────────────
+    total_lessons = _count_lessons()
+    print(f"\n{'=' * 65}")
+    print(f"  🎯 Final Pass — {len(DATES)}거래일 ({total_lessons}개 교훈 모두 반영)")
+    print(f"  accuracy.json + memory.json 초기화 후 전체 재분석")
+    print(f"{'=' * 65}")
+
+    # accuracy.json / memory.json 초기화 (Final Pass 결과만 저장)
+    _save(ACCURACY_FILE, {
+        "total": 0, "correct": 0, "by_category": {},
+        "history": [], "history_by_category": [],
+        "weak_areas": [], "strong_areas": [],
+        "dir_total": 0, "dir_correct": 0,
+        "score_total": 0.0, "score_earned": 0.0, "score_accuracy": 0.0,
+        "_walk_forward": True, "_phases": len(months_sorted),
+        "_lessons_applied": total_lessons,
+    })
+    _save(MEMORY_FILE, [])
+    _backtest_results = []
+
+    final_acc, final_j, final_c, final_results = _run_phase_dates(
+        DATES[:-1], "Final", dry=dry, save_accuracy=True)
+
+    # 가중치 업데이트
+    print(f"\n{'─' * 65}")
+    print("  📊 가중치 업데이트...")
+    try:
+        from aria_analysis import update_weights_from_accuracy
+        acc_data = _load(ACCURACY_FILE, {})
+        changes = update_weights_from_accuracy(acc_data)
+        if changes:
+            for ch in changes: print(f"   → {ch}")
+        else:
+            print("   변경 없음 (데이터 부족)")
+    except Exception as e:
+        print(f"   스킵: {e}")
+
+    # ── 최종 요약 ─────────────────────────────────────────────────
+    print(f"\n{'=' * 65}")
+    print(f"  Walk-Forward 완료 요약")
+    print(f"{'─' * 65}")
+    print(f"  {'':12} {'월':>8} {'정확도':>7}  {'적중/채점':>10}")
+    print(f"{'─' * 65}")
+    for idx, (ym, acc, judged, correct) in enumerate(phase_summary, 1):
+        print(f"  Phase {idx:<6} {ym:>8} {acc:>6}%  {correct:>5}/{judged}")
+    print(f"{'─' * 65}")
+    print(f"  Final Pass{'':>5} {'전체':>8} {final_acc:>6}%  {final_c:>5}/{final_j}")
+    print(f"{'=' * 65}")
+
+    lessons_data = _load(LESSONS_FILE, {})
+    acc_data     = _load(ACCURACY_FILE, {})
+    print(f"\n  누적 교훈 : {_count_lessons()}개")
+    print(f"  강점      : {acc_data.get('strong_areas', [])}")
+    print(f"  약점      : {acc_data.get('weak_areas',   [])}")
+    print(f"  → 다음 MORNING 실행 시 {total_lessons}개 교훈 자동 반영")
+
+    # 요약 테이블 출력
+    print_summary_table(final_results)
         
 def main():
     global market_data_snapshot
     parser = argparse.ArgumentParser(description="ARIA Backtest")
-    parser.add_argument("--dry",    action="store_true", help="분석만, 데이터 저장 없음")
-    parser.add_argument("--months", type=int, default=0,
+    parser.add_argument("--dry",            action="store_true",
+                        help="분석만, 데이터 저장 없음")
+    parser.add_argument("--months",         type=int, default=0,
                         help="백테스트 기간 확장 (개월). 0=HIST_DATA만, 6=최근 6개월 yfinance 추가")
+    parser.add_argument("--walk-forward",   action="store_true",
+                        help="Walk-Forward Optimization 실행 (월별 순차 학습 → Final Pass)")
     args = parser.parse_args()
 
     # 데이터 확장
     if args.months > 0:
         _fetch_dynamic_hist(months=args.months)
     else:
-        _fetch_recent_data()  # 기존: 마지막 날짜 이후만 보완
+        _fetch_recent_data()
+
+    # Walk-Forward 모드
+    if args.walk_forward:
+        run_walk_forward(dry=args.dry)
+        try:
+            from aria_dashboard import build_dashboard
+            build_dashboard()
+            print("\n📊 dashboard.html 갱신 완료")
+        except Exception as e:
+            print(f"\n대시보드 갱신 스킵: {e}")
+        return
     print("=" * 65)
     print(f"ARIA Backtest — {len(DATES)}거래일 사전 학습" + (" [DRY RUN]" if args.dry else ""))
     print(f"기간: {DATES[0]} ~ {DATES[-1]}")
