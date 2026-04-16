@@ -732,45 +732,46 @@ Return ONLY valid JSON. No markdown.
 def _save_lesson(lesson: dict) -> None:
     """
     교훈을 severity/type에 따라 분리 파일에 저장.
-    [failure] → lessons_failure.json  (cap 120)
-    [strength]→ lessons_strength.json (cap 30)
-    [regime]  → lessons_regime.json   (cap 40/레짐)
+    [failure] → lessons_failure.json  (cap 150)
+    [strength]→ lessons_strength.json (cap  60)
+    [regime]  → lessons_regime.json   (cap 120, flat list + regime 태그로 구분)
     + 대시보드/알림 호환을 위해 LESSONS_FILE 에도 동기 write
     """
-    date    = lesson.get("date", "")
-    sev     = lesson.get("severity", "medium")
-    ltype   = lesson.get("type", "failure")
-    regime  = lesson.get("regime", "")
+    date   = lesson.get("date", "")
+    sev    = lesson.get("severity", "medium")
+    ltype  = lesson.get("type", "failure")
+    regime = lesson.get("regime", "")
 
     # ── 분리 파일 저장 ────────────────────────────────────────────
     if sev == "low" or ltype == "strength":
+        # 강점 교훈 (cap 60)
         data = _load(LESSONS_STRENGTH_FILE, {"lessons": []})
         data["lessons"].append(lesson)
         data["lessons"] = sorted(data["lessons"],
-                                 key=lambda x: x.get("date",""), reverse=True)[:30]
+                                 key=lambda x: x.get("date", ""), reverse=True)[:60]
         _save(LESSONS_STRENGTH_FILE, data)
     elif regime:
-        data = _load(LESSONS_REGIME_FILE, {"regimes": {}, "last_updated": ""})
-        bucket = data["regimes"].setdefault(regime, [])
-        bucket.append(lesson)
-        data["regimes"][regime] = sorted(bucket,
-                                         key=lambda x: x.get("date",""), reverse=True)[:40]
-        data["last_updated"] = date
+        # 레짐 특화 교훈 — flat list, regime 태그로 구분 (cap 120 총합)
+        data = _load(LESSONS_REGIME_FILE, {"lessons": []})
+        data["lessons"].append(lesson)
+        data["lessons"] = sorted(data["lessons"],
+                                 key=lambda x: x.get("date", ""), reverse=True)[:120]
         _save(LESSONS_REGIME_FILE, data)
     else:
+        # 일반 실패 교훈 (cap 150)
         data = _load(LESSONS_FAILURE_FILE, {"lessons": []})
         data["lessons"].append(lesson)
         data["lessons"] = sorted(data["lessons"],
-                                 key=lambda x: x.get("date",""), reverse=True)[:120]
+                                 key=lambda x: x.get("date", ""), reverse=True)[:150]
         _save(LESSONS_FAILURE_FILE, data)
 
-    # ── 레거시 LESSONS_FILE 동기 write (대시보드 / 알림 호환) ─────
+    # ── 레거시 LESSONS_FILE 동기 write (대시보드/알림 호환) ────────
     legacy = _load(LESSONS_FILE, {"lessons": [], "total_lessons": 0, "last_updated": ""})
     legacy["lessons"].append(lesson)
     legacy["lessons"] = sorted(legacy["lessons"],
-                               key=lambda x: x.get("date",""), reverse=True)[:80]
+                               key=lambda x: x.get("date", ""), reverse=True)[:80]
     legacy["total_lessons"] = len(legacy["lessons"])
-    legacy["last_updated"] = date or legacy.get("last_updated", "")
+    legacy["last_updated"]  = date or legacy.get("last_updated", "")
     _save(LESSONS_FILE, legacy)
 
 
@@ -820,16 +821,18 @@ def _load_lessons_context(current_date: str = None,
         pass
 
     try:
-        # Regime 전용 교훈 (1개)
-        regime_data = _load(LESSONS_REGIME_FILE, {"regimes": {}})
-        regime_lessons: list = []
-        for r in (similar or {current_regime} if current_regime else set()):
-            regime_lessons.extend(regime_data.get("regimes", {}).get(r, []))
-        regime_ranked = _rank(regime_lessons)
+        # Regime 전용 교훈 (flat list에서 regime 태그로 필터, 1개)
+        all_regime_lessons = _load(LESSONS_REGIME_FILE, {"lessons": []}).get("lessons", [])
+        # similar 레짐에 해당하는 것만 남김 (없으면 전체)
+        if similar and current_regime:
+            regime_pool = [l for l in all_regime_lessons if l.get("regime","") in similar]
+        else:
+            regime_pool = all_regime_lessons
+        regime_ranked = _rank(regime_pool)
         if regime_ranked:
             selected.append(regime_ranked[0])
         else:
-            # Regime 없으면 Strength 교훈 대체
+            # Regime 교훈 없으면 Strength 교훈 대체
             strength_ranked = _rank(
                 _load(LESSONS_STRENGTH_FILE, {"lessons": []}).get("lessons", []))
             if strength_ranked:
@@ -1586,8 +1589,7 @@ def _count_lessons() -> int:
     try:
         n_fail  = len(_load(LESSONS_FAILURE_FILE,  {"lessons": []}).get("lessons", []))
         n_str   = len(_load(LESSONS_STRENGTH_FILE, {"lessons": []}).get("lessons", []))
-        regime_data = _load(LESSONS_REGIME_FILE, {"regimes": {}})
-        n_reg   = sum(len(v) for v in regime_data.get("regimes", {}).values())
+        n_reg   = len(_load(LESSONS_REGIME_FILE,   {"lessons": []}).get("lessons", []))
         return n_fail + n_str + n_reg
     except Exception:
         try:
@@ -1642,14 +1644,20 @@ def _run_phase_dates(dates_slice: list, phase_label: str,
                 "event":   r.get("event", ""),
             })
 
-        extract_lessons(results, analysis, date)  # 항상 교훈 추출
+        # unclear-only 날 스킵: 교훈 추출 건너뜀 (오염 방지 + 비용 절감)
+        all_unclear = len(results) > 0 and all(r.get("verdict") == "unclear" for r in results)
+        if all_unclear:
+            print(f"  ❓[{i+1:>3}/{len(dates_slice)}] {date} "
+                  f"  ALL UNCLEAR ({len(results)} TK) — 교훈 추출 스킵")
+        else:
+            extract_lessons(results, analysis, date)
 
         if save_accuracy:
             acc_pct_today, _, _ = update_accuracy(results, date)
             icon = "✅" if acc_pct_today >= 70 else "⚠️" if acc_pct_today >= 50 else "❌"
             print(f"  {icon}[{i+1:>3}/{len(dates_slice)}] {date} "
                   f"{acc_pct_today:>5}% ({len(correct)}/{len(judged)}) TK:{len(results)}")
-        else:
+        elif not all_unclear:
             today_acc = round(len(correct)/len(judged)*100, 1) if judged else 0
             print(f"  📖[{i+1:>3}/{len(dates_slice)}] {date} "
                   f"{today_acc:>5}% ({len(correct)}/{len(judged)}) TK:{len(results)}")
@@ -1707,9 +1715,11 @@ def run_walk_forward(dry: bool = False) -> None:
     # ── Final Pass 준비 ────────────────────────────────────────────
     total_lessons = _count_lessons()
     print(f"\n{'=' * 65}")
-    print(f"  🎯 Final Pass — {len(DATES)}거래일 ({total_lessons}개 교훈 누적)")
-    print(f"  accuracy.json + memory.json + 교훈 3파일 초기화 후 재분석")
-    print(f"  (시간 여행 차단: 날짜 필터가 Final Pass에서도 자동 적용)")
+    print(f"  🎯 Final Pass — {len(DATES)}거래일 ({total_lessons}개 누적 교훈 반영)")
+    print(f"  accuracy.json + memory.json 초기화 후 전체 재분석")
+    print(f"  ※ 교훈 3파일은 초기화하지 않음 — 날짜 필터가 시간 여행을 차단")
+    print(f"    Phase 1 교훈(Oct) → Final Pass Oct 분석 시 날짜 필터로 차단")
+    print(f"    Phase 1 교훈(Oct) → Final Pass Nov 분석 시 허용 (시간 순 정확)")
     print(f"{'=' * 65}")
 
     # accuracy.json / memory.json 초기화 (Final Pass 결과만 저장)
@@ -1723,17 +1733,11 @@ def run_walk_forward(dry: bool = False) -> None:
         "_lessons_applied": total_lessons,
     })
     _save(MEMORY_FILE, [])
-
-    # [시간 여행 차단] 교훈 3파일 초기화
-    # Final Pass에서는 날짜 필터(current_date 파라미터)가 미래 교훈을 자동 차단하므로
-    # 파일 자체를 초기화하고 Final Pass 진행 중 자연스럽게 재구축됨
-    # → 이전 Phase에서 쌓인 '미래' 교훈이 과거 날짜 분석에 주입되는 것을 완전 차단
-    for path in (LESSONS_FAILURE_FILE, LESSONS_STRENGTH_FILE, LESSONS_REGIME_FILE):
-        _save(path, {"lessons": [], "regimes": {}, "last_updated": "",
-                     "_note": "Final Pass re-accumulation"})
-    _save(LESSONS_FILE, {"lessons": [], "total_lessons": 0, "last_updated": "",
-                          "_note": "Final Pass re-accumulation"})
-    print(f"  ✅ 교훈 파일 초기화 완료 (Final Pass 중 날짜 순서대로 재구축)")
+    # ※ 교훈 3파일은 초기화하지 않음 —
+    #    _load_lessons_context(current_date=date) 가 "lesson.date < date" 조건으로
+    #    Final Pass 진행 중 아직 발생하지 않은 Phase 교훈을 자동 차단함.
+    #    Oct 분석 시: Oct 이전 교훈 0개 → 정상
+    #    Nov 분석 시: Phase 1 Oct 교훈 허용 → 학습 효과 반영
 
     _backtest_results = []
 
