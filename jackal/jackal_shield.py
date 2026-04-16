@@ -23,7 +23,8 @@ from pathlib import Path
 
 log = logging.getLogger("jackal_shield")
 
-_BASE = Path(__file__).parent
+_BASE      = Path(__file__).parent
+_REPO_ROOT = _BASE.parent   # repo root — API 키 스캔 범위
 
 # ─── 설정 ─────────────────────────────────────────────────────────
 _DAILY_TOKEN_BUDGET = int(os.getenv("JACKAL_DAILY_BUDGET", "500000"))
@@ -45,7 +46,7 @@ _USAGE_LOG = _BASE / "jackal_usage_log.json"
 class JackalShield:
     """보안 + 비용 스캐너"""
 
-    def __init__(self, scan_root: Path = _BASE):
+    def __init__(self, scan_root: Path = _REPO_ROOT):
         self.scan_root  = Path(scan_root)
         self.compact_log = _BASE / "compact_log.json"
 
