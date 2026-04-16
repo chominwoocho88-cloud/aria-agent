@@ -4,6 +4,12 @@ name: Jackal Hunter
 # 역할: 매시간 ARIA 뉴스 기반 스윙 종목 탐색 + 텔레그램 알림 + 자체 학습
 # 포트폴리오 모니터링 X — 항상 새 종목만 발굴
 # 포트폴리오 분석은 ARIA daily가 담당
+
+# [Bug Fix] 동시 실행 방지: 이전 실행이 끝나지 않아도 새 실행은 대기 후 순차 처리.
+# cancel-in-progress: false — 진행 중인 Hunt를 강제 취소하지 않음 (데이터 손상 방지)
+concurrency:
+  group: jackal-hunt
+  cancel-in-progress: false
 on:
   schedule:
     # 한국장 (UTC 00:30~06:00, 월~금)
