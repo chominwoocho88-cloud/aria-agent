@@ -45,24 +45,19 @@ jobs:
           git config user.name  "ARIA Bot"
           git config user.email "aria@github-actions"
 
-          git add data/accuracy.json     2>/dev/null || true
-          git add data/aria_lessons.json 2>/dev/null || true
-          git add data/aria_weights.json 2>/dev/null || true
-          git add jackal/jackal_weights.json 2>/dev/null || true
+          git add data/accuracy.json          2>/dev/null || true
+          git add data/aria_lessons.json      2>/dev/null || true
+          git add data/aria_weights.json      2>/dev/null || true
+          git add jackal/jackal_weights.json  2>/dev/null || true
+          git add dashboard.html              2>/dev/null || true
+          git add data/memory.json            2>/dev/null || true
+          git add jackal/jackal_shadow_log.json 2>/dev/null || true
 
-          git stash
-          git fetch origin main
-          git reset --hard origin/main
-          git stash pop || true
+          git diff --cached --quiet && exit 0
 
-          git add data/accuracy.json     2>/dev/null || true
-          git add data/aria_lessons.json 2>/dev/null || true
-          git add data/aria_weights.json 2>/dev/null || true
-          git add jackal/jackal_weights.json 2>/dev/null || true
-          git add dashboard.html         2>/dev/null || true   # 백테스트 후 대시보드 반영
-          git add data/memory.json       2>/dev/null || true   # 메모리 누적 상태 저장
-          git add jackal/jackal_shadow_log.json 2>/dev/null || true  # shadow outcome 추적
+          git commit -m "🎓 Backtest: ARIA + Jackal 학습 완료 ($(date +'%Y-%m-%d'))"
 
-          git diff --staged --quiet || \
-            git commit -m "🎓 Backtest: ARIA + Jackal 학습 완료 ($(date +'%Y-%m-%d'))"
-          git push || (git pull --rebase origin main && git push)
+          git push || {
+            git pull --rebase origin main || git rebase --abort
+            git push
+          }
