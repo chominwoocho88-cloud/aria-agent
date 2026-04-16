@@ -48,6 +48,9 @@ jobs:
           git add data/accuracy.json          2>/dev/null || true
           git add data/aria_lessons.json      2>/dev/null || true
           git add data/aria_weights.json      2>/dev/null || true
+          git add data/lessons_failure.json   2>/dev/null || true
+          git add data/lessons_strength.json  2>/dev/null || true
+          git add data/lessons_regime.json    2>/dev/null || true
           git add jackal/jackal_weights.json  2>/dev/null || true
           git add dashboard.html              2>/dev/null || true
           git add data/memory.json            2>/dev/null || true
