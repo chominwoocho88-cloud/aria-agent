@@ -15,6 +15,62 @@ DATA_DIR    = _REPO_ROOT / "data"
 ARIA_BASELINE = DATA_DIR / "morning_baseline.json"
 ARIA_MEMORY   = DATA_DIR / "memory.json"
 JACKAL_NEWS   = DATA_DIR / "jackal_news.json"
+_JACKAL_WEIGHTS = _JACKAL_DIR / "jackal_weights.json"
+
+
+# ══════════════════════════════════════════════════════════════════
+# Fallback 레짐 — baseline 없을 때 대체 판단
+# ══════════════════════════════════════════════════════════════════
+
+def _get_fallback_regime() -> str:
+    """
+    morning_baseline.json 없을 때 대체 레짐 결정.
+
+    우선순위:
+      1. jackal_weights.json의 last_macro_gate (가장 최신 거시 지표)
+      2. data/memory.json 최신 MORNING 리포트 레짐
+      3. 기본값 "혼조"
+
+    Jackal이 ARIA baseline 없이도 Universe 필터링 가능.
+    """
+    # 1순위: last_macro_gate (Hunter가 매 실행마다 업데이트)
+    if _JACKAL_WEIGHTS.exists():
+        try:
+            w    = json.loads(_JACKAL_WEIGHTS.read_text(encoding="utf-8"))
+            gate = w.get("last_macro_gate", {})
+            risk = gate.get("risk_level", "")
+            if risk == "extreme":
+                log.info("  Fallback 레짐: macro_gate=extreme → 위험회피")
+                return "위험회피"
+            elif risk == "elevated":
+                log.info("  Fallback 레짐: macro_gate=elevated → 전환중")
+                return "전환중"
+            elif risk == "normal":
+                # VIX 수치 기반 세분화
+                vix = gate.get("vix", 20)
+                regime = "위험선호" if vix < 18 else "혼조"
+                log.info(f"  Fallback 레짐: macro_gate=normal vix={vix} → {regime}")
+                return regime
+        except Exception as e:
+            log.debug(f"  macro_gate 읽기 실패: {e}")
+
+    # 2순위: memory.json 최신 MORNING 레짐
+    if ARIA_MEMORY.exists():
+        try:
+            mem = json.loads(ARIA_MEMORY.read_text(encoding="utf-8"))
+            morning = [m for m in mem if m.get("mode") == "MORNING"]
+            if morning:
+                last   = sorted(morning, key=lambda x: x.get("analysis_date", ""))[-1]
+                regime = last.get("market_regime", "")
+                date   = last.get("analysis_date", "")
+                if regime:
+                    log.info(f"  Fallback 레짐: memory 최신 ({date}) → {regime[:20]}")
+                    return regime
+        except Exception as e:
+            log.debug(f"  memory 읽기 실패: {e}")
+
+    log.info("  Fallback 레짐: 기본값 → 혼조")
+    return "혼조"
 
 
 def load_aria_context() -> dict:
@@ -30,6 +86,7 @@ def load_aria_context() -> dict:
         "outflows_detail": [],
         "all_headlines":   [],
         "jackal_news":     {},
+        "regime_source":   "none",   # 레짐 출처 추적 (baseline/memory/fallback)
     }
     try:
         if ARIA_BASELINE.exists():
@@ -41,6 +98,8 @@ def load_aria_context() -> dict:
             ctx["key_outflows"]   = [o.get("zone", "") for o in b.get("outflows", [])[:3]]
             ctx["thesis_killers"] = b.get("thesis_killers", [])
             ctx["actionable"]     = b.get("actionable_watch", [])[:5]
+            if ctx["regime"]:
+                ctx["regime_source"] = "baseline"
     except Exception as e:
         log.warning(f"ARIA baseline 로드 실패: {e}")
     try:
@@ -53,12 +112,24 @@ def load_aria_context() -> dict:
                 ctx["outflows_detail"] = last.get("outflows", [])[:3]
                 if not ctx["regime"]:
                     ctx["regime"] = last.get("market_regime", "")
+                    if ctx["regime"]:
+                        ctx["regime_source"] = "memory"
                 if not ctx["top_headlines"]:
                     ctx["top_headlines"] = [h.get("headline", "") for h in ctx["all_headlines"]]
                 if not ctx["key_inflows"]:
                     ctx["key_inflows"] = [i.get("zone", "") for i in ctx["inflows_detail"][:3]]
     except Exception as e:
         log.warning(f"ARIA memory 로드 실패: {e}")
+
+    # ── Fallback: baseline + memory 모두 실패 시 거시 지표 기반 레짐 추정 ──
+    if not ctx["regime"]:
+        ctx["regime"]        = _get_fallback_regime()
+        ctx["regime_source"] = "fallback"
+        log.warning(
+            f"⚠️  ARIA baseline 없음 — fallback 레짐 사용: "
+            f"'{ctx['regime']}'"
+        )
+
     try:
         if JACKAL_NEWS.exists():
             jn = json.loads(JACKAL_NEWS.read_text(encoding="utf-8"))
@@ -72,6 +143,11 @@ def load_aria_context() -> dict:
 
 
 def aria_baseline_exists() -> bool:
+    """
+    baseline 파일 존재 여부.
+    주의: False여도 run_hunt()는 fallback 레짐으로 동작 가능.
+    Jackal을 완전 중단시키려면 이 함수 대신 ctx["regime_source"] 확인 권장.
+    """
     return ARIA_BASELINE.exists()
 
 
