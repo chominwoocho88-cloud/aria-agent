@@ -713,10 +713,32 @@ def _stage2_aria_context(top50: list, aria: dict) -> list:
 # Stage 3: 25 → 10 (Claude Haiku 빠른 판단, 웹서치 없음)
 # ══════════════════════════════════════════════════════════════════
 
+def _load_compact_ctx() -> str:
+    """
+    jackal_compact.py가 저장한 압축 컨텍스트 로드.
+    Stage3 프롬프트에 주입해 실패 패턴·Instinct를 반영.
+    파일 없거나 파싱 실패 시 빈 문자열 반환 (비용 $0).
+    """
+    cache = _BASE / "compact_cache.json"
+    if not cache.exists():
+        return ""
+    try:
+        data    = json.loads(cache.read_text(encoding="utf-8"))
+        summary = data.get("summary", "").strip()
+        if not summary:
+            return ""
+        # 300자로 제한 — Stage3 프롬프트 토큰 최소화
+        trimmed = summary[:300] + ("…" if len(summary) > 300 else "")
+        return f"\n[과거 학습 요약 — 실패 패턴 참고]\n{trimmed}\n"
+    except Exception:
+        return ""
+
+
 def _stage3_quick_scan(top25: list, aria: dict) -> list:
     """
     Claude Haiku에게 25개를 한 번에 보여주고 10개 선별.
     웹서치 없음 — 순수 수치 기반 판단.
+    compact_cache 주입으로 과거 실패 패턴 반영.
     비용: ~$0.04 (1회 API 콜)
     """
     items_str = "\n".join(
@@ -727,16 +749,17 @@ def _stage3_quick_scan(top25: list, aria: dict) -> list:
         f"  [{x.get('hunt_reason','')[:30]}]"
         for i, x in enumerate(top25)
     )
-    regime = aria["regime"]
+    regime  = aria["regime"]
     inflows = ", ".join(aria["key_inflows"][:2]) or "없음"
+    compact_ctx = _load_compact_ctx()   # 과거 학습 요약 (없으면 "")
 
     prompt = f"""25개 종목 중 단기 스윙(1~5일) 반등 가능성 TOP 10을 고르세요.
-레짐: {regime} | 유입섹터: {inflows}
-
+레짐: {regime} | 유입섹터: {inflows}{compact_ctx}
 기술 데이터:
 {items_str}
 
 선택 기준: RSI 낮음 + BB 하단 + 최근 급락 + 레짐 부합
+[학습 요약]에 실패 패턴이 있다면 해당 조건 종목은 후순위로 밀 것.
 JSON만: {{"top10": ["TICKER1", "TICKER2", ...]}}"""
 
     try:
@@ -1370,13 +1393,24 @@ def run_hunt(force: bool = False) -> dict:
         _send_status("⚠️ ARIA morning 분석 대기 중\n(매일 오전 ARIA 실행 후 활성화)")
         return {"hunted": 0, "alerted": 0}
 
+    if not _aria_baseline_exists():
+        log.warning("  ⚠️  ARIA baseline 없음 — fallback 레짐으로 계속 진행")
+        # fallback은 load_aria_context() 내부에서 자동 처리됨
+
     aria = _load_aria_context()
+    regime_source = aria.get("regime_source", "none")
+
     if not aria["regime"]:
-        log.info("  ARIA 레짐 없음 — 스킵")
-        _send_status("⚠️ ARIA 레짐 데이터 없음", aria)
+        # fallback도 실패한 극히 드문 경우
+        log.error("  레짐 완전 없음 — 스킵")
+        _send_status("⚠️ 레짐 데이터 없음 (baseline + fallback 모두 실패)", aria)
         return {"hunted": 0, "alerted": 0}
 
-    log.info(f"  ARIA: {aria['regime'][:40]} | 유입: {aria['key_inflows'][:2]}")
+    source_label = {"baseline": "✅", "memory": "📂", "fallback": "⚠️ fallback"}.get(regime_source, "")
+    log.info(
+        f"  ARIA [{source_label}]: {aria['regime'][:40]} "
+        f"| 유입: {aria['key_inflows'][:2]}"
+    )
 
     # ── Macro Quality Gate (개선안 2) ────────────────────────────
     log.info("  🌐 Macro Gate 체크...")
