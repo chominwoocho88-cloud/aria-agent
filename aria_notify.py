@@ -251,32 +251,76 @@ def _build_dawn(report: dict) -> list:
 def send_lessons_status() -> bool:
     try:
         from aria_analysis import load_lessons
-        data    = load_lessons()
-        lessons = data.get("lessons", [])
-        total   = data.get("total_lessons", 0)
-        updated = data.get("last_updated", "없음")
-        if not lessons:
+        from aria_paths import LESSONS_FILE as _LF
+        _data_dir = _LF.parent
+
+        # ── 3파일 합산 통계 ────────────────────────────────────────
+        def _load_file(fname):
+            p = _data_dir / fname
+            if not p.exists():
+                return []
+            import json
+            try:
+                return json.loads(p.read_text(encoding="utf-8")).get("lessons", [])
+            except Exception:
+                return []
+
+        f_lessons = _load_file("lessons_failure.json")
+        s_lessons = _load_file("lessons_strength.json")
+        r_lessons = _load_file("lessons_regime.json")
+        all_lessons = f_lessons + s_lessons + r_lessons
+
+        # 레거시 파일 fallback
+        if not all_lessons:
+            data = load_lessons()
+            all_lessons = data.get("lessons", [])
+
+        if not all_lessons:
             return send_message("📚 <b>학습 현황</b>\n\n아직 누적된 교훈이 없습니다.")
-        lines = ["📚 <b>ARIA 학습 현황</b>",
-                 "누적 교훈: <b>" + str(total) + "개</b>",
-                 "마지막 업데이트: " + updated, "", "━━ 현재 적용 중인 교훈 ━━"]
-        for l in sorted(lessons, key=lambda x: (3 if x["severity"]=="high" else 2 if x["severity"]=="medium" else 1), reverse=True)[:8]:
-            em = "🔴" if l["severity"]=="high" else "🟡" if l["severity"]=="medium" else "🟢"
-            st = "적용 " + str(l.get("applied",0)) + "회"
-            if l.get("reinforced",0) > 0: st += " | 반복 " + str(l["reinforced"]) + "회"
-            lines += [em + " <b>[" + l["category"] + "]</b> " + l["source"] + " " + l["date"],
-                      "  " + l["lesson"][:70], "  <i>" + st + "</i>", ""]
+
+        last_updated = max((l.get("date","") for l in all_lessons), default="없음")
+        total = len(all_lessons)
+
+        # ── 헤더 + 파일별 분류 요약 ────────────────────────────────
+        lines = [
+            "📚 <b>ARIA 학습 현황 (3-파일 시스템)</b>",
+            f"누적 교훈: <b>{total}개</b>",
+            f"  🔴 실패: {len(f_lessons)}개 / 🟢 강점: {len(s_lessons)}개 / 🔵 레짐: {len(r_lessons)}개",
+            f"마지막 업데이트: {last_updated}", "",
+            "━━ 현재 적용 중인 교훈 (상위 8개) ━━",
+        ]
+
+        # severity + regime 유사도 기준 정렬
+        def _pri(l):
+            return (3 if l.get("severity")=="high" else 2 if l.get("severity")=="medium" else 1)
+        sorted_lessons = sorted(all_lessons, key=_pri, reverse=True)
+
+        for l in sorted_lessons[:8]:
+            em = "🔴" if l.get("severity")=="high" else "🟡" if l.get("severity")=="medium" else "🟢"
+            regime_tag = f"[{l.get('regime','')}] " if l.get("regime") else ""
+            st = f"적용 {l.get('applied',0)}회"
+            if l.get("reinforced",0) > 0:
+                st += f" | 반복 {l['reinforced']}회"
+            lines += [
+                f"{em} <b>[{l.get('category','')}]</b> {regime_tag}{l.get('source','')} {l.get('date','')}",
+                f"  {l.get('lesson','')[:70]}",
+                f"  <i>{st}</i>", "",
+            ]
+
+        # ── 카테고리별 집계 ────────────────────────────────────────
         cats = {}
-        for l in lessons: cats[l["category"]] = cats.get(l["category"], 0) + 1
+        for l in all_lessons:
+            cats[l.get("category","기타")] = cats.get(l.get("category","기타"), 0) + 1
         if cats:
             lines.append("━━ 카테고리별 교훈 수 ━━")
             for cat, cnt in sorted(cats.items(), key=lambda x: x[1], reverse=True):
-                bar = "█" * min(cnt,5) + "░" * (5-min(cnt,5))
-                lines.append("<code>" + cat.ljust(8) + " [" + bar + "] " + str(cnt) + "개</code>")
+                bar = "█" * min(cnt, 5) + "░" * (5 - min(cnt, 5))
+                lines.append(f"<code>{cat.ljust(8)} [{bar}] {cnt}개</code>")
+
         lines += ["", "<i>교훈은 매일 새벽 자동 추출되어 아침 분석에 반영됩니다</i>"]
         return send_message("\n".join(lines))
     except Exception as e:
-        return send_message("오류: " + str(e))
+        return send_message(f"오류: {e}")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
