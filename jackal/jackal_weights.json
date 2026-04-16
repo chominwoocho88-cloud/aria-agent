@@ -167,7 +167,7 @@
       "total": 0
     }
   },
-  "last_updated": "2026-04-15T15:00:31.972923",
+  "last_updated": "2026-04-16T03:42:06.797735",
   "rule_registry_status": {
     "sector_rebound_base": {
       "active": true,
@@ -389,7 +389,7 @@
   "alert_threshold": 65,
   "cooldown_hours": 4,
   "swing_type_optimal": {},
-  "last_evolved_at": "2026-04-15T15:00:31.972917",
+  "last_evolved_at": "2026-04-16T03:42:06.797726",
   "last_macro_gate": {
     "risk_level": "normal",
     "score_penalty": 0,
