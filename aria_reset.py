@@ -131,11 +131,17 @@ def reset_aria(dry: bool = False) -> None:
     DATA_DIR.mkdir(exist_ok=True)
 
     _write(DATA_DIR / "accuracy.json",     ARIA_ACCURACY_DEFAULT.copy(), dry)
-    _write(DATA_DIR / "memory.json",       [], dry) if not dry else print(f"  [DRY] data/memory.json")
     _write(DATA_DIR / "aria_lessons.json", ARIA_LESSONS_DEFAULT.copy(),  dry)
     _write(DATA_DIR / "aria_weights.json", ARIA_WEIGHTS_DEFAULT.copy(),  dry)
     _write(DATA_DIR / "sentiment.json",    ARIA_SENTIMENT_DEFAULT.copy(), dry)
     _write(DATA_DIR / "rotation.json",     ARIA_ROTATION_DEFAULT.copy(), dry)
+
+    # [3-file lesson system] 분리 파일도 초기화
+    empty_lessons = {"lessons": [], "last_updated": "", "_reset_at": ""}
+    for fname in ("lessons_failure.json", "lessons_strength.json"):
+        _write(DATA_DIR / fname, empty_lessons.copy(), dry)
+    _write(DATA_DIR / "lessons_regime.json",
+           {"regimes": {}, "last_updated": "", "_reset_at": ""}, dry)
 
     # memory.json은 list 타입이라 별도 처리
     if not dry:
