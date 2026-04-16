@@ -208,19 +208,28 @@ class JackalEvolution:
             except Exception:
                 pass
 
-        cutoff_1d = datetime.now() - timedelta(hours=28)
+        # [Bug Fix] 타임존 통일: KST-aware cutoff으로 비교
+        KST_TZ    = timezone(timedelta(hours=9))
+        cutoff_1d = datetime.now(KST_TZ) - timedelta(hours=28)
+
+        def _parse_ts_aware(ts_str: str) -> datetime:
+            """타임존 포함/미포함 ISO 문자열을 KST-aware datetime으로 변환."""
+            dt = datetime.fromisoformat(ts_str)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=KST_TZ)
+            return dt.astimezone(KST_TZ)
 
         pending_live = [
             e for e in self._logs
             if (e.get("alerted") or e.get("is_entry"))
             and not e.get("outcome_checked")
-            and datetime.fromisoformat(e.get("timestamp", "2000-01-01").split("+")[0].split("Z")[0]) < cutoff_1d
+            and _parse_ts_aware(e.get("timestamp", "2000-01-01T00:00:00")) < cutoff_1d
         ]
         pending_shadow = [
             e for e in shadow_logs
             if e.get("shadow_record")
             and not e.get("outcome_checked")
-            and datetime.fromisoformat(e.get("timestamp", "2000-01-01").split("+")[0].split("Z")[0]) < cutoff_1d
+            and _parse_ts_aware(e.get("timestamp", "2000-01-01T00:00:00")) < cutoff_1d
         ]
 
         pending = pending_live
@@ -249,7 +258,7 @@ class JackalEvolution:
                 if hist.empty:
                     continue
 
-                entry_ts = datetime.fromisoformat(entry.get("timestamp", "2000-01-01"))
+                entry_ts = _parse_ts_aware(entry.get("timestamp", "2000-01-01T00:00:00"))
                 future   = hist[hist.index > entry_ts.strftime("%Y-%m-%d")]
                 if future.empty:
                     continue
@@ -366,7 +375,7 @@ class JackalEvolution:
                     price_entry = e.get("price_at_scan", 0)
                     if not ticker or not price_entry:
                         continue
-                    entry_ts = datetime.fromisoformat(e.get("timestamp", "2000-01-01"))
+                    entry_ts = _parse_ts_aware(e.get("timestamp", "2000-01-01T00:00:00"))
                     hist = yf.Ticker(ticker).history(period="10d", interval="1d")
                     if hist.empty:
                         continue
@@ -445,13 +454,17 @@ class JackalEvolution:
         except Exception:
             return {"learned": 0, "accuracy": {}}
 
-        cutoff  = datetime.now() - timedelta(hours=24)
+        # [Bug Fix] 타임존 통일: KST-aware cutoff
+        KST_TZ  = timezone(timedelta(hours=9))
+        cutoff  = datetime.now(KST_TZ) - timedelta(hours=24)
         pending = [
             e for e in logs
             if not e.get("outcome_checked")
-            and datetime.fromisoformat(
-                e.get("timestamp") or e.get("recommended_at", "2000-01-01")
-            ) < cutoff
+            and (lambda ts: (
+                datetime.fromisoformat(ts).replace(tzinfo=KST_TZ)
+                if datetime.fromisoformat(ts).tzinfo is None
+                else datetime.fromisoformat(ts).astimezone(KST_TZ)
+            ))(e.get("timestamp") or e.get("recommended_at", "2000-01-01T00:00:00")) < cutoff
         ]
 
         learned    = 0
@@ -805,13 +818,32 @@ class JackalEvolution:
     # ══════════════════════════════════════════════════════════════
 
     def _load_recent_logs(self, days: int = 7) -> list:
-        if not SCAN_LOG_FILE.exists():
+        """
+        [Bug Fix] SCAN_LOG_FILE(존재하지 않음) → HUNT_LOG_FILE로 수정.
+        hunt_log.json의 alerted=True 항목 중 최근 N일치 반환.
+        타임존 aware 비교로 통일.
+        """
+        if not HUNT_LOG_FILE.exists():
             return []
         try:
-            logs   = json.loads(SCAN_LOG_FILE.read_text(encoding="utf-8"))
-            cutoff = datetime.now() - timedelta(days=days)
-            return [e for e in logs
-                    if datetime.fromisoformat(e["timestamp"]) >= cutoff]
+            logs   = json.loads(HUNT_LOG_FILE.read_text(encoding="utf-8"))
+            KST_TZ = timezone(timedelta(hours=9))
+            cutoff = datetime.now(KST_TZ) - timedelta(days=days)
+
+            result = []
+            for e in logs:
+                ts_str = e.get("timestamp", "")
+                if not ts_str:
+                    continue
+                try:
+                    dt = datetime.fromisoformat(ts_str)
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=KST_TZ)
+                    if dt >= cutoff:
+                        result.append(e)
+                except Exception:
+                    continue
+            return result
         except Exception:
             return []
 
@@ -831,10 +863,33 @@ class JackalEvolution:
             return DEFAULT_WEIGHTS.copy()
 
     def _save_weights(self):
-        WEIGHTS_FILE.write_text(
-            json.dumps(self.weights, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        """
+        [Bug Fix] Atomic write 패턴: temp 파일 write → rename.
+        중간 crash 시 기존 weights.json 보존 (partial write 방지).
+        저장 전 .bak 백업 생성 (최근 1개).
+        """
+        import shutil
+        # 기존 파일 백업 (crash 복구용)
+        if WEIGHTS_FILE.exists():
+            bak = WEIGHTS_FILE.with_suffix(".json.bak")
+            try:
+                shutil.copy2(WEIGHTS_FILE, bak)
+            except Exception as e:
+                log.debug(f"weights 백업 실패 (무시): {e}")
+
+        # Atomic write: temp → rename
+        tmp = WEIGHTS_FILE.with_suffix(".json.tmp")
+        try:
+            tmp.write_text(
+                json.dumps(self.weights, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            tmp.replace(WEIGHTS_FILE)  # OS-level atomic on Unix/Windows
+        except Exception as e:
+            log.error(f"weights 저장 실패: {e}")
+            if tmp.exists():
+                tmp.unlink(missing_ok=True)
+            raise
 
 
 if __name__ == "__main__":
