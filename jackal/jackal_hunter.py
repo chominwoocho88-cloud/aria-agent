@@ -1227,7 +1227,7 @@ def _set_cooldown(ticker: str, hours: float = HUNT_COOLDOWN_H):
             cd = json.loads(HUNT_COOL_FILE.read_text(encoding="utf-8"))
         except Exception:
             pass
-    cd[ticker] = {"ts": datetime.now().isoformat(), "hours": hours}
+    cd[ticker] = {"ts": datetime.now().isoformat(), "hours": float(hours)}
     HUNT_COOL_FILE.write_text(json.dumps(cd, ensure_ascii=False), encoding="utf-8")
 
 
@@ -1317,8 +1317,15 @@ def _save_log(entry: dict):
     if HUNT_LOG_FILE.exists():
         try:
             logs = json.loads(HUNT_LOG_FILE.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except Exception as e:
+            # JSON 손상 시 조용히 []로 리셋하지 않고 백업 보존
+            log.error(f"hunt_log.json 파싱 실패: {e} — 백업 후 초기화")
+            backup = HUNT_LOG_FILE.with_suffix(".json.bak")
+            try:
+                HUNT_LOG_FILE.rename(backup)
+                log.warning(f"  손상 파일 백업: {backup.name}")
+            except Exception as rename_err:
+                log.error(f"  백업 실패: {rename_err}")
 
     ticker = entry.get("ticker", "")
     try:
@@ -1490,8 +1497,12 @@ def run_hunt(force: bool = False) -> dict:
             if ok:
                 alerted += 1
                 log.info(f"  ✅ 알림: {ticker}")
-            # 텔레그램 성공/실패 무관하게 full 쿨다운 (스팸 방지)
-            _set_cooldown(ticker, hours=HUNT_COOLDOWN_H)
+                _set_cooldown(ticker, hours=HUNT_COOLDOWN_H)              # 성공: 풀 쿨다운
+            else:
+                # 텔레그램 실패 → 짧은 쿨다운으로 다음 실행에서 재시도 가능
+                retry_h = max(1.0, HUNT_COOLDOWN_H / 3)
+                _set_cooldown(ticker, hours=retry_h)
+                log.warning(f"  ⚠️  {ticker}: 텔레그램 실패 → {retry_h:.0f}h 후 재시도")
         elif api_failed:
             # Analyst API 실패 → 쿨다운 없이 다음 실행에서 재시도
             log.info(f"  ⚠️  {ticker}: Analyst 실패(기본값) — 쿨다운 생략")
