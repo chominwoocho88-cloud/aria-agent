@@ -73,7 +73,7 @@ SECTOR_POOLS = {
     ],
     "에너지": [
         "XOM", "CVX", "OXY", "COP", "SLB",
-        "MPC", "VLO", "PSX", "HES", "DVN",
+        "MPC", "VLO", "PSX", "DVN",       # HES: 2026 상장폐지 확인, 제거됨
         "010950.KS", "096770.KS",
     ],
     "금융": [
@@ -367,131 +367,68 @@ def _fetch_macro_gate(aria: dict) -> dict:
 
 
 def _fetch_etf_returns() -> dict:
-    """섹터 ETF 5일 수익률 (상대강도 계산용). [Bug Fix] Rate Limit 재시도 추가."""
-    etfs    = list(set(SECTOR_ETF.values()))
-    ret     = {}
-    DELAYS  = [10, 20]
-
-    for attempt in range(3):
-        try:
-            raw = yf.download(
-                " ".join(etfs), period="10d", interval="1d",
-                group_by="ticker", auto_adjust=True, progress=False,
-            )
-            for etf in etfs:
-                try:
-                    df    = raw[etf] if len(etfs) > 1 else raw
-                    close = df["Close"].dropna()
-                    if len(close) >= 6:
-                        ret[etf] = round(
-                            (float(close.iloc[-1]) - float(close.iloc[-6]))
-                            / float(close.iloc[-6]) * 100, 2
-                        )
-                except Exception:
-                    pass
-            break   # 성공 시 루프 탈출
-        except Exception as e:
-            err_str = str(e).lower()
-            is_rate = "too many" in err_str or "rate" in err_str or "429" in err_str
-            if is_rate and attempt < 2:
-                delay = DELAYS[attempt]
-                log.warning(f"  ETF Rate Limit → {delay}s 대기 ({attempt+1}/3)")
-                time.sleep(delay)
-            else:
-                log.warning(f"  ETF 수익률 조회 최종 실패: {e}")
-                break
-    return ret
-
-
-def _yf_download_with_retry(tickers: list, period: str, max_retries: int = 3) -> dict:
-    """
-    [Bug Fix] yfinance Rate Limit 재시도 로직.
-    - 청크 단위(20개)로 분할 요청 → 한 번에 67개 호출로 인한 rate limit 방지
-    - 실패 시 지수 백오프 (15s → 30s → 60s)
-    - 전체 실패 시 개별 호출로 폴백
-    Returns: {ticker: DataFrame} 맵
-    """
-    CHUNK_SIZE = 20
-    DELAYS     = [15, 30, 60]
-    result_map = {}
-    failed_all = []
-
-    chunks = [tickers[i:i+CHUNK_SIZE] for i in range(0, len(tickers), CHUNK_SIZE)]
-    log.info(f"    청크 {len(chunks)}개 × 최대 {CHUNK_SIZE}종목 분할 요청")
-
-    for chunk_idx, chunk in enumerate(chunks):
-        success = False
-        for attempt in range(max_retries):
+    """섹터 ETF 5일 수익률 가져오기 (상대강도 계산용)."""
+    etfs = list(set(SECTOR_ETF.values()))
+    ret  = {}
+    try:
+        raw = yf.download(
+            " ".join(etfs), period="10d", interval="1d",
+            group_by="ticker", auto_adjust=True, progress=False,
+        )
+        for etf in etfs:
             try:
-                raw = yf.download(
-                    " ".join(chunk), period=period, interval="1d",
-                    group_by="ticker", auto_adjust=True, progress=False,
-                )
-                for t in chunk:
-                    try:
-                        df = raw[t] if len(chunk) > 1 else raw
-                        if df is not None and not df.empty:
-                            result_map[t] = df
-                    except Exception:
-                        pass
-                success = True
-                if chunk_idx < len(chunks) - 1:
-                    time.sleep(2)   # 청크 간 여유 (rate limit 방지)
-                break
-            except Exception as e:
-                err_str = str(e).lower()
-                is_rate = "too many" in err_str or "rate" in err_str or "429" in err_str
-                if is_rate and attempt < max_retries - 1:
-                    delay = DELAYS[attempt]
-                    log.warning(f"    청크 {chunk_idx+1} Rate Limit → {delay}s 대기 ({attempt+1}/{max_retries})")
-                    time.sleep(delay)
-                else:
-                    log.warning(f"    청크 {chunk_idx+1} 최종 실패: {str(e)[:60]}")
-                    failed_all.extend(chunk)
-                    break
-
-    # 실패 종목 개별 폴백
-    if failed_all:
-        log.info(f"    개별 폴백: {len(failed_all)}종목...")
-        for t in failed_all:
-            try:
-                time.sleep(1.5)
-                df = yf.Ticker(t).history(period=period, interval="1d")
-                if df is not None and not df.empty:
-                    result_map[t] = df
+                df    = raw[etf] if len(etfs) > 1 else raw
+                close = df["Close"].dropna()
+                if len(close) >= 6:
+                    ret[etf] = round(
+                        (float(close.iloc[-1]) - float(close.iloc[-6]))
+                        / float(close.iloc[-6]) * 100, 2
+                    )
             except Exception:
                 pass
-
-    return result_map
+    except Exception as e:
+        log.warning(f"  ETF 수익률 조회 실패: {e}")
+    return ret
 
 
 def _batch_technicals(tickers: list) -> dict:
     """
-    yfinance 기술지표 일괄 계산.
-    [Bug Fix] 청크 분할 + 지수 백오프로 Rate Limit 대응.
+    yfinance batch 다운로드로 전 종목 지표 한 번에 계산.
+    개별 호출보다 빠름.
     """
     log.info(f"  yfinance 다운로드: {len(tickers)}종목...")
     result = {}
 
+    # 미국/한국 분리 (한국은 개별이 더 안정적)
     us_tickers = [t for t in tickers if not t.endswith(".KS")]
     kr_tickers = [t for t in tickers if t.endswith(".KS")]
 
-    # 미국: 청크 + 재시도
+    # 미국 batch
     if us_tickers:
-        raw_map = _yf_download_with_retry(us_tickers, period="65d")
-        for t, df in raw_map.items():
-            tech = _calc_tech(df)
-            if tech:
-                result[t] = tech
+        try:
+            raw = yf.download(
+                " ".join(us_tickers), period="65d", interval="1d",
+                group_by="ticker", auto_adjust=True, progress=False,
+            )
+            for t in us_tickers:
+                try:
+                    df = raw[t] if len(us_tickers) > 1 else raw
+                    tech = _calc_tech(df)
+                    if tech:
+                        result[t] = tech
+                except Exception:
+                    pass
+        except Exception as e:
+            log.warning(f"  US batch 실패: {e}")
 
-    # 한국: 개별 (딜레이 0.3s)
+    # 한국 개별
     for t in kr_tickers:
         try:
             df   = yf.Ticker(t).history(period="65d", interval="1d")
             tech = _calc_tech(df)
             if tech:
                 result[t] = tech
-            time.sleep(0.3)
+            time.sleep(0.1)
         except Exception:
             pass
 
@@ -1529,44 +1466,7 @@ def run_hunt(force: bool = False) -> dict:
                                macro_penalty=macro["score_penalty"])
     if not top50:
         log.info("  Stage1: 후보 없음")
-        # [Bug Fix] tech_map이 있으면 점수 계산은 됐지만 기준 미달인 경우
-        # → 상위 5개라도 요약 메시지로 표시 (기존 동작 복원)
-        if tech_map:
-            # 점수 계산 없이 RSI 기준 상위 5개 추출
-            partial = sorted(
-                [{"ticker": t, "tech": v, "name": candidates_meta.get(t, {}).get("name", t),
-                  "currency": "₩" if t.endswith(".KS") else "$"}
-                 for t, v in tech_map.items()],
-                key=lambda x: x["tech"]["rsi"]
-            )[:5]
-            if partial:
-                now_str = datetime.now(KST).strftime("%m/%d %H:%M")
-                lines = [
-                    "📊 <b>Jackal Hunter — 기술 기준 미달</b>",
-                    "━━━━━━━━━━━━━━━━━━━━",
-                    f"Universe {len(universe)}개 스캔 | 기준 미달",
-                    "",
-                ]
-                for x in partial:
-                    t = x["tech"]
-                    lines.append(
-                        f"⚪ <b>{x['name']}</b>({x['ticker']}) "
-                        f"RSI {t['rsi']} | BB {t['bb_pos']:.0f}% | "
-                        f"5일 {t['change_5d']:+.1f}%"
-                    )
-                lines += [
-                    "━━━━━━━━━━━━━━━━━━━━",
-                    f"🌐 {aria['regime'][:35]}",
-                    f"⏰ {now_str} KST | Jackal Hunter",
-                ]
-                _send_telegram("\n".join(lines))
-                return {"hunted": 0, "alerted": 0}
-        # tech_map도 비어있으면 (rate limit 완전 실패) 데이터 수집 실패 메시지
-        _send_status(
-            f"📊 Stage1: 데이터 수집 실패\n"
-            f"Universe {len(universe)}개 | yfinance Rate Limit\n"
-            f"다음 실행에서 자동 재시도", aria
-        )
+        _send_status(f"📊 Stage1: 후보 없음\nUniverse {len(universe)}개 스캔\n기술지표 조건 충족 종목 없음", aria)
         return {"hunted": 0, "alerted": 0}
 
     # ── Stage 2: 50 → 25 ─────────────────────────────────────────
