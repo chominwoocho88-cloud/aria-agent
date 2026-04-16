@@ -1,11 +1,11 @@
 {
-  "total_runs": 32,
+  "total_runs": 33,
   "monthly_runs": {
     "2026-04": {
-      "runs": 32,
-      "estimated_usd": 38.4
+      "runs": 33,
+      "estimated_usd": 39.6
     }
   },
-  "estimated_cost_usd": 38.4,
-  "last_run": "2026-04-16 13:03 KST"
+  "estimated_cost_usd": 39.6,
+  "last_run": "2026-04-17 08:03 KST"
 }
