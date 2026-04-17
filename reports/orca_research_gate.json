@@ -1,0 +1,60 @@
+{
+  "generated_at": "2026-04-17T22:13:53.530821+09:00",
+  "source_report_generated_at": "2026-04-17T22:13:16.870291+09:00",
+  "status": "warn",
+  "fail_count": 0,
+  "warn_count": 10,
+  "thresholds": {
+    "orca_final_accuracy_min_delta": -5.0,
+    "jackal_swing_accuracy_min_delta": -5.0,
+    "jackal_d1_accuracy_min_delta": -5.0,
+    "shadow_rolling_10_min_rate": 45.0
+  },
+  "checks": [
+    {
+      "name": "orca_final_accuracy_delta",
+      "status": "warn",
+      "reason": "insufficient_history",
+      "current": null,
+      "delta": null,
+      "threshold": -5.0
+    },
+    {
+      "name": "jackal_swing_accuracy_delta",
+      "status": "warn",
+      "reason": "insufficient_history",
+      "current": null,
+      "delta": null,
+      "threshold": -5.0
+    },
+    {
+      "name": "jackal_d1_accuracy_delta",
+      "status": "warn",
+      "reason": "insufficient_history",
+      "current": null,
+      "delta": null,
+      "threshold": -5.0
+    },
+    {
+      "name": "jackal_shadow_rolling_10_rate",
+      "status": "warn",
+      "reason": "insufficient_history",
+      "current": 0.0,
+      "threshold": 45.0,
+      "sample_count": 0
+    },
+    {
+      "name": "jackal_linked_to_latest_orca",
+      "status": "warn",
+      "reason": "missing_dependency",
+      "current": false
+    }
+  ],
+  "report_warnings": [
+    "No completed ORCA research session found.",
+    "No JACKAL shadow batch history recorded yet.",
+    "No SQL-projected JACKAL swing signal accuracy snapshot with enough samples yet.",
+    "No SQL-projected JACKAL ticker accuracy snapshot with enough samples yet.",
+    "No SQL-projected JACKAL recommendation regime accuracy snapshot with enough samples yet."
+  ]
+}
