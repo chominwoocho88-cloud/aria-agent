@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-04-17T22:13:16.870291+09:00",
+  "state_db": "C:\\Users\\cho.minwoo\\Desktop\\aria-agent-main\\data\\orca_state.db",
+  "orca": {
+    "latest": null,
+    "previous": null,
+    "summary": {},
+    "phase_summary": {},
+    "deltas": {
+      "final_accuracy": null,
+      "lesson_count": null,
+      "judged_count": null
+    }
+  },
+  "jackal_backtest": {
+    "latest": {
+      "session_id": "bt_0adc13689a6d423784475d39f0ad38a3",
+      "system": "jackal",
+      "label": "backtest",
+      "started_at": "2026-04-17T18:10:29.587456+09:00",
+      "ended_at": "2026-04-17T18:22:01.168242+09:00",
+      "status": "completed",
+      "config": {
+        "backtest_days": 60,
+        "source": {
+          "phase_label": null,
+          "session_id": null,
+          "source": "production_memory"
+        },
+        "tracking_days": 10
+      },
+      "summary": {
+        "funnel_totals": {
+          "s1_top50": 0,
+          "s2_top25": 0,
+          "s3_top10": 0,
+          "s4_top5": 0,
+          "tracked": 0,
+          "universe": 82
+        },
+        "mode": "jackal_backtest",
+        "source": {
+          "phase_label": null,
+          "session_id": null,
+          "source": "production_memory"
+        },
+        "total_tracked": 0
+      }
+    },
+    "previous": null,
+    "summary": {
+      "funnel_totals": {
+        "s1_top50": 0,
+        "s2_top25": 0,
+        "s3_top10": 0,
+        "s4_top5": 0,
+        "tracked": 0,
+        "universe": 82
+      },
+      "mode": "jackal_backtest",
+      "source": {
+        "phase_label": null,
+        "session_id": null,
+        "source": "production_memory"
+      },
+      "total_tracked": 0
+    },
+    "source_orca_session_id": null,
+    "linked_to_latest_orca": false,
+    "deltas": {
+      "swing_accuracy": null,
+      "d1_accuracy": null,
+      "tracked": null
+    }
+  },
+  "jackal_shadow": {
+    "latest_batch": null,
+    "rolling_10": {
+      "batch_count": 0,
+      "total": 0,
+      "worked": 0,
+      "rate": 0.0,
+      "delta_vs_prev": null
+    },
+    "batch_count_available": 0
+  },
+  "jackal_accuracy_view": {
+    "meta": {
+      "minimum_sample": 3,
+      "limit": 5,
+      "backfill_rows": 0,
+      "available_rows": {
+        "signal_swing": 0,
+        "signal_d1": 0,
+        "ticker": 0,
+        "regime": 0,
+        "devil": 0,
+        "recommendation_regime": 0,
+        "recommendation_inflow": 0
+      }
+    },
+    "signal_swing_leaders": [],
+    "signal_d1_leaders": [],
+    "ticker_laggards": [],
+    "regime_laggards": [],
+    "devil_verdicts": [],
+    "recommendation_regime_leaders": [],
+    "recommendation_regime_laggards": [],
+    "recommendation_inflow_leaders": []
+  },
+  "warnings": [
+    "No completed ORCA research session found.",
+    "No JACKAL shadow batch history recorded yet.",
+    "No SQL-projected JACKAL swing signal accuracy snapshot with enough samples yet.",
+    "No SQL-projected JACKAL ticker accuracy snapshot with enough samples yet.",
+    "No SQL-projected JACKAL recommendation regime accuracy snapshot with enough samples yet."
+  ]
+}
