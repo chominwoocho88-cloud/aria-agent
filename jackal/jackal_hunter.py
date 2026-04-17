@@ -73,7 +73,7 @@ SECTOR_POOLS = {
     ],
     "에너지": [
         "XOM", "CVX", "OXY", "COP", "SLB",
-        "MPC", "VLO", "PSX", "DVN",       # HES: 2026 상장폐지 확인, 제거됨
+        "MPC", "VLO", "PSX", "HES", "DVN",
         "010950.KS", "096770.KS",
     ],
     "금융": [
@@ -393,46 +393,93 @@ def _fetch_etf_returns() -> dict:
 
 def _batch_technicals(tickers: list) -> dict:
     """
-    yfinance batch 다운로드로 전 종목 지표 한 번에 계산.
-    개별 호출보다 빠름.
+    yfinance batch 다운로드 — 20개 청크 분할 + Rate Limit fallback.
+
+    전략 C: 청크(A) + backoff 개별 fallback(B) 결합
+      1. us_tickers를 20개씩 청크로 분할, 청크 간 sleep(1)
+      2. 청크 batch 실패(Rate Limit 등) → 해당 청크 개별 Ticker로 재시도
+      3. 개별 실패 → sleep(5) 후 1회 재시도
+      4. 성공한 것만 수집, 전체 실패해도 진행 유지
     """
+    _CHUNK = 20          # 청크 크기
+    _CHUNK_SLEEP = 1.0   # 청크 간 대기 (초)
+    _FALLBACK_SLEEP = 0.5  # 개별 fallback 간격
+    _RETRY_SLEEP  = 5.0  # Rate Limit 감지 후 재시도 대기
+
     log.info(f"  yfinance 다운로드: {len(tickers)}종목...")
     result = {}
 
-    # 미국/한국 분리 (한국은 개별이 더 안정적)
     us_tickers = [t for t in tickers if not t.endswith(".KS")]
     kr_tickers = [t for t in tickers if t.endswith(".KS")]
 
-    # 미국 batch
-    if us_tickers:
+    # ── 미국: 20개 청크 batch ─────────────────────────────────────
+    for chunk_start in range(0, len(us_tickers), _CHUNK):
+        chunk = us_tickers[chunk_start:chunk_start + _CHUNK]
+        batch_ok = False
         try:
             raw = yf.download(
-                " ".join(us_tickers), period="65d", interval="1d",
+                " ".join(chunk), period="65d", interval="1d",
                 group_by="ticker", auto_adjust=True, progress=False,
             )
-            for t in us_tickers:
+            for t in chunk:
                 try:
-                    df = raw[t] if len(us_tickers) > 1 else raw
+                    df   = raw[t] if len(chunk) > 1 else raw
                     tech = _calc_tech(df)
                     if tech:
                         result[t] = tech
                 except Exception:
                     pass
+            batch_ok = True
         except Exception as e:
-            log.warning(f"  US batch 실패: {e}")
+            is_rate = "429" in str(e) or "Rate" in str(e) or "Too Many" in str(e)
+            log.warning(f"  청크 batch 실패 ({chunk[0]}~{chunk[-1]}): "
+                        f"{'Rate Limit' if is_rate else e}")
 
-    # 한국 개별
+        # batch 실패 시 개별 Ticker fallback
+        if not batch_ok:
+            for t in chunk:
+                for attempt in range(2):  # 최대 2회
+                    try:
+                        df   = yf.Ticker(t).history(period="65d", interval="1d")
+                        tech = _calc_tech(df)
+                        if tech:
+                            result[t] = tech
+                        time.sleep(_FALLBACK_SLEEP)
+                        break
+                    except Exception as e2:
+                        if attempt == 0 and ("429" in str(e2) or "Rate" in str(e2)):
+                            log.warning(f"  {t} Rate Limit → {_RETRY_SLEEP}s 후 재시도")
+                            time.sleep(_RETRY_SLEEP)
+                        else:
+                            break
+
+        # 청크 간 대기 (마지막 청크 제외)
+        if chunk_start + _CHUNK < len(us_tickers):
+            time.sleep(_CHUNK_SLEEP)
+
+    # ── 한국: 개별 (sleep 0.1 → 0.3으로 간격 확보) ───────────────
     for t in kr_tickers:
         try:
             df   = yf.Ticker(t).history(period="65d", interval="1d")
             tech = _calc_tech(df)
             if tech:
                 result[t] = tech
-            time.sleep(0.1)
-        except Exception:
-            pass
+        except Exception as e:
+            if "429" in str(e) or "Rate" in str(e):
+                time.sleep(_RETRY_SLEEP)
+                try:
+                    df   = yf.Ticker(t).history(period="65d", interval="1d")
+                    tech = _calc_tech(df)
+                    if tech:
+                        result[t] = tech
+                except Exception:
+                    pass
+        time.sleep(0.3)   # 0.1 → 0.3
 
-    log.info(f"  기술지표 완료: {len(result)}/{len(tickers)}개")
+    ok  = len(result)
+    tot = len(tickers)
+    icon = "✅" if ok == tot else "⚠️" if ok > tot * 0.7 else "❌"
+    log.info(f"  기술지표 완료: {icon} {ok}/{tot}개")
     return result
 
 
