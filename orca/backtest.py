@@ -1748,11 +1748,7 @@ def _fetch_dynamic_hist(months: int = 6) -> dict[str, object]:
                 summary["ticker_observations"][yt] = 0
                 continue
 
-            closes = raw["Close"] if "Close" in raw.columns else raw.squeeze()
-            try:
-                closes = closes.dropna()
-            except Exception:
-                pass
+            closes = _extract_close_series(raw, yt)
             if getattr(closes, "empty", False):
                 summary["ticker_observations"][yt] = 0
                 continue
@@ -1919,6 +1915,51 @@ def _print_dynamic_fetch_summary() -> None:
     warning = str(summary.get("warning") or "")
     if warning:
         print(f"  경고       : {warning}")
+
+
+def _extract_close_series(raw, ticker: str):
+    """yfinance 응답을 단일 close Series로 정규화한다."""
+    if raw is None:
+        return None
+
+    series = None
+    columns = getattr(raw, "columns", None)
+    try:
+        if columns is not None:
+            nlevels = getattr(columns, "nlevels", 1)
+            if nlevels > 1:
+                for key in (("Close", ticker), ("Adj Close", ticker)):
+                    if key in columns:
+                        series = raw.loc[:, key]
+                        break
+                if series is None:
+                    level0 = set(columns.get_level_values(0))
+                    if "Close" in level0:
+                        close_df = raw.xs("Close", axis=1, level=0)
+                        series = close_df.iloc[:, 0] if getattr(close_df, "shape", (0, 0))[1] == 1 else close_df.squeeze()
+                    elif "Adj Close" in level0:
+                        adj_df = raw.xs("Adj Close", axis=1, level=0)
+                        series = adj_df.iloc[:, 0] if getattr(adj_df, "shape", (0, 0))[1] == 1 else adj_df.squeeze()
+            elif "Close" in columns:
+                series = raw["Close"]
+            elif "Adj Close" in columns:
+                series = raw["Adj Close"]
+
+        if series is None:
+            series = raw.squeeze()
+
+        if hasattr(series, "columns"):
+            if getattr(series, "shape", (0, 0))[1] == 1:
+                series = series.iloc[:, 0]
+            else:
+                series = series.squeeze()
+        try:
+            series = series.dropna()
+        except Exception:
+            pass
+        return series
+    except Exception:
+        return None
 
 
 # ══════════════════════════════════════════════════════════════════════════════
