@@ -1,0 +1,146 @@
+name: ORCA Daily Report
+
+concurrency:
+  group: orca-repo-state
+  cancel-in-progress: false
+
+on:
+  schedule:
+    - cron: "30 23 * * 0-4"
+    - cron: "0 14 * * 1-5"
+    - cron: "0 22 * * 6"
+    - cron: "0 21 1 * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "MORNING / EVENING / WEEKLY / MONTHLY"
+        required: false
+        default: "MORNING"
+
+jobs:
+  run-orca:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: MORNING Report
+        if: >
+          github.event.schedule == '30 23 * * 0-4' ||
+          (github.event_name == 'workflow_dispatch' &&
+           (github.event.inputs.mode == 'MORNING' || github.event.inputs.mode == ''))
+        env:
+          PYTHONIOENCODING: utf-8
+          ORCA_MODE: MORNING
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_REPO: ${{ secrets.GH_REPO }}
+          ORCA_MODEL: "claude-sonnet-4-6"
+          ANTHROPIC_MODEL: "claude-sonnet-4-6"
+          MAX_THINKING_TOKENS: "8000"
+          SUBAGENT_MODEL: "claude-haiku-4-5-20251001"
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          KRX_API_KEY: ${{ secrets.KRX_API_KEY }}
+          FSCAPI_KEY: ${{ secrets.FSCAPI_KEY }}
+        run: python -m orca.main
+
+      - name: EVENING Report
+        if: >
+          github.event.schedule == '0 14 * * 1-5' ||
+          (github.event_name == 'workflow_dispatch' &&
+           github.event.inputs.mode == 'EVENING')
+        env:
+          PYTHONIOENCODING: utf-8
+          ORCA_MODE: EVENING
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_REPO: ${{ secrets.GH_REPO }}
+          ORCA_MODEL: "claude-sonnet-4-6"
+          ANTHROPIC_MODEL: "claude-sonnet-4-6"
+          MAX_THINKING_TOKENS: "8000"
+          SUBAGENT_MODEL: "claude-haiku-4-5-20251001"
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          KRX_API_KEY: ${{ secrets.KRX_API_KEY }}
+          FSCAPI_KEY: ${{ secrets.FSCAPI_KEY }}
+        run: python -m orca.main
+
+      - name: WEEKLY Report
+        if: >
+          github.event.schedule == '0 22 * * 6' ||
+          (github.event_name == 'workflow_dispatch' &&
+           github.event.inputs.mode == 'WEEKLY')
+        env:
+          PYTHONIOENCODING: utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python3 -c "
+          from orca.notify import send_weekly_report
+          send_weekly_report()
+          "
+
+      - name: MONTHLY Report
+        if: >
+          github.event.schedule == '0 21 1 * *' ||
+          (github.event_name == 'workflow_dispatch' &&
+           github.event.inputs.mode == 'MONTHLY')
+        env:
+          PYTHONIOENCODING: utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python3 -c "
+          import json
+          from orca.notify import send_monthly_report
+          from orca.analysis import extract_monthly_lessons
+          from orca.paths import MEMORY_FILE, ACCURACY_FILE
+          send_monthly_report()
+          memory = json.loads(MEMORY_FILE.read_text(encoding='utf-8')) if MEMORY_FILE.exists() else []
+          accuracy = json.loads(ACCURACY_FILE.read_text(encoding='utf-8')) if ACCURACY_FILE.exists() else {}
+          extract_monthly_lessons(memory, accuracy)
+          "
+
+      - name: Save ORCA state
+        run: |
+          git config user.name "ORCA Bot"
+          git config user.email "orca@github-actions"
+
+          git add data/memory.json 2>/dev/null || true
+          git add data/memory_archive.json 2>/dev/null || true
+          git add data/accuracy.json 2>/dev/null || true
+          git add data/orca_weights.json 2>/dev/null || true
+          git add data/orca_lessons.json 2>/dev/null || true
+          git add data/orca_cost.json 2>/dev/null || true
+          git add data/sentiment.json 2>/dev/null || true
+          git add data/rotation.json 2>/dev/null || true
+          git add data/portfolio.json 2>/dev/null || true
+          git add data/jackal_news.json 2>/dev/null || true
+          git add reports/ 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+
+          git commit -m "ORCA: $(date +'%Y-%m-%d %H:%M') [${ORCA_MODE:-AUTO}] update"
+
+          git push || {
+            git pull --rebase origin main || git rebase --abort
+            git push
+          }

@@ -1,0 +1,107 @@
+name: Policy Eval
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        description: Optional artifact name containing the research state DB.
+        required: false
+        type: string
+        default: ""
+      strict:
+        description: Fail the workflow when the gate status is fail.
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      gate_status:
+        description: Final gate status from research evaluation.
+        value: ${{ jobs.evaluate.outputs.gate_status }}
+      artifact_name:
+        description: Uploaded artifact name containing evaluation reports.
+        value: ${{ jobs.evaluate.outputs.artifact_name }}
+  workflow_dispatch:
+    inputs:
+      artifact_name:
+        description: Optional artifact name containing the research state DB.
+        required: false
+        type: string
+        default: ""
+      strict:
+        description: Fail the workflow when the gate status is fail.
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      gate_status: ${{ steps.capture.outputs.gate_status }}
+      artifact_name: ${{ steps.capture.outputs.artifact_name }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download research state artifact
+        if: ${{ inputs.artifact_name != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: .
+
+      - name: Build Research Comparison Report
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m orca.research_report
+
+      - name: Evaluate Research Gate
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m orca.research_gate
+
+      - name: Capture gate outputs
+        id: capture
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          gate = json.loads(Path("reports/orca_research_gate.json").read_text(encoding="utf-8"))
+          artifact_name = f"policy-eval-{os.environ['GITHUB_RUN_ID']}"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"gate_status={gate.get('status', 'warn')}\n")
+              fh.write(f"artifact_name={artifact_name}\n")
+          PY
+
+      - name: Upload evaluation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-eval-${{ github.run_id }}
+          if-no-files-found: warn
+          path: |
+            data/orca_state.db
+            data/orca_state.db-shm
+            data/orca_state.db-wal
+            reports/orca_research_comparison.md
+            reports/orca_research_comparison.json
+            reports/orca_research_gate.md
+            reports/orca_research_gate.json
+
+      - name: Enforce strict gate
+        if: ${{ inputs.strict && steps.capture.outputs.gate_status == 'fail' }}
+        run: |
+          echo "Research gate failed in strict mode."
+          exit 1

@@ -1,0 +1,84 @@
+name: JACKAL Tracker
+
+# Jackal Outcome Tracker — hunt_log 결과 추적 전용
+# 역할: outcome_checked=False 항목의 실제 가격 조회 → 결과 기록 → 가중치 업데이트
+# Evolution과 독립 실행: Tracker가 outcome을 채워야 Evolution이 실제 데이터로 학습 가능
+# 비용: $0 (yfinance만 사용, Claude API 호출 없음)
+
+concurrency:
+  group: orca-repo-state
+  cancel-in-progress: false
+on:
+  schedule:
+    # 6시간마다 실행 — 요일 무관 (처리 여부는 MIN_ELAPSED_HOURS=26이 판단)
+    - cron: "0 3  * * *"   # UTC 03:00 = KST 12:00
+    - cron: "0 9  * * *"   # UTC 09:00 = KST 18:00
+    - cron: "0 15 * * *"   # UTC 15:00 = KST 00:00
+    - cron: "0 21 * * *"   # UTC 21:00 = KST 06:00
+
+  workflow_dispatch:
+    inputs:
+      all_entries:
+        description: "alerted 여부 무관 전체 처리 (true 입력 시)"
+        required: false
+        default: "false"
+      dry_run:
+        description: "저장 없이 결과 미리보기 (true 입력 시)"
+        required: false
+        default: "false"
+      notify:
+        description: "완료 후 텔레그램 발송 (true 입력 시)"
+        required: false
+        default: "false"
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install yfinance pandas httpx
+
+      - name: Run Tracker
+        env:
+          PYTHONIOENCODING: utf-8
+          TELEGRAM_TOKEN:   ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          ARGS=""
+          [ "${{ github.event.inputs.all_entries }}" = "true" ] && ARGS="$ARGS --all"
+          [ "${{ github.event.inputs.dry_run }}"    = "true" ] && ARGS="$ARGS --dry-run"
+          [ "${{ github.event.inputs.notify }}"     = "true" ] && ARGS="$ARGS --notify"
+          python -m jackal.tracker $ARGS
+
+      - name: Save Tracker results
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          git config user.name  "JACKAL Tracker"
+          git config user.email "tracker@orca-agent"
+
+          git add jackal/hunt_log.json       2>/dev/null || true
+          git add jackal/jackal_weights.json 2>/dev/null || true
+
+          git stash
+          git fetch origin main
+          git pull --rebase origin main || git rebase --abort
+          git stash pop 2>/dev/null || true
+
+          git add jackal/hunt_log.json       2>/dev/null || true
+          git add jackal/jackal_weights.json 2>/dev/null || true
+
+          git diff --cached --quiet || \
+            git commit -m "📍 JACKAL Tracker: outcome 추적 $(date +'%Y-%m-%d %H:%M') [skip ci]"
+          git push || (git pull --rebase origin main && git push)

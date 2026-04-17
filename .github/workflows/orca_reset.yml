@@ -1,0 +1,115 @@
+name: ORCA Reset
+
+concurrency:
+  group: orca-repo-state
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch:
+    inputs:
+      reset_orca:
+        description: "Reset ORCA runtime state"
+        required: false
+        default: "true"
+        type: boolean
+      reset_jackal:
+        description: "Reset JACKAL runtime state"
+        required: false
+        default: "false"
+        type: boolean
+      confirm:
+        description: "Type RESET to continue"
+        required: true
+        default: ""
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate confirm
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "RESET" ]; then
+            echo "Confirmation string must be RESET."
+            echo "Provided: '${{ github.event.inputs.confirm }}'"
+            exit 1
+          fi
+          echo "Confirmation accepted."
+
+      - name: Reset ORCA data
+        if: github.event.inputs.reset_orca == 'true'
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m orca.reset --orca
+
+      - name: Reset JACKAL data
+        if: github.event.inputs.reset_jackal == 'true'
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python -m orca.reset --jackal
+
+      - name: Verify reset
+        run: |
+          echo "=== Reset verification ==="
+          if [ "${{ github.event.inputs.reset_orca }}" = "true" ]; then
+            python3 -c "
+          import json
+          from pathlib import Path
+          acc = json.loads(Path('data/accuracy.json').read_text())
+          mem = json.loads(Path('data/memory.json').read_text())
+          print(f'  accuracy.json: total={acc[\"total\"]}, correct={acc[\"correct\"]}')
+          print(f'  memory.json: {len(mem)} rows')
+          "
+          fi
+          if [ "${{ github.event.inputs.reset_jackal }}" = "true" ]; then
+            python3 -c "
+          import json
+          from pathlib import Path
+          hl = json.loads(Path('jackal/hunt_log.json').read_text())
+          print(f'  hunt_log.json: {len(hl)} rows')
+          "
+          fi
+
+      - name: Commit reset
+        run: |
+          git config user.name "ORCA Reset"
+          git config user.email "reset@orca-agent"
+
+          git add data/accuracy.json 2>/dev/null || true
+          git add data/memory.json 2>/dev/null || true
+          git add data/orca_lessons.json 2>/dev/null || true
+          git add data/orca_weights.json 2>/dev/null || true
+          git add data/sentiment.json 2>/dev/null || true
+          git add data/rotation.json 2>/dev/null || true
+          git add data/pattern_db.json 2>/dev/null || true
+
+          git add jackal/hunt_log.json 2>/dev/null || true
+          git add jackal/hunt_cooldown.json 2>/dev/null || true
+          git add jackal/jackal_weights.json 2>/dev/null || true
+          git add jackal/skills/ 2>/dev/null || true
+          git add jackal/lessons/ 2>/dev/null || true
+          git add jackal/jackal_usage_log.json 2>/dev/null || true
+
+          git reset HEAD -- "*.bak" 2>/dev/null || true
+
+          git diff --cached --quiet && echo "No staged reset changes." && exit 0
+
+          ORCA_FLAG="${{ github.event.inputs.reset_orca == 'true' && 'ORCA' || '' }}"
+          JACKAL_FLAG="${{ github.event.inputs.reset_jackal == 'true' && 'JACKAL' || '' }}"
+
+          git commit -m "Reset: ${ORCA_FLAG} ${JACKAL_FLAG} $(date +'%Y-%m-%d %H:%M')"
+
+          git push || {
+            git pull --rebase origin main || git rebase --abort
+            git push
+          }
