@@ -1,0 +1,17 @@
+{
+  "total": 0,
+  "correct": 0,
+  "by_category": {},
+  "history": [],
+  "history_by_category": [],
+  "weak_areas": [],
+  "strong_areas": [],
+  "dir_total": 0,
+  "dir_correct": 0,
+  "dir_accuracy_pct": 0,
+  "score_total": 0.0,
+  "score_earned": 0.0,
+  "score_accuracy": 0.0,
+  "_reset_at": "2026-04-16T16:44:01.994399+09:00",
+  "_note": "aria_reset.py 실행으로 초기화됨"
+}
