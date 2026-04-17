@@ -1,0 +1,31 @@
+# Runtime market / state artifacts
+data/orca_market_data.json
+data/morning_baseline.json
+data/breaking_sent.json
+data/pattern_db.json
+data/jackal_shadow_accuracy.json
+data/orca_state.db
+data/orca_state.db-shm
+data/orca_state.db-wal
+
+# Legacy JACKAL runtime JSON still used as compatibility mirrors
+jackal/jackal_shadow_log.json
+jackal/scan_cooldown.json
+jackal/recommendation_log.json
+
+# Generated reports
+reports/orca_research_comparison.md
+reports/orca_research_comparison.json
+reports/orca_research_gate.md
+reports/orca_research_gate.json
+reports/orca_policy_promotion.md
+reports/orca_policy_promotion.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Local environment files
+.env
+*.env
