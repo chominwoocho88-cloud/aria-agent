@@ -1,0 +1,213 @@
+﻿{
+  "signal_weights": {
+    "bb_touch": 0.95,
+    "rsi_oversold": 0.95,
+    "volume_climax": 1.0,
+    "ma_support": 1.0,
+    "momentum_dip": 1.0,
+    "vol_accumulation": 1.0,
+    "sector_rebound": 1.0,
+    "rsi_divergence": 1.0,
+    "sector_inflow": 1.0,
+    "golden_cross": 1.0,
+    "fear_regime": 1.0,
+    "bullish_div": 1.0,
+    "volume_surge": 1.0
+  },
+  "regime_weights": {
+    "위험선호": 1.1,
+    "혼조": 1.0,
+    "위험회피": 0.8,
+    "전환중": 0.9
+  },
+  "devil_weights": {
+    "동의": 1.1,
+    "부분동의": 0.9,
+    "반대": 0.6
+  },
+  "signal_accuracy": {},
+  "regime_accuracy": {},
+  "ticker_accuracy": {},
+  "devil_accuracy": {
+    "동의": {
+      "correct": 0,
+      "total": 0
+    },
+    "부분동의": {
+      "correct": 0,
+      "total": 0
+    },
+    "반대": {
+      "correct": 0,
+      "total": 0
+    }
+  },
+  "last_updated": "2026-04-16T08:20:53.791894",
+  "rule_registry_status": {
+    "sector_rebound_base": {
+      "active": true,
+      "min_accuracy": 0.75,
+      "recent_accuracy": 0.0,
+      "sample_n": 0,
+      "review_after_n": 50
+    },
+    "volume_climax_base": {
+      "active": true,
+      "min_accuracy": 0.65,
+      "recent_accuracy": 0.0,
+      "sample_n": 0,
+      "review_after_n": 20
+    },
+    "ma_support_solo_pen": {
+      "active": true,
+      "min_accuracy": null,
+      "recent_accuracy": 0.0,
+      "sample_n": 0,
+      "review_after_n": 30
+    },
+    "crash_rebound_pattern": {
+      "active": true,
+      "min_accuracy": 0.7,
+      "recent_accuracy": 0.0,
+      "sample_n": 0,
+      "review_after_n": 30
+    },
+    "heuristic_gate": {
+      "active": true,
+      "min_accuracy": null,
+      "recent_accuracy": 0.0,
+      "sample_n": 0,
+      "review_after_n": 30
+    }
+  },
+  "ticker_reliability": {
+    "NVDA": {
+      "level": "high",
+      "sample": 0,
+      "accuracy": 0.0
+    },
+    "AVGO": {
+      "level": "medium",
+      "sample": 0,
+      "accuracy": 0.0
+    },
+    "000660.KS": {
+      "level": "medium",
+      "sample": 0,
+      "accuracy": 0.0
+    },
+    "005930.KS": {
+      "level": "medium",
+      "sample": 0,
+      "accuracy": 0.0
+    },
+    "035720.KS": {
+      "level": "low",
+      "sample": 0,
+      "accuracy": 0.0
+    }
+  },
+  "signal_details": {
+    "bb_touch": {
+      "peak_day": "D4~5",
+      "swing_acc": "97%",
+      "mae_avg": -3.8,
+      "mae_median": -2.9,
+      "mae_std": 2.1,
+      "peak_avg": 9.33,
+      "peak_median": 8.1,
+      "sample_count": 36,
+      "mae_source": "backtest_60d"
+    },
+    "sector_rebound": {
+      "peak_day": "D4~5",
+      "swing_acc": "93%",
+      "mae_avg": -2.1,
+      "mae_median": -1.8,
+      "mae_std": 1.5,
+      "peak_avg": 9.22,
+      "peak_median": 8.7,
+      "sample_count": 29,
+      "mae_source": "backtest_60d"
+    },
+    "rsi_oversold": {
+      "peak_day": "D4~5",
+      "swing_acc": "88%",
+      "mae_avg": -2.9,
+      "mae_median": -2.4,
+      "mae_std": 1.8,
+      "peak_avg": 8.49,
+      "peak_median": 7.2,
+      "sample_count": 17,
+      "mae_source": "backtest_60d"
+    },
+    "vol_accumulation": {
+      "peak_day": "D5",
+      "swing_acc": "84%",
+      "mae_avg": -3.2,
+      "mae_median": -2.7,
+      "mae_std": 2.3,
+      "peak_avg": 7.15,
+      "peak_median": 6.2,
+      "sample_count": 39,
+      "mae_source": "backtest_60d"
+    },
+    "volume_climax": {
+      "peak_day": "D4~5",
+      "swing_acc": "80%",
+      "mae_avg": -4.5,
+      "mae_median": -3.8,
+      "mae_std": 3.1,
+      "peak_avg": 9.4,
+      "peak_median": 8.2,
+      "sample_count": 5,
+      "mae_source": "backtest_60d"
+    },
+    "momentum_dip": {
+      "peak_day": "D4~5",
+      "swing_acc": "78%",
+      "mae_avg": -4.1,
+      "mae_median": -3.5,
+      "mae_std": 2.8,
+      "peak_avg": 6.08,
+      "peak_median": 5.1,
+      "sample_count": 76,
+      "mae_source": "backtest_60d"
+    },
+    "ma_support": {
+      "peak_day": "D3~4",
+      "swing_acc": "67%",
+      "mae_avg": -1.8,
+      "mae_median": -1.4,
+      "mae_std": 1.2,
+      "peak_avg": 4.89,
+      "peak_median": 3.9,
+      "sample_count": 48,
+      "mae_source": "backtest_60d"
+    },
+    "rsi_divergence": {
+      "peak_day": "D4",
+      "swing_acc": "52%",
+      "mae_avg": -2.3,
+      "mae_median": -1.9,
+      "mae_std": 1.7,
+      "peak_avg": 1.34,
+      "peak_median": 0.8,
+      "sample_count": 23,
+      "mae_source": "backtest_60d"
+    }
+  },
+  "last_evolved_at": "2026-04-16T08:20:53.791888",
+  "last_macro_gate": {
+    "risk_level": "normal",
+    "score_penalty": 5,
+    "vix": 20.0,
+    "yield_curve": 0.0,
+    "hy_chg5": 0.0,
+    "reason": "ARIA위험회피",
+    "checked_at": "2026-04-17T08:11:50.530580+09:00"
+  },
+  "_reset_at": "2026-04-16T16:44:02.036366+09:00",
+  "_note": "orca_reset.py executed",
+  "swing_type_optimal": {}
+}
