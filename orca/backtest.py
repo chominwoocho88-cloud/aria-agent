@@ -1,4 +1,4 @@
-﻿"""
+"""
 orca_backtest.py — ORCA research backtest runner.
 
 Backtest learning state is persisted into the SQLite state spine so
@@ -80,7 +80,7 @@ _RESEARCH_STATE_DEFAULTS = {
     str(LESSONS_FAILURE_FILE): ("lessons_failure", lambda: {"lessons": []}),
     str(LESSONS_STRENGTH_FILE): ("lessons_strength", lambda: {"lessons": []}),
     str(LESSONS_REGIME_FILE): ("lessons_regime", lambda: {"lessons": []}),
-    str(LESSONS_PATTERN_FILE): ("lessons_pattern", lambda: {"patterns": {}, "global_stats": {}}),
+    str(LESSONS_PATTERN_FILE): ("lessons_pattern", lambda: {"patterns": {}, "global_stats": {"total": 0, "correct": 0, "accuracy": 0.0}}),
     str(WEIGHTS_FILE): ("weights", _default_weights_state),
 }
 
@@ -1653,18 +1653,44 @@ def _fetch_dynamic_hist(months: int = 6) -> None:
     }
 
     try:
-        raw = yf.download(
-            list(YF_MAP.keys()),
-            start=str(start),
-            end=str(today + timedelta(days=1)),
-            auto_adjust=True, progress=False,
-        )
-        if raw.empty:
+        closes_map: dict[str, object] = {}
+        all_dates: set[str] = set()
+
+        for yt in YF_MAP:
+            try:
+                raw = yf.download(
+                    yt,
+                    start=str(start),
+                    end=str(today + timedelta(days=1)),
+                    auto_adjust=True,
+                    progress=False,
+                    threads=False,
+                    timeout=20,
+                )
+            except Exception as exc:
+                print(f"  {yt} yfinance fetch 실패 — {exc}")
+                continue
+
+            if raw is None or raw.empty:
+                continue
+
+            closes = raw["Close"] if "Close" in raw.columns else raw.squeeze()
+            try:
+                closes = closes.dropna()
+            except Exception:
+                pass
+            if getattr(closes, "empty", False):
+                continue
+
+            closes_map[yt] = closes
+            for idx in closes.index:
+                all_dates.add(idx.strftime("%Y-%m-%d"))
+
+        if not closes_map:
             print("  yfinance 데이터 없음 — 스킵")
             return
 
-        closes = raw["Close"] if "Close" in raw.columns else raw
-        dates_list = [d.strftime("%Y-%m-%d") for d in closes.index]
+        dates_list = sorted(all_dates)
 
         prev_vals: dict     = {}
         prev_was_hardcoded  = False   # [Bug Fix] 하드코딩↔yfinance 경계 플래그
@@ -1676,7 +1702,15 @@ def _fetch_dynamic_hist(months: int = 6) -> None:
 
             for yt, key in YF_MAP.items():
                 try:
-                    val = float(closes[yt].iloc[i])
+                    series = closes_map.get(yt)
+                    if series is None:
+                        row[f"{key}_change"] = "N/A"
+                        continue
+                    idx = series.index.strftime("%Y-%m-%d") == d_str
+                    if not idx.any():
+                        row[f"{key}_change"] = "N/A"
+                        continue
+                    val = float(series.loc[idx].iloc[0])
                     import math
                     if math.isnan(val) or val <= 0:
                         if key in ("sp500", "nasdaq"):
@@ -1780,18 +1814,73 @@ def _generate_rule_text(key: str, acc: float, n: int) -> str:
                 f"— 역방향 검토 필요, 현재 방향 신호 의심")
 
 
+def _normalize_pattern_entry(key: str, entry: dict | None) -> dict:
+    base = {
+        "key": key,
+        "total": 0,
+        "correct": 0,
+        "accuracy": 0.0,
+        "primary_rule": "",
+        "last_seen": "",
+        "min_samples": 5,
+    }
+    if not isinstance(entry, dict):
+        return base
+    normalized = {**base, **entry}
+    normalized["key"] = str(normalized.get("key") or key)
+    normalized["total"] = int(normalized.get("total") or 0)
+    normalized["correct"] = int(normalized.get("correct") or 0)
+    normalized["min_samples"] = int(normalized.get("min_samples") or 5)
+    try:
+        normalized["accuracy"] = float(normalized.get("accuracy") or 0.0)
+    except Exception:
+        normalized["accuracy"] = 0.0
+    normalized["primary_rule"] = str(normalized.get("primary_rule") or "")
+    normalized["last_seen"] = str(normalized.get("last_seen") or "")
+    return normalized
+
+
+def _normalize_pattern_state(data: dict | None) -> dict:
+    base = {"patterns": {}, "global_stats": {"total": 0, "correct": 0, "accuracy": 0.0}}
+    if not isinstance(data, dict):
+        return base
+
+    patterns_raw = data.get("patterns")
+    patterns: dict = {}
+    if isinstance(patterns_raw, dict):
+        for key, entry in patterns_raw.items():
+            patterns[str(key)] = _normalize_pattern_entry(str(key), entry)
+
+    global_stats = data.get("global_stats")
+    if not isinstance(global_stats, dict):
+        global_stats = {}
+    normalized_global_stats = {
+        "total": int(global_stats.get("total") or 0),
+        "correct": int(global_stats.get("correct") or 0),
+        "accuracy": 0.0,
+    }
+    try:
+        normalized_global_stats["accuracy"] = float(global_stats.get("accuracy") or 0.0)
+    except Exception:
+        normalized_global_stats["accuracy"] = 0.0
+
+    return {
+        **data,
+        "patterns": patterns,
+        "global_stats": normalized_global_stats,
+    }
+
+
 def _update_pattern(regime: str, fg: float, trend: str,
                     judged: list, correct: list, date: str) -> None:
     """검증 결과를 패턴 파일에 누적 업데이트."""
     if not judged:
         return
     key  = _pattern_key(regime, fg, trend)
-    data = _load(LESSONS_PATTERN_FILE, {"patterns": {}, "global_stats": {}})
+    data = _normalize_pattern_state(_load(LESSONS_PATTERN_FILE, {"patterns": {}, "global_stats": {}}))
 
-    p = data["patterns"].setdefault(key, {
-        "key": key, "total": 0, "correct": 0, "accuracy": 0.0,
-        "primary_rule": "", "last_seen": "", "min_samples": 5,
-    })
+    p = _normalize_pattern_entry(key, data["patterns"].get(key))
+    data["patterns"][key] = p
     p["total"]   += len(judged)
     p["correct"] += len(correct)
     p["accuracy"] = round(p["correct"] / p["total"], 4) if p["total"] else 0.0
@@ -1801,7 +1890,7 @@ def _update_pattern(regime: str, fg: float, trend: str,
         p["primary_rule"] = _generate_rule_text(key, p["accuracy"], p["total"])
 
     # 글로벌 통계 업데이트
-    gs = data.setdefault("global_stats", {"total": 0, "correct": 0})
+    gs = data["global_stats"]
     gs["total"]   += len(judged)
     gs["correct"] += len(correct)
     gs["accuracy"] = round(gs["correct"] / gs["total"], 4) if gs["total"] else 0.0
@@ -1818,7 +1907,7 @@ def _get_pattern_signal(regime: str, fg: float, trend: str,
       signal_override — acc < 0.45일 때 signal_str에 추가할 역방향 경고 (방법 2)
     """
     try:
-        data = _load(LESSONS_PATTERN_FILE, {"patterns": {}})
+        data = _normalize_pattern_state(_load(LESSONS_PATTERN_FILE, {"patterns": {}}))
     except Exception:
         return "", ""
 
