@@ -1,5 +1,5 @@
 {
-  "collected_at": "2026-04-19 00:17 KST",
+  "collected_at": "2026-04-19 00:46 KST",
   "tickers": [
     "NVDA",
     "000660.KS",
@@ -12,38 +12,38 @@
   "news_items": [
     {
       "ticker": "NVDA",
-      "headline": "NVIDIA shares rally in April amid strong AI momentum; 57 analysts rate it Strong Buy with upside potential",
+      "headline": "Nvidia Launches Open-Source Quantum AI Model; RTX 3060 Revival Plans Announced",
       "impact": "bullish",
       "source": "web_search"
     },
     {
       "ticker": "000660.KS",
-      "headline": "SK hynix shares trade near all-time highs as long-term investors post life-changing returns amid semiconductor super cycle expectations",
+      "headline": "SK Hynix Hits Record High Near 1.128M Won as AI Hardware Trade Accelerates",
       "impact": "bullish",
       "source": "web_search"
     },
     {
       "ticker": "005930.KS",
-      "headline": "Samsung Electronics pays special dividend exceeding 2 trillion won; shares remain near historic peak prices",
+      "headline": "Samsung Electronics Approaches 220K Won; HBM Expansion and AI Semiconductor Momentum Continue",
       "impact": "bullish",
       "source": "web_search"
     },
     {
       "ticker": "AVGO",
-      "headline": "Broadcom surges 28% in April and expands Meta AI chip partnership deal through 2029 amid strong AI infrastructure demand",
+      "headline": "Broadcom Stock Erupts on Meta AI Chip Partnership Extension Through 2029",
       "impact": "bullish",
       "source": "web_search"
     },
     {
       "ticker": "035720.KS",
-      "headline": "Kakao partners with OpenAI for Stargate initiative expansion; stock trading below 200-day moving average",
-      "impact": "neutral",
+      "headline": "Kakao Corp Strengthens AI Position with OpenAI Partnership; Stock Shows Bullish Momentum",
+      "impact": "bullish",
       "source": "web_search"
     },
     {
       "ticker": "466920.KS",
-      "headline": "SOL Korea High Dividend ETF records 1.7 trillion won net inflows ranking #1 among 33 domestic high-dividend ETFs",
-      "impact": "bullish",
+      "headline": "SOL Korea High Dividend ETF Reaches 400B Won AUM; Strong Dividend Flow Continues",
+      "impact": "neutral",
       "source": "web_search"
     }
   ],
