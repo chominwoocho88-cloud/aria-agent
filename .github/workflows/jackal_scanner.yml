@@ -1,0 +1,71 @@
+name: JACKAL Scanner
+
+concurrency:
+  group: orca-repo-state
+  cancel-in-progress: false
+
+on:
+  schedule:
+    - cron: "0 1 * * 1-5"    # KST 10:00
+    - cron: "0 5 * * 1-5"    # KST 14:00
+    - cron: "0 15 * * 2-6"   # KST 00:00
+    - cron: "0 19 * * 2-6"   # KST 04:00
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "시장 개장 여부와 무관하게 스캔 실행"
+        required: false
+        default: "false"
+
+jobs:
+  scanner:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install anthropic==0.94.0 httpx yfinance==0.2.55 pandas
+
+      - name: Run JACKAL Scanner
+        env:
+          PYTHONIOENCODING: utf-8
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SUBAGENT_MODEL: "claude-haiku-4-5-20251001"
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+          KRX_API_KEY: ${{ secrets.KRX_API_KEY }}
+          FSCAPI_KEY: ${{ secrets.FSCAPI_KEY }}
+        run: |
+          ARGS=""
+          [ "${{ github.event.inputs.force }}" = "true" ] && ARGS="$ARGS --force"
+          python -m jackal.scanner $ARGS
+
+      - name: Save JACKAL Scanner state
+        run: |
+          git config user.name  "JACKAL Scanner"
+          git config user.email "scanner@orca-agent"
+
+          git add jackal/scan_log.json            2>/dev/null || true
+          git add jackal/scan_cooldown.json       2>/dev/null || true
+          git add jackal/recommendation_log.json  2>/dev/null || true
+          git add data/jackal_watchlist.json      2>/dev/null || true
+
+          git diff --cached --quiet && exit 0
+
+          git commit -m "📡 JACKAL Scanner: $(date +'%Y-%m-%d %H:%M') [skip ci]"
+
+          git push || {
+            git pull --rebase origin main || git rebase --abort
+            git push
+          }
