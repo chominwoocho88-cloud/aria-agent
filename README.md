@@ -32,6 +32,7 @@ python -m orca.reset --orca
 
 python -m jackal
 python -m jackal.core
+python -m jackal.scanner
 python -m jackal.backtest
 python -m jackal.tracker
 ```
@@ -54,7 +55,7 @@ python -m jackal.tracker
 
 - `jackal/core.py`: live opportunity-engine entrypoint
 - `jackal/hunter.py`: candidate discovery pipeline
-- `jackal/scanner.py`: Analyst -> Devil -> Final evaluation
+- `jackal/scanner.py`: watchlist timing evaluation (portfolio + candidate registry + recent recommendations)
 - `jackal/tracker.py`: outcome tracking and weight refresh
 - `jackal/evolution.py`: learning and weight evolution
 - `jackal/probability.py`: candidate lesson probability adjustment
@@ -74,6 +75,13 @@ python -m jackal.tracker
 6. `JACKAL` reads the probability summary and applies a small score adjustment only when recent samples are sufficient.
 
 This means the system learns from candidate quality and market alignment, not just from a fixed portfolio.
+
+## Runtime Roles
+
+- `ORCA Daily`: market regime report, baseline, sentiment, rotation, dashboard render
+- `JACKAL Hunter`: new candidate discovery, excluding current holdings
+- `JACKAL Scanner`: timing scan for current holdings and watchlist-style names
+- `JACKAL Tracker`: next-day / swing outcome tracking and weight refresh
 
 ## Documents
 
