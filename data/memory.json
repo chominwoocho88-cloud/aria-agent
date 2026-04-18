@@ -262,5 +262,166 @@
       "best_aligned_families": [],
       "best_opposed_families": []
     }
+  },
+  {
+    "analysis_date": "2026-04-19",
+    "analysis_time": "00:16 KST",
+    "mode": "MORNING",
+    "mode_label": "아침 풀분석",
+    "one_line_summary": "나스닥 24,468 고점권서 넷플릭스 -10% 충격 빅테크 전이 우려, VIX 17.48·공포탐욕 71(탐욕)에도 Devil 반론 우세로 상승 지속 신뢰도 낮음",
+    "market_regime": "위험선호(전환 경계)",
+    "trend_phase": "상승추세",
+    "trend_strategy": {
+      "recommended": "반도체·AI 모멘텀 추종 유지하되 넷플릭스 충격 빅테크 전이 여부 확인 후 포지션 결정, 단기 수익 실현 병행",
+      "caution": "나스닥 종가 -1.0% 이하(-24,223pt) 이탈 시 즉시 위험 축소, 엔비디아 -2% 이하면 반도체 섹터 동반 하락 경계",
+      "difficulty": "높음"
+    },
+    "confidence_overall": "낮음",
+    "consensus_level": "낮음",
+    "top_headlines": [
+      {
+        "headline": "넷플릭스 Q1 EPS $0.78 vs $0.84 컨센서스 미스, Q2 가이던스 하향, 프리마켓 -10% 급락",
+        "signal_tag": "빅테크 실적 경계 / 소비 둔화 신호",
+        "impact": "높음"
+      },
+      {
+        "headline": "TSMC Q1 순이익 +58% 급증, 삼성전자 영업이익 YoY +755%, 반도체 실적 서프라이즈",
+        "signal_tag": "반도체 펀더멘털 강세",
+        "impact": "높음"
+      },
+      {
+        "headline": "Core PCE 2.7% 목표 상회, FOMC 일부 위원 2026년 금리 인상 가능성 언급",
+        "signal_tag": "Fed 완화 기대 후퇴 / 멀티플 압축 리스크",
+        "impact": "높음"
+      },
+      {
+        "headline": "외국인 코스피 4월 순매수 전환 +4.997조원, SK하이닉스·삼성 집중 매수",
+        "signal_tag": "외국인 수급 개선",
+        "impact": "보통"
+      },
+      {
+        "headline": "S&P500 Q1 어닝 시즌 77% 비트율, 어그리게이트 서프라이즈 +14.3%",
+        "signal_tag": "실적 시즌 전반적 호조",
+        "impact": "보통"
+      }
+    ],
+    "volatility_index": {
+      "vkospi": "N/A",
+      "vix": "17.48",
+      "fear_greed": "71 (Greed)",
+      "level": "중립~탐욕 경계",
+      "interpretation": "VIX 17.48은 정상 변동성 범위 내 위치하며 공포 국면에서 탈출 확인. 공포탐욕 지수 71(탐욕) 구간은 단기 과열 경계 신호로, FG>=20 이상 구간에서 상승 예측 정확도 17%에 불과해 방향 확신 불가. 넷플릭스 충격 이후 VIX 단기 반등 가능성 주시 필요."
+    },
+    "retail_reversal_signal": {
+      "retail_behavior": "3월 외국인 35.88조원 순매도 공포 극대화 이후 4월 급반전 순매수 전환. 개인투자자 3월 저점 공포 구간 매도 후 현재 SK하이닉스·삼성 추격 매수 유입 증가 추정.",
+      "contrarian_implication": "반도체 양대 종목(SK하이닉스 2.87조+삼성 1.96조 외국인 순매수) 집중도 40.9% 수준의 쏠림은 단기 차익실현 압력 내포. 개인 추격 매수 정점 구간에서 역발상 경계 필요.",
+      "reliability": "보통"
+    },
+    "outflows": [
+      {
+        "zone": "넷플릭스·스트리밍·소비재 성장주",
+        "reason": "넷플릭스 Q1 EPS 미스 및 Q2 가이던스 하향으로 소비자 지출 둔화 우려, 빅테크 실적 경계감 FAANG 전체 전이 리스크",
+        "severity": "높음",
+        "data_point": "NFLX Q1 EPS $0.78 vs $0.84 예상, 프리마켓 -10%"
+      },
+      {
+        "zone": "금리 민감 성장주·장기 밸류에이션 섹터",
+        "reason": "Core PCE 2.7%로 12월 예측 2.5% 상회, FOMC 일부 위원 2026년 금리 인상 지지 발언으로 멀티플 압축 리스크 구조화",
+        "severity": "높음",
+        "data_point": "Core PCE 2.7% vs 예측 2.5%, FOMC 위원 인상 지지 언급"
+      },
+      {
+        "zone": "코스피 중소형주·외국인 매도 잔여 물량",
+        "reason": "외국인 보유 비중 36.45%로 피크(38.10%) 대비 1.65%p 하락, 대형주 집중 회복이나 중소형주 자금 회귀 미확인",
+        "severity": "낮음",
+        "data_point": "외국인 KOSPI 보유 비중 36.45% vs 38.10% 피크"
+      }
+    ],
+    "inflows": [
+      {
+        "zone": "반도체·AI 섹터 (SK하이닉스·삼성전자)",
+        "reason": "TSMC +58% 순익 급증, 삼성 영업이익 +755% YoY 실적 서프라이즈, 외국인 4월 집중 순매수",
+        "momentum": "강함",
+        "data_point": "외국인 SK하이닉스 2.87조+삼성 1.96조 순매수, 반도체 섹터 집중도 40.9%"
+      },
+      {
+        "zone": "코스피 대형주",
+        "reason": "외국인 4월 순매수 전환 +4.997조원, 위험선호 심리 회복에 따른 신흥국 자금 유입",
+        "momentum": "보통",
+        "data_point": "외국인 코스피 4월 누적 순매수 +4.997조원"
+      },
+      {
+        "zone": "S&P500 실적 호조 섹터",
+        "reason": "Q1 어닝 시즌 77% 비트율, 어그리게이트 서프라이즈 +14.3%로 전반적 기업이익 개선",
+        "momentum": "보통",
+        "data_point": "S&P500 Q1 77% 비트율, +14.3% 어그리게이트 서프라이즈"
+      }
+    ],
+    "neutral_waiting": [
+      {
+        "zone": "엔비디아·AI 빅테크 전반",
+        "catalyst_needed": "넷플릭스 충격의 AI·반도체 섹터 전이 여부 확인, 엔비디아 당일 종가 ±2% 방향성 결정"
+      },
+      {
+        "zone": "달러·원화 환율 (1465.68)",
+        "catalyst_needed": "Fed 통화정책 방향 명확화, 미중 무역 긴장 완화 또는 추가 악화 신호"
+      },
+      {
+        "zone": "나스닥 24,468 고점권",
+        "catalyst_needed": "나스닥 당일 종가 24,713pt(+1%) 이상 돌파 또는 24,223pt(-1%) 이하 이탈로 방향성 확인"
+      }
+    ],
+    "hidden_signals": [
+      {
+        "signal": "유가 -11% 급락에 따른 포트폴리오 리밸런싱 매물 압력",
+        "implication": "에너지 섹터 손실 확정 이후 성장주·반도체 섹터 매도 재원으로 활용 가능성, 지수 전반 동반 하락 트리거",
+        "confidence": "보통"
+      },
+      {
+        "signal": "나스닥 3일 이상 연속 상승 후 블랙스완 패턴 (백테스트 6회 확인)",
+        "implication": "과거 동일 조건에서 급반전 발생 확률 11.7%(7/60일), 현재 조건 일치로 단기 고점 형성 리스크 내포",
+        "confidence": "보통"
+      },
+      {
+        "signal": "FOMC 일부 위원 2026년 금리 인상 지지 발언",
+        "implication": "시장 컨센서스 동결 전제 붕괴 시 전 섹터 멀티플 재평가 촉발, 특히 고PER 성장주 타격",
+        "confidence": "보통"
+      }
+    ],
+    "thesis_killers": [],
+    "data_quality": "ok",
+    "jackal_candidate_review": {
+      "analysis_date": "2026-04-19",
+      "market_bias": "mixed",
+      "market_bias_label": "혼조/관망",
+      "reviewed_count": 0,
+      "aligned_count": 0,
+      "neutral_count": 0,
+      "opposed_count": 0,
+      "follow_count": 0,
+      "watch_count": 0,
+      "avoid_count": 0,
+      "highlights": []
+    },
+    "jackal_probability_summary": {
+      "window_days": 90,
+      "min_samples": 5,
+      "raw_rows": 0,
+      "deduped_rows": 0,
+      "duplicates_skipped": 0,
+      "overall": {
+        "wins": 0,
+        "losses": 0,
+        "total": 0,
+        "win_rate": 0.0,
+        "effective_win_rate": 0.0,
+        "qualified": false
+      },
+      "trusted_families": [],
+      "cautious_families": [],
+      "alignment_summary": {},
+      "best_aligned_families": [],
+      "best_opposed_families": []
+    }
   }
 ]

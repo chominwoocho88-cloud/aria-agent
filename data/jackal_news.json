@@ -1,0 +1,51 @@
+{
+  "collected_at": "2026-04-19 00:17 KST",
+  "tickers": [
+    "NVDA",
+    "000660.KS",
+    "005930.KS",
+    "AVGO",
+    "035720.KS",
+    "466920.KS"
+  ],
+  "regime": "",
+  "news_items": [
+    {
+      "ticker": "NVDA",
+      "headline": "NVIDIA shares rally in April amid strong AI momentum; 57 analysts rate it Strong Buy with upside potential",
+      "impact": "bullish",
+      "source": "web_search"
+    },
+    {
+      "ticker": "000660.KS",
+      "headline": "SK hynix shares trade near all-time highs as long-term investors post life-changing returns amid semiconductor super cycle expectations",
+      "impact": "bullish",
+      "source": "web_search"
+    },
+    {
+      "ticker": "005930.KS",
+      "headline": "Samsung Electronics pays special dividend exceeding 2 trillion won; shares remain near historic peak prices",
+      "impact": "bullish",
+      "source": "web_search"
+    },
+    {
+      "ticker": "AVGO",
+      "headline": "Broadcom surges 28% in April and expands Meta AI chip partnership deal through 2029 amid strong AI infrastructure demand",
+      "impact": "bullish",
+      "source": "web_search"
+    },
+    {
+      "ticker": "035720.KS",
+      "headline": "Kakao partners with OpenAI for Stargate initiative expansion; stock trading below 200-day moving average",
+      "impact": "neutral",
+      "source": "web_search"
+    },
+    {
+      "ticker": "466920.KS",
+      "headline": "SOL Korea High Dividend ETF records 1.7 trillion won net inflows ranking #1 among 33 domestic high-dividend ETFs",
+      "impact": "bullish",
+      "source": "web_search"
+    }
+  ],
+  "total": 6
+}
