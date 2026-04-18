@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import argparse
+import traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from rich.panel   import Panel
 from rich.table   import Table
 from rich         import box
 
+from . import state as state_module
 from .agents import agent_hunter, agent_analyst, agent_devil, agent_reporter
 from .analysis import (
     run_sentiment, run_portfolio, run_rotation,
@@ -40,6 +42,106 @@ KST     = timezone(timedelta(hours=9))
 from .paths import MEMORY_FILE, REPORTS_DIR, atomic_write_json
 MODE    = get_orca_env("ORCA_MODE", "MORNING")
 console = Console()
+
+
+class HealthTracker:
+    def __init__(self) -> None:
+        self._details: list[dict[str, str]] = []
+        self._warning_count = 0
+        self._soft_fail_count = 0
+
+    @staticmethod
+    def _single_line(message: str | None) -> str:
+        text = " ".join(str(message or "").split())
+        if len(text) <= 160:
+            return text
+        return text[:157] + "..."
+
+    def _append_detail(
+        self,
+        code: str,
+        where: str,
+        *,
+        exception_type: str = "",
+        message: str | None = None,
+    ) -> None:
+        self._details.append(
+            {
+                "code": code,
+                "where": where,
+                "exception_type": exception_type,
+                "message": self._single_line(message),
+            }
+        )
+        self._warning_count += 1
+        self._soft_fail_count += 1
+
+    def record(
+        self,
+        code: str,
+        where: str,
+        *,
+        exception: Exception | None = None,
+        message: str | None = None,
+    ) -> None:
+        self._append_detail(
+            code,
+            where,
+            exception_type=type(exception).__name__ if exception else "",
+            message=message or (str(exception) if exception else ""),
+        )
+
+    def record_exception(
+        self,
+        code: str,
+        where: str,
+        exception: Exception,
+        *,
+        message: str | None = None,
+    ) -> None:
+        self.record(code, where, exception=exception, message=message)
+
+    def ingest_state_events(self, events: list[dict]) -> None:
+        for event in events or []:
+            self._append_detail(
+                str(event.get("code", "")),
+                str(event.get("where", "")),
+                exception_type=str(event.get("exception_type", "")),
+                message=str(event.get("message", "")),
+            )
+
+    def to_report_payload(self, *, failed: bool = False) -> dict:
+        seen: set[str] = set()
+        degraded_reasons: list[str] = []
+        for detail in self._details:
+            code = detail.get("code", "")
+            if code and code not in seen:
+                seen.add(code)
+                degraded_reasons.append(code)
+
+        if failed:
+            status = "failed"
+        elif self._details:
+            status = "degraded"
+        else:
+            status = "ok"
+
+        return {
+            "status": status,
+            "degraded_reasons": degraded_reasons,
+            "counters": {
+                "warnings": self._warning_count,
+                "soft_fails": self._soft_fail_count,
+            },
+            "details": list(self._details),
+        }
+
+    def badge_text(self) -> str:
+        payload = self.to_report_payload(failed=False)
+        if payload["status"] == "ok":
+            return ""
+        reasons = payload["degraded_reasons"] or ["unknown_failure"]
+        return "⚠ degraded: " + ", ".join(reasons)
 
 
 def sanitize_korea_claims(report: dict, market_data: dict) -> dict:
@@ -104,7 +206,7 @@ def save_memory(memory: list, analysis: dict):
         if archive_file.exists():
             try:
                 archived = json.loads(archive_file.read_text(encoding="utf-8"))
-            except Exception:
+            except (json.JSONDecodeError, OSError):
                 pass
         archived.extend(overflow)
         atomic_write_json(archive_file, archived[-365:])
@@ -128,7 +230,7 @@ def get_todays_analyses() -> list:
         for f in REPORTS_DIR.glob(today + "_*.json"):
             try:
                 reports.append(json.loads(f.read_text(encoding="utf-8")))
-            except Exception:
+            except (json.JSONDecodeError, OSError):
                 pass
     return reports
 
@@ -290,7 +392,7 @@ def _collect_jackal_news(hunter_data: dict):
 
     try:
         wl = json.loads(watchlist_file.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return
 
     tickers = wl.get("tickers", [])
@@ -350,7 +452,7 @@ def _collect_jackal_news(hunter_data: dict):
                         "impact":   item.get("impact", "neutral"),
                         "source":   "web_search",
                     })
-        except Exception as e:
+        except (json.JSONDecodeError, TypeError, ValueError, httpx.HTTPError, OSError, RuntimeError) as e:
             console.print(f"[yellow]{JACKAL_NAME} 뉴스 보완 검색 실패: {e}[/yellow]")
 
     # 저장
@@ -364,7 +466,7 @@ def _collect_jackal_news(hunter_data: dict):
         }
         atomic_write_json(news_file, result)
         console.print(f"[dim]{JACKAL_NAME} 뉴스 {len(relevant)}건 저장 → jackal_news.json[/dim]")
-    except Exception as e:
+    except OSError as e:
         console.print(f"[yellow]jackal_news.json 저장 실패: {e}[/yellow]")
 
 
@@ -396,6 +498,24 @@ def main():
     ))
 
     run_id = None
+    health_tracker = HealthTracker()
+
+    def _ingest_state_health() -> None:
+        health_tracker.ingest_state_events(state_module.drain_health_events())
+
+    def _build_minimal_failed_report() -> dict:
+        return {
+            "status": "failed",
+            "health": health_tracker.to_report_payload(failed=True),
+            "mode": MODE,
+            "analysis_date": today,
+            "timestamp": _now().isoformat(),
+        }
+
+    def _print_health_badge() -> None:
+        badge = health_tracker.badge_text()
+        if badge:
+            console.print("[yellow]" + badge + "[/yellow]")
 
     def _finish_state(status: str, **kwargs):
         if not run_id:
@@ -403,6 +523,12 @@ def main():
         try:
             state_finish_run(run_id, status, **kwargs)
         except Exception as state_err:
+            health_tracker.record_exception(
+                "state_db_unavailable",
+                "orca/main.py::main",
+                state_err,
+                message="state_finish_run 실패",
+            )
             console.print("[yellow]State DB finish skipped: " + str(state_err) + "[/yellow]")
 
     try:
@@ -417,6 +543,12 @@ def main():
                 },
             )
         except Exception as state_err:
+            health_tracker.record_exception(
+                "state_db_unavailable",
+                "orca/main.py::main",
+                state_err,
+                message="state_start_run 실패",
+            )
             console.print("[yellow]State DB start skipped: " + str(state_err) + "[/yellow]")
             run_id = None
 
@@ -450,19 +582,37 @@ def main():
                     + " (약 " + f"{round(_monthly_usd*1480):,}" + "원)</b>\n"
                     "임계값 $20 초과"
                 )
-        except Exception:
-            pass
+        except Exception as cost_err:
+            health_tracker.record_exception(
+                "cost_alert_failed",
+                "orca/main.py::main",
+                cost_err,
+                message="월 API 비용 경고 발송 실패",
+            )
 
         if market_data.get("data_quality") == "poor":
             msg = "⚠️ 핵심 시장 데이터 수집 실패 — 분석 중단"
+            health_tracker.record(
+                "external_data_degraded",
+                "orca/main.py::main",
+                message="data quality poor",
+            )
+            minimal_report = _build_minimal_failed_report()
+            path = save_report(minimal_report)
             console.print("[bold red]" + msg + "[/bold red]")
-            send_message("⚠️ <b>" + ORCA_NAME + " 데이터 오류</b>\n\n" + msg)
+            _print_health_badge()
+            badge = health_tracker.badge_text()
+            send_message(
+                "⚠️ <b>" + ORCA_NAME + " 데이터 오류</b>\n\n" + msg
+                + ("\n\n" + badge if badge else "")
+            )
             _finish_state(
-                "aborted",
+                "failed",
                 data_quality=market_data.get("data_quality", "poor"),
+                report_path=str(path),
                 metadata={"reason": "poor_market_data"},
             )
-            return
+            sys.exit(1)
 
         # ── 2. 교훈 로드 ───────────────────────────────────────────
         lessons_prompt = ""
@@ -495,6 +645,12 @@ def main():
                 if changes:
                     print("  📊 가중치 업데이트:", " | ".join(changes[:3]))
             except Exception as e:
+                health_tracker.record_exception(
+                    "weight_update_failed",
+                    "orca/main.py::main",
+                    e,
+                    message="가중치 업데이트 실패",
+                )
                 print(f"  가중치 업데이트 스킵: {e}")
 
         # ── 6. 4-Agent 파이프라인 ──────────────────────────────────
@@ -517,11 +673,29 @@ def main():
         report = sanitize_korea_claims(report, market_data)
 
         print("\n=== JACKAL Candidate Review ===")
-        candidate_review = review_recent_candidates(
-            report,
-            run_id=run_id,
-            analysis_date=today,
-        )
+        candidate_review = {}
+        try:
+            candidate_review = review_recent_candidates(
+                report,
+                run_id=run_id,
+                analysis_date=today,
+            )
+        except Exception as candidate_err:
+            health_tracker.record_exception(
+                "candidate_review_unavailable",
+                "orca/main.py::main",
+                candidate_err,
+                message="JACKAL candidate review 실패",
+            )
+            candidate_review = {
+                "reviewed_count": 0,
+                "aligned_count": 0,
+                "neutral_count": 0,
+                "opposed_count": 0,
+                "error": str(candidate_err),
+            }
+        finally:
+            _ingest_state_health()
         if candidate_review.get("reviewed_count", 0) > 0:
             report["jackal_candidate_review"] = candidate_review
             console.print(
@@ -550,19 +724,23 @@ def main():
                 )
             )
         except Exception as prob_err:
+            health_tracker.record_exception(
+                "probability_summary_unavailable",
+                "orca/main.py::main",
+                prob_err,
+                message="JACKAL probability summary 실패",
+            )
             report["jackal_probability_summary"] = {"error": str(prob_err)}
             console.print("[yellow]Probability summary skipped: " + str(prob_err) + "[/yellow]")
+        finally:
+            _ingest_state_health()
 
-        # ── 8. 출력 + 텔레그램 ────────────────────────────────────
-        print_report(report, len(memory) + 1)
-        send_report(report, len(memory) + 1)
-
-        # ── 9. MORNING: Baseline 저장 ──────────────────────────────
+        # ── 8. MORNING: Baseline 저장 ──────────────────────────────
         if MODE == "MORNING":
             save_baseline(report, market_data)
             console.print("[dim]Morning baseline saved[/dim]")
 
-        # ── 10. 서브 분석 ──────────────────────────────────────────
+        # ── 9. 서브 분석 ───────────────────────────────────────────
         print("\n=== Sentiment Tracking ===")
         run_sentiment(report, market_data)
 
@@ -572,37 +750,64 @@ def main():
         print("\n=== Portfolio Analysis ===")
         run_portfolio(report, market_data)
 
-        # ── 11. 저장 ───────────────────────────────────────────────
+        # ── 10. 저장 ───────────────────────────────────────────────
         save_memory(memory, report)
-        path = save_report(report)
-        console.print("[dim]Saved: " + str(path) + "[/dim]")
         prediction_stats = {"count": 0}
         if run_id:
             try:
                 prediction_stats = record_report_predictions(run_id, report)
                 console.print("[dim]State DB predictions: " + str(prediction_stats.get("count", 0)) + "[/dim]")
             except Exception as state_err:
+                health_tracker.record_exception(
+                    "state_db_unavailable",
+                    "orca/main.py::main",
+                    state_err,
+                    message="report prediction 저장 실패",
+                )
                 console.print("[yellow]State DB prediction save skipped: " + str(state_err) + "[/yellow]")
+            finally:
+                _ingest_state_health()
 
         try:
             from .analysis import update_pattern_db
             update_pattern_db(load_memory())
             console.print("[dim]Pattern DB updated[/dim]")
         except Exception as e:
+            health_tracker.record_exception(
+                "pattern_db_update_failed",
+                "orca/main.py::main",
+                e,
+                message="Pattern DB 업데이트 실패",
+            )
             console.print("[yellow]Pattern DB 스킵: " + str(e) + "[/yellow]")
 
-        # ── 12. Jackal watchlist 뉴스 수집 (MORNING만) ──────────
+        # ── 11. Jackal watchlist 뉴스 수집 (MORNING만) ──────────
         if MODE == "MORNING":
             _collect_jackal_news(hunter)
 
-        # ── 13. Dashboard HTML (MORNING만) ────────────────────────
+        # ── 12. Dashboard HTML (MORNING만) ────────────────────────
         if MODE == "MORNING":
             try:
                 from .dashboard import build_dashboard
                 build_dashboard()
                 console.print("[dim]Dashboard updated[/dim]")
             except Exception as e:
+                health_tracker.record_exception(
+                    "dashboard_generation_failed",
+                    "orca/main.py::main",
+                    e,
+                    message="Dashboard 생성 실패",
+                )
                 console.print("[yellow]Dashboard 실패: " + str(e) + "[/yellow]")
+
+        report["health"] = health_tracker.to_report_payload(failed=False)
+        path = save_report(report)
+        console.print("[dim]Saved: " + str(path) + "[/dim]")
+
+        # ── 13. 출력 + 텔레그램 ───────────────────────────────────
+        print_report(report, len(memory) + 1)
+        _print_health_badge()
+        send_report(report, len(memory) + 1)
 
         _finish_state(
             "completed",
@@ -618,13 +823,28 @@ def main():
         )
 
     except Exception as e:
-        _finish_state("failed", metadata={"error": str(e)})
+        health_tracker.record_exception(
+            "run_failed",
+            "orca/main.py::main",
+            e,
+            message=str(e),
+        )
+        failed_report = _build_minimal_failed_report()
+        failed_path = save_report(failed_report)
+        _finish_state("failed", report_path=str(failed_path), metadata={"error": str(e)})
         console.print("[bold red]Error: " + str(e) + "[/bold red]")
+        _print_health_badge()
         try:
-            send_error(str(e))
-        except Exception:
-            pass
-        import traceback; traceback.print_exc()
+            badge = health_tracker.badge_text()
+            send_error(str(e) + ("\n" + badge if badge else ""))
+        except Exception as notify_err:
+            health_tracker.record_exception(
+                "notification_failed",
+                "orca/main.py::main",
+                notify_err,
+                message="오류 알림 전송 실패",
+            )
+        traceback.print_exc()
         sys.exit(1)
 
 
