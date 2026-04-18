@@ -1497,13 +1497,8 @@ def run_hunt(force: bool = False) -> dict:
     log.info(f"🎯 Jackal Hunter | {now_kst.strftime('%Y-%m-%d %H:%M KST')}")
 
     if not _orca_baseline_exists():
-        log.info("  ARIA baseline 없음 — 스킵")
-        _send_status("⚠️ ARIA morning 분석 대기 중\n(매일 오전 ARIA 실행 후 활성화)")
-        return {"hunted": 0, "alerted": 0}
-
-    if not _orca_baseline_exists():
-        log.warning("  ⚠️  ARIA baseline 없음 — fallback 레짐으로 계속 진행")
-        # fallback은 load_orca_context() 내부에서 자동 처리됨
+        log.warning("  ⚠️  ORCA morning baseline 없음 — memory/fallback 레짐으로 계속 진행")
+        # baseline이 없더라도 memory/fallback 레짐을 사용해 후보 발굴을 계속한다.
 
     aria = _load_orca_context()
     regime_source = aria.get("regime_source", "none")
