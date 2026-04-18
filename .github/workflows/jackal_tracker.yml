@@ -10,10 +10,8 @@ concurrency:
   cancel-in-progress: false
 on:
   schedule:
-    # 6시간마다 실행 — 요일 무관 (처리 여부는 MIN_ELAPSED_HOURS=26이 판단)
+    # 하루 2회 추적 — 점심/새벽에 outcome 정리
     - cron: "0 3  * * *"   # UTC 03:00 = KST 12:00
-    - cron: "0 9  * * *"   # UTC 09:00 = KST 18:00
-    - cron: "0 15 * * *"   # UTC 15:00 = KST 00:00
     - cron: "0 21 * * *"   # UTC 21:00 = KST 06:00
 
   workflow_dispatch:
