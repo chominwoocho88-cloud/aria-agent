@@ -1,4 +1,4 @@
-﻿"""SQLite-backed state spine for ORCA runs, predictions, and outcomes."""
+"""SQLite-backed state spine for ORCA runs, predictions, and outcomes."""
 from __future__ import annotations
 
 import json
@@ -2728,7 +2728,7 @@ def list_candidate_reviews(
 def summarize_candidate_probabilities(
     *,
     days: int = 90,
-    min_samples: int = 3,
+    min_samples: int = 5,
 ) -> dict[str, Any]:
     init_state_db()
     cutoff = (_now() - timedelta(days=days)).isoformat()
@@ -2736,6 +2736,8 @@ def summarize_candidate_probabilities(
         rows = conn.execute(
             """
             SELECT c.candidate_id,
+                   c.ticker,
+                   c.analysis_date,
                    c.signal_family,
                    c.source_event_type,
                    l.lesson_type,
@@ -2755,10 +2757,18 @@ def summarize_candidate_probabilities(
     by_signal_family: dict[str, dict[str, Any]] = {}
     by_alignment: dict[str, dict[str, Any]] = {}
     by_family_alignment: dict[str, dict[str, dict[str, Any]]] = {}
+    seen_sample_keys: set[tuple[str, str, str, str]] = set()
+    raw_rows = len(rows)
     for row in rows:
         lesson_type = str(row["lesson_type"] or "")
         signal_family = canonical_family_key(signal_family=str(row["signal_family"] or "general_rebound"))
         alignment = lesson_type.rsplit("_", 1)[0] if "_" in lesson_type else lesson_type
+        sample_date = str(row["analysis_date"] or row["lesson_timestamp"] or "")[:10]
+        sample_ticker = str(row["ticker"] or row["candidate_id"] or "").strip().upper()
+        sample_key = (sample_date, sample_ticker, signal_family, alignment)
+        if sample_key in seen_sample_keys:
+            continue
+        seen_sample_keys.add(sample_key)
         is_win = lesson_type.endswith("_win")
         stats = by_signal_family.setdefault(
             signal_family,
@@ -2785,12 +2795,16 @@ def summarize_candidate_probabilities(
         wins = int(bucket.get("wins", 0))
         losses = int(bucket.get("losses", 0))
         win_rate = round(wins / total * 100, 1) if total > 0 else 0.0
+        prior_total = 4
+        prior_wins = 2
+        effective_win_rate = round(((wins + prior_wins) / (total + prior_total)) * 100, 1) if total > 0 else 0.0
         return {
             **bucket,
             "wins": wins,
             "losses": losses,
             "total": total,
             "win_rate": win_rate,
+            "effective_win_rate": effective_win_rate,
             "qualified": total >= min_samples,
         }
 
@@ -2815,7 +2829,7 @@ def summarize_candidate_probabilities(
                 for value in family_map.values()
                 if value.get("qualified")
             ),
-            key=lambda item: (item["win_rate"], item["total"], item["avg_return"]),
+            key=lambda item: (item.get("effective_win_rate", item["win_rate"]), item["total"], item["avg_return"]),
             reverse=reverse,
         )
 
@@ -2825,7 +2839,7 @@ def summarize_candidate_probabilities(
             for key, val in signal_summary.items()
             if val["qualified"]
         ),
-        key=lambda item: (item["win_rate"], item["total"], item["avg_return"]),
+        key=lambda item: (item.get("effective_win_rate", item["win_rate"]), item["total"], item["avg_return"]),
         reverse=True,
     )
     weakest = sorted(
@@ -2834,7 +2848,7 @@ def summarize_candidate_probabilities(
             for key, val in signal_summary.items()
             if val["qualified"]
         ),
-        key=lambda item: (item["win_rate"], -item["total"], item["avg_return"]),
+        key=lambda item: (item.get("effective_win_rate", item["win_rate"]), -item["total"], item["avg_return"]),
     )
     aligned_best = _rank_family_map(family_alignment_summary.get("aligned", {}), reverse=True)
     aligned_weakest = _rank_family_map(family_alignment_summary.get("aligned", {}), reverse=False)
@@ -2843,6 +2857,9 @@ def summarize_candidate_probabilities(
     return {
         "window_days": days,
         "min_samples": min_samples,
+        "raw_rows": raw_rows,
+        "deduped_rows": len(seen_sample_keys),
+        "duplicates_skipped": raw_rows - len(seen_sample_keys),
         "overall": _finalize(overall),
         "by_signal_family": signal_summary,
         "by_alignment": alignment_summary,
