@@ -79,8 +79,8 @@ This means the system learns from candidate quality and market alignment, not ju
 ## Runtime Roles
 
 - `ORCA Daily`: market regime report, baseline, sentiment, rotation, dashboard render
-- `JACKAL Hunter`: new candidate discovery, excluding current holdings
-- `JACKAL Scanner`: timing scan for current holdings and watchlist-style names
+- `JACKAL Session`: scheduled Hunter -> Scanner flow for discovery plus timing in one run
+- `JACKAL Scanner (Manual)`: ad-hoc scan workflow for debugging or on-demand rescans
 - `JACKAL Tracker`: next-day / swing outcome tracking and weight refresh
 
 ## Documents
