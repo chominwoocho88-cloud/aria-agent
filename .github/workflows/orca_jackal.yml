@@ -101,6 +101,16 @@ jobs:
           git config user.name  "JACKAL Session"
           git config user.email "jackal-session@orca-agent"
 
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db = Path("data/orca_state.db")
+          if db.exists():
+              conn = sqlite3.connect(db)
+              conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+              conn.close()
+          PY
+
           git add jackal/hunt_log.json          2>/dev/null || true
           git add jackal/hunt_cooldown.json     2>/dev/null || true
           git add jackal/jackal_weights.json    2>/dev/null || true
@@ -112,6 +122,7 @@ jobs:
           git add jackal/recommendation_log.json 2>/dev/null || true
           git add data/jackal_watchlist.json    2>/dev/null || true
           git add data/jackal_news.json         2>/dev/null || true
+          git add -f data/orca_state.db         2>/dev/null || true
 
           git diff --cached --quiet && exit 0
 
