@@ -46,11 +46,11 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           ORCA_MODE: MORNING
+          GH_REPO: ${{ github.repository }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GH_REPO: ${{ secrets.GH_REPO }}
           ORCA_MODEL: "claude-sonnet-4-6"
           ANTHROPIC_MODEL: "claude-sonnet-4-6"
           MAX_THINKING_TOKENS: "8000"
@@ -68,11 +68,11 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           ORCA_MODE: EVENING
+          GH_REPO: ${{ github.repository }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GH_REPO: ${{ secrets.GH_REPO }}
           ORCA_MODEL: "claude-sonnet-4-6"
           ANTHROPIC_MODEL: "claude-sonnet-4-6"
           MAX_THINKING_TOKENS: "8000"
