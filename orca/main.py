@@ -1,4 +1,4 @@
-﻿"""
+"""
 ORCA main orchestrator.
 Hunter -> Analyst -> Devil -> Reporter
 """
@@ -205,35 +205,42 @@ def print_report(report: dict, run_n: int):
 
     probability_summary = report.get("jackal_probability_summary", {})
     if probability_summary.get("overall", {}).get("total", 0) > 0:
+        overall = probability_summary.get("overall", {})
         lines = [
-            "최근 {window}일 overall {win_rate}% (n={total})".format(
+            "최근 {window}일 overall {win_rate}% | 보수적 {effective}% (n={total})".format(
                 window=probability_summary.get("window_days", 90),
-                win_rate=probability_summary.get("overall", {}).get("win_rate", 0.0),
-                total=probability_summary.get("overall", {}).get("total", 0),
+                win_rate=overall.get("win_rate", 0.0),
+                effective=overall.get("effective_win_rate", overall.get("win_rate", 0.0)),
+                total=overall.get("total", 0),
             )
         ]
+        skipped = int(probability_summary.get("duplicates_skipped", 0) or 0)
+        deduped_rows = int(probability_summary.get("deduped_rows", 0) or 0)
+        raw_rows = int(probability_summary.get("raw_rows", deduped_rows) or deduped_rows)
+        if raw_rows > 0:
+            lines.append(f"표본 정리: raw {raw_rows} → unique {deduped_rows}" + (f" (중복 {skipped} 제거)" if skipped else ""))
         trusted = probability_summary.get("trusted_families", [])
         cautious = probability_summary.get("cautious_families", [])
         if trusted:
             lines.append("신뢰: " + ", ".join(
-                f"{item.get('signal_family_label', item.get('signal_family',''))} {item.get('win_rate',0):.1f}%/{item.get('total',0)}"
+                f"{item.get('signal_family_label', item.get('signal_family',''))} {item.get('effective_win_rate', item.get('win_rate',0)):.1f}%/{item.get('total',0)}"
                 for item in trusted[:3]
             ))
         if cautious:
             lines.append("경계: " + ", ".join(
-                f"{item.get('signal_family_label', item.get('signal_family',''))} {item.get('win_rate',0):.1f}%/{item.get('total',0)}"
+                f"{item.get('signal_family_label', item.get('signal_family',''))} {item.get('effective_win_rate', item.get('win_rate',0)):.1f}%/{item.get('total',0)}"
                 for item in cautious[:3]
             ))
         aligned_best = probability_summary.get("best_aligned_families", [])
         opposed_best = probability_summary.get("best_opposed_families", [])
         if aligned_best:
             lines.append("정합 강점: " + ", ".join(
-                f"{item.get('signal_family_label', item.get('signal_family',''))} {item.get('win_rate',0):.1f}%/{item.get('total',0)}"
+                f"{item.get('signal_family_label', item.get('signal_family',''))} {item.get('effective_win_rate', item.get('win_rate',0)):.1f}%/{item.get('total',0)}"
                 for item in aligned_best[:2]
             ))
         if opposed_best:
             lines.append("역행 강점: " + ", ".join(
-                f"{item.get('signal_family_label', item.get('signal_family',''))} {item.get('win_rate',0):.1f}%/{item.get('total',0)}"
+                f"{item.get('signal_family_label', item.get('signal_family',''))} {item.get('effective_win_rate', item.get('win_rate',0)):.1f}%/{item.get('total',0)}"
                 for item in opposed_best[:2]
             ))
         console.print(Panel("\n".join(lines), title=JACKAL_NAME + " Probability View", border_style="bright_blue"))
@@ -243,7 +250,7 @@ def print_report(report: dict, run_n: int):
 
     console.rule()
 
-def _compact_probability_summary(*, days: int = 90, min_samples: int = 3) -> dict:
+def _compact_probability_summary(*, days: int = 90, min_samples: int = 5) -> dict:
     summary = summarize_candidate_probabilities(days=days, min_samples=min_samples)
     trusted = [
         item for item in summary.get("best_signal_families", [])
@@ -256,6 +263,9 @@ def _compact_probability_summary(*, days: int = 90, min_samples: int = 3) -> dic
     return {
         "window_days": days,
         "min_samples": min_samples,
+        "raw_rows": summary.get("raw_rows", 0),
+        "deduped_rows": summary.get("deduped_rows", 0),
+        "duplicates_skipped": summary.get("duplicates_skipped", 0),
         "overall": summary.get("overall", {}),
         "trusted_families": trusted,
         "cautious_families": cautious,
@@ -528,12 +538,13 @@ def main():
 
         print("\n=== JACKAL Probability Summary ===")
         try:
-            probability_summary = _compact_probability_summary(days=90, min_samples=3)
+            probability_summary = _compact_probability_summary(days=90, min_samples=5)
             report["jackal_probability_summary"] = probability_summary
             overall = probability_summary.get("overall", {})
             console.print(
-                "[dim]overall {win_rate}% | trusted {trusted} | cautious {cautious}[/dim]".format(
+                "[dim]overall {win_rate}% | effective {effective}% | trusted {trusted} | cautious {cautious}[/dim]".format(
                     win_rate=overall.get("win_rate", 0.0),
+                    effective=overall.get("effective_win_rate", overall.get("win_rate", 0.0)),
                     trusted=len(probability_summary.get("trusted_families", [])),
                     cautious=len(probability_summary.get("cautious_families", [])),
                 )
