@@ -24,40 +24,65 @@
       "divergence": false,
       "fred_score": 50,
       "fred_indicators": {}
+    },
+    {
+      "date": "2026-04-18",
+      "score": 59,
+      "level": "중립",
+      "emoji": "😐",
+      "components": {
+        "시장레짐": 30,
+        "추세방향": 70,
+        "변동성지수": 72,
+        "자금흐름": 40,
+        "반론강도": 65,
+        "한국시장": 40,
+        "숨은시그널": 41
+      },
+      "regime": "전환중 (상승→위험회피 전환 가능성 높음)",
+      "trend": "상승추세",
+      "vix_level": "중립",
+      "vix_val": 17.48,
+      "vkospi_val": 15.0,
+      "fear_greed": 71.0,
+      "internal_raw": 53.43283582089552,
+      "divergence": false,
+      "fred_score": 50,
+      "fred_indicators": {}
     }
   ],
   "current": {
-    "date": "2026-04-17",
-    "score": 62,
-    "level": "탐욕",
-    "emoji": "😏",
+    "date": "2026-04-18",
+    "score": 59,
+    "level": "중립",
+    "emoji": "😐",
     "components": {
-      "시장레짐": 70,
+      "시장레짐": 30,
       "추세방향": 70,
       "변동성지수": 72,
       "자금흐름": 40,
       "반론강도": 65,
       "한국시장": 40,
-      "숨은시그널": 35
+      "숨은시그널": 41
     },
-    "regime": "위험선호(조건부) — Devil 반론: 유가 충격 2차 파급 시 위험회피 전환 경고",
+    "regime": "전환중 (상승→위험회피 전환 가능성 높음)",
     "trend": "상승추세",
-    "vix_level": "중립~탐욕",
-    "vix_val": 17.73,
+    "vix_level": "중립",
+    "vix_val": 17.48,
     "vkospi_val": 15.0,
-    "fear_greed": 70.0,
-    "internal_raw": 58.507462686567166,
+    "fear_greed": 71.0,
+    "internal_raw": 53.43283582089552,
     "divergence": false,
     "fred_score": 50,
     "fred_indicators": {}
   },
   "trend": {
-    "direction": "neutral",
-    "change": 0,
-    "avg_7d": 50,
-    "min_30d": 50,
-    "max_30d": 50,
-    "avg_30d": 50
+    "direction": "stable",
+    "change": -3.0,
+    "avg_7d": 60.5,
+    "min_30d": 59,
+    "max_30d": 62,
+    "avg_30d": 60.5
   },
-  "last_updated": "2026-04-17T23:56:32.128921+09:00"
+  "last_updated": "2026-04-18T15:03:36.261039+09:00"
 }

@@ -1,0 +1,152 @@
+{
+  "analysis_date": "2026-04-18",
+  "analysis_time": "15:03 KST",
+  "mode": "MORNING",
+  "mode_label": "아침 풀분석",
+  "one_line_summary": "나스닥 24,468 고점권이나 넷플릭스 -10% 충격·유가 -11.5% 급락으로 빅테크 실적 불확실성 극대화, 인플로우 부재 속 상승추세 신뢰도 낮음",
+  "market_regime": "전환중 (상승→위험회피 전환 가능성 높음)",
+  "trend_phase": "상승추세",
+  "trend_strategy": {
+    "recommended": "반도체·AI 핵심 종목 보유 유지하되 신규 추격 매수 자제, 실적 발표 전 관망 비중 확대",
+    "caution": "3일 이상 연속 상승 후 블랙스완 반전 패턴 경계, 넷플릭스발 빅테크 실적 연쇄 실망 가능성, 유가 급락의 S&P500 EPS 하향 압박, FG>=20 구간 방향 정확도 17%로 방향성 베팅 자제",
+    "difficulty": "어려움"
+  },
+  "confidence_overall": "낮음",
+  "consensus_level": "낮음",
+  "top_headlines": [
+    {
+      "headline": "넷플릭스 EPS 미스 + Q2 가이던스 하향 + CEO 이사회 이탈, 주가 -9~10% 급락",
+      "signal_tag": "빅테크 실적 기대치 하향 트리거",
+      "impact": "높음"
+    },
+    {
+      "headline": "이란 호르무즈 해협 재개방 선언으로 WTI -11.5%, 브렌트 -9.1% 급락",
+      "signal_tag": "에너지 섹터 급격한 아웃플로우",
+      "impact": "높음"
+    },
+    {
+      "headline": "TSMC 58% 순익 급증·ASML 가이던스 상향 등 반도체 펀더멘털 강력 유지",
+      "signal_tag": "반도체 섹터 차별적 강세",
+      "impact": "보통"
+    },
+    {
+      "headline": "S&P500 2026 EPS 성장률 12.6%로 하향 조정, 나스닥 포워드 PER 28배 이상 부담",
+      "signal_tag": "밸류에이션 재산정 압박",
+      "impact": "높음"
+    },
+    {
+      "headline": "외국인 코스피 3연속 순매수, 4월 누적 5조원 유입 지속",
+      "signal_tag": "한국 반도체 수급 우호적",
+      "impact": "보통"
+    }
+  ],
+  "volatility_index": {
+    "vkospi": "N/A",
+    "vix": "17.48",
+    "fear_greed": "71 (Greed)",
+    "level": "중립",
+    "interpretation": "VIX 17.48은 공포 구간 탈출 후 정상화 진행 중을 의미하나, Fear & Greed 71(탐욕) 구간과의 괴리가 주목된다. FG>=20 구간에서 방향 예측 정확도는 17%에 불과하므로 단순 추세 추종보다 선별적 접근 권고. 탐욕 구간에서의 갑작스러운 충격 반전 리스크가 가장 강한 구간임을 경계해야 한다."
+  },
+  "retail_reversal_signal": {
+    "retail_behavior": "넷플릭스 급락 후 개인 투자자 과도한 저가 매수 유입 가능성. 삼성전자·SK하이닉스는 외국인 주도 매수에 개인 편승 패턴 관찰 중",
+    "contrarian_implication": "개인이 넷플릭스 낙폭 매수에 집중 시 반도체·AI 인프라 섹터 자금 유입 과소평가 우려. 반대로 반도체 과열 구간 진입 시 개인 추격 매수는 단기 고점 신호로 해석",
+    "reliability": "낮음"
+  },
+  "outflows": [
+    {
+      "zone": "에너지 섹터 (글로벌)",
+      "reason": "이란 호르무즈 해협 재개방 선언으로 유가 급락, ExxonMobil 생산 차질 가이던스로 에너지 EPS 즉시 훼손",
+      "severity": "높음",
+      "data_point": "WTI $83.85 (-11.5%), 브렌트 $90.38 (-9.1%), S&P500 2026 EPS 성장률 12.6%로 하향"
+    },
+    {
+      "zone": "넷플릭스·스트리밍 미디어",
+      "reason": "EPS 미스 + Q2 가이던스 하향 + CEO 이사회 이탈로 빅테크 실적 기대치 전반 하향 압박",
+      "severity": "높음",
+      "data_point": "넷플릭스 EPS $1.40 vs 예상 $1.49, 주가 -9~10%. Q2 EPS 가이던스 78¢ vs 컨센서스 84¢"
+    },
+    {
+      "zone": "나스닥 고밸류 빅테크 전반",
+      "reason": "EPS 성장률 하향 + 포워드 PER 28배 이상 부담 구간에서 실적 미스 연쇄 가능성",
+      "severity": "보통",
+      "data_point": "나스닥 포워드 PER 28배 이상, 나스닥 24,468pt 고점권 유지 중"
+    }
+  ],
+  "inflows": [
+    {
+      "zone": "반도체·AI 인프라 (글로벌)",
+      "reason": "TSMC 58% 순익 급증, ASML 가이던스 상향, 메모리 공급 부족 지속으로 펀더멘털 지지",
+      "momentum": "보통",
+      "data_point": "TSMC 순익 +58% YoY, ASML 수주 가이던스 상향, 메모리 공급 부족 지속"
+    },
+    {
+      "zone": "코스피 반도체 (한국)",
+      "reason": "외국인 3연속 순매수, 글로벌 반도체 수요 증가 수혜 기대",
+      "momentum": "보통",
+      "data_point": "외국인 코스피 4월 누적 순매수 5조원"
+    }
+  ],
+  "neutral_waiting": [
+    {
+      "zone": "애플·마이크로소프트 등 빅테크 주요 종목",
+      "catalyst_needed": "향후 2거래일 내 실적 서프라이즈 확인 또는 나스닥 24,200pt 이상 종가 유지 확인"
+    },
+    {
+      "zone": "코스피 전반",
+      "catalyst_needed": "외국인 수급 데이터 확인, 나스닥 방향성 확정, 원/달러 1465원 수준 안정 여부"
+    }
+  ],
+  "hidden_signals": [
+    {
+      "signal": "인플로우 항목 실질적 부재 — 반도체 외 매수 주체 공백",
+      "implication": "반도체·AI 섹터 집중 쏠림이 심화되고 있으며 여타 섹터 매수 주체가 사라진 진공 구간 형성 가능. 연속 상승 후 매수 주체 소멸은 급반전의 선행 신호",
+      "confidence": "보통"
+    },
+    {
+      "signal": "연속 상승 3일+ 이후 블랙스완 반전 패턴 — 백테스트 60거래일 중 6회 발생",
+      "implication": "현재 구간이 해당 패턴에 정확히 해당, 넷플릭스 충격이 촉매 역할을 할 경우 급반전 리스크 존재",
+      "confidence": "보통"
+    },
+    {
+      "signal": "SK하이닉스 베타 1.36x — 나스닥 -2% 시 반도체 -2.8% 낙폭 예상",
+      "implication": "에너지 EPS 하향 → 나스닥 조정 → 반도체 1.4배 낙폭 → 코스피(반도체 비중 35%) 직격 연쇄 경로 명확",
+      "confidence": "높음"
+    },
+    {
+      "signal": "Fear & Greed 71(탐욕) vs VIX 17.48(중립) 괴리",
+      "implication": "시장 참여자의 낙관 심리가 실제 변동성 지표보다 앞서 있어 충격 발생 시 급격한 심리 위축 가능",
+      "confidence": "보통"
+    }
+  ],
+  "thesis_killers": [],
+  "data_quality": "ok",
+  "jackal_candidate_review": {
+    "analysis_date": "2026-04-18",
+    "market_bias": "risk_off",
+    "market_bias_label": "위험회피",
+    "reviewed_count": 0,
+    "aligned_count": 0,
+    "neutral_count": 0,
+    "opposed_count": 0,
+    "follow_count": 0,
+    "watch_count": 0,
+    "avoid_count": 0,
+    "highlights": []
+  },
+  "jackal_probability_summary": {
+    "window_days": 90,
+    "min_samples": 3,
+    "overall": {
+      "wins": 0,
+      "losses": 0,
+      "total": 0,
+      "win_rate": 0.0,
+      "qualified": false
+    },
+    "trusted_families": [],
+    "cautious_families": [],
+    "alignment_summary": {},
+    "best_aligned_families": [],
+    "best_opposed_families": []
+  }
+}
