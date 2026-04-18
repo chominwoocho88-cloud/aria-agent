@@ -1704,11 +1704,10 @@ def run_scan(force: bool = False) -> dict:
             log.info(f"  {ticker}: 쿨다운 — 스킵")
             continue
 
-        tech = fetch_technicals(ticker)
-        if not tech:
-            continue
-
-        log.info(f"  {ticker} ({info['name']}): RSI={tech['rsi']} BB={tech['bb_pos']}% vol={tech['vol_ratio']:.1f}x")
+        cache_note = ""
+        if tech.get("from_cache"):
+            cache_note = f" [cache {tech.get('cache_age_minutes', 0.0):.0f}m]"
+        log.info(f"  {ticker} ({info['name']}): RSI={tech['rsi']} BB={tech['bb_pos']}% vol={tech['vol_ratio']:.1f}x{cache_note}")
 
         # ── 신호 품질 사전 평가 (Claude 호출 전) ─────────────────
         # 기술 신호 사전 감지 (백테스트와 동일한 기준)
