@@ -128,6 +128,16 @@ jobs:
           git config user.name "ORCA Bot"
           git config user.email "orca@github-actions"
 
+          python - <<'PY'
+          import sqlite3
+          from pathlib import Path
+          db = Path("data/orca_state.db")
+          if db.exists():
+              conn = sqlite3.connect(db)
+              conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+              conn.close()
+          PY
+
           git add data/memory.json 2>/dev/null || true
           git add data/memory_archive.json 2>/dev/null || true
           git add data/accuracy.json 2>/dev/null || true
@@ -141,6 +151,7 @@ jobs:
           git add data/rotation.json 2>/dev/null || true
           git add data/portfolio.json 2>/dev/null || true
           git add data/jackal_news.json 2>/dev/null || true
+          git add -f data/orca_state.db 2>/dev/null || true
           git add reports/ 2>/dev/null || true
           git diff --cached --quiet && exit 0
 
