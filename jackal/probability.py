@@ -7,7 +7,7 @@ from typing import Any
 from orca.state import summarize_candidate_probabilities
 
 
-def load_probability_summary(*, days: int = 90, min_samples: int = 3) -> dict[str, Any] | None:
+def load_probability_summary(*, days: int = 90, min_samples: int = 5) -> dict[str, Any] | None:
     try:
         return summarize_candidate_probabilities(days=days, min_samples=min_samples)
     except Exception:
@@ -27,6 +27,7 @@ def apply_probability_adjustment(
     updated.setdefault("probability_adjustment", 0.0)
     updated.setdefault("probability_samples", 0)
     updated.setdefault("probability_win_rate", None)
+    updated.setdefault("probability_effective_win_rate", None)
     updated.setdefault("probability_signal_family", signal_family)
     if not lesson_summary or not signal_family:
         return updated
@@ -37,21 +38,27 @@ def apply_probability_adjustment(
 
     total = int(family_stats.get("total", 0))
     win_rate = float(family_stats.get("win_rate", 0.0))
+    effective_win_rate = float(family_stats.get("effective_win_rate", win_rate))
     adjustment = 0.0
-    if total >= 5 and win_rate >= 70:
+    if total >= 12 and effective_win_rate >= 68:
         adjustment = 4.0
-    elif total >= 3 and win_rate >= 62:
+    elif total >= 8 and effective_win_rate >= 62:
         adjustment = 2.0
-    elif total >= 5 and win_rate <= 35:
+    elif total >= 5 and effective_win_rate >= 58:
+        adjustment = 1.0
+    elif total >= 12 and effective_win_rate <= 38:
         adjustment = -5.0
-    elif total >= 3 and win_rate <= 45:
+    elif total >= 8 and effective_win_rate <= 43:
         adjustment = -3.0
+    elif total >= 5 and effective_win_rate <= 46:
+        adjustment = -1.5
 
     if adjustment:
         updated["final_score"] = round(max(0, min(100, float(updated.get("final_score", 0)) + adjustment)), 1)
     updated["probability_adjustment"] = adjustment
     updated["probability_samples"] = total
     updated["probability_win_rate"] = win_rate
+    updated["probability_effective_win_rate"] = effective_win_rate
 
     blocked = False
     if blocked_verdict and str(updated.get("verdict", "")) == blocked_verdict:
