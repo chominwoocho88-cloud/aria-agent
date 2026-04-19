@@ -30,6 +30,7 @@ from .analysis import (
 from .brand import JACKAL_NAME, ORCA_FULL_NAME, ORCA_NAME
 from .compat import get_orca_env
 from .data import fetch_all_market_data, update_cost, get_monthly_cost_summary
+from .learning_policy import MIN_SAMPLES, describe_policy
 from .notify import send_message, send_start_notification, send_report, send_error
 from .state import (
     start_run as state_start_run,
@@ -41,7 +42,6 @@ from .state import (
 KST     = timezone(timedelta(hours=9))
 from .paths import MEMORY_FILE, REPORTS_DIR, atomic_write_json
 MODE    = get_orca_env("ORCA_MODE", "MORNING")
-_ORCA_PROBABILITY_MIN_SAMPLES = 5  # PR 2에서 shared learning_policy 로 이전 예정
 console = Console()
 
 
@@ -353,8 +353,8 @@ def print_report(report: dict, run_n: int):
 
     console.rule()
 
-def _compact_probability_summary(*, days: int = 90, min_samples: int = _ORCA_PROBABILITY_MIN_SAMPLES) -> dict:
-    summary = summarize_candidate_probabilities(days=days, min_samples=min_samples)
+def _compact_probability_summary(*, days: int = 90, min_samples: int = MIN_SAMPLES) -> dict:
+    summary = summarize_candidate_probabilities(days=days, min_samples=MIN_SAMPLES)
     trusted = [
         item for item in summary.get("best_signal_families", [])
         if item.get("qualified")
@@ -365,7 +365,7 @@ def _compact_probability_summary(*, days: int = 90, min_samples: int = _ORCA_PRO
     ][:5]
     return {
         "window_days": days,
-        "min_samples": min_samples,
+        "min_samples": MIN_SAMPLES,
         "raw_rows": summary.get("raw_rows", 0),
         "deduped_rows": summary.get("deduped_rows", 0),
         "duplicates_skipped": summary.get("duplicates_skipped", 0),
@@ -713,7 +713,7 @@ def main():
 
         print("\n=== JACKAL Probability Summary ===")
         try:
-            probability_summary = _compact_probability_summary(days=90, min_samples=5)
+            probability_summary = _compact_probability_summary(days=90)
             report["jackal_probability_summary"] = probability_summary
             overall = probability_summary.get("overall", {})
             console.print(
@@ -801,6 +801,7 @@ def main():
                 )
                 console.print("[yellow]Dashboard 실패: " + str(e) + "[/yellow]")
 
+        report["learning_policy"] = describe_policy()
         report["health"] = health_tracker.to_report_payload(failed=False)
         path = save_report(report)
         console.print("[dim]Saved: " + str(path) + "[/dim]")

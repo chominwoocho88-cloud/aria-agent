@@ -14,6 +14,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from .compat import get_orca_env, get_orca_flag
+from .learning_policy import MIN_SAMPLES, suggest_weight_delta
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 sys.stdout.reconfigure(encoding="utf-8")
@@ -118,11 +119,11 @@ def update_weights_from_accuracy(accuracy_data: dict) -> list:
 
     changes = []
     for cat, v in recent.items():
-        if v["total"] < 3:
+        if v["total"] < MIN_SAMPLES:
             continue
         acc     = v["correct"] / v["total"]
         old_w   = conf.get(cat, 1.0)
-        adj     = 0.05 if acc >= 0.7 else -0.05 if acc <= 0.4 else 0.0
+        adj     = suggest_weight_delta(v["correct"], v["total"])
         new_w   = round(max(0.3, min(2.0, old_w + adj)), 3)
         if abs(new_w - old_w) >= 0.001:
             conf[cat] = new_w

@@ -4,12 +4,13 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from orca.learning_policy import MIN_SAMPLES, suggest_probability_adjustment
 from orca.state import summarize_candidate_probabilities
 
 
-def load_probability_summary(*, days: int = 90, min_samples: int = 5) -> dict[str, Any] | None:
+def load_probability_summary(*, days: int = 90, min_samples: int = MIN_SAMPLES) -> dict[str, Any] | None:
     try:
-        return summarize_candidate_probabilities(days=days, min_samples=min_samples)
+        return summarize_candidate_probabilities(days=days, min_samples=MIN_SAMPLES)
     except Exception:
         return None
 
@@ -39,19 +40,8 @@ def apply_probability_adjustment(
     total = int(family_stats.get("total", 0))
     win_rate = float(family_stats.get("win_rate", 0.0))
     effective_win_rate = float(family_stats.get("effective_win_rate", win_rate))
-    adjustment = 0.0
-    if total >= 12 and effective_win_rate >= 68:
-        adjustment = 4.0
-    elif total >= 8 and effective_win_rate >= 62:
-        adjustment = 2.0
-    elif total >= 5 and effective_win_rate >= 58:
-        adjustment = 1.0
-    elif total >= 12 and effective_win_rate <= 38:
-        adjustment = -5.0
-    elif total >= 8 and effective_win_rate <= 43:
-        adjustment = -3.0
-    elif total >= 5 and effective_win_rate <= 46:
-        adjustment = -1.5
+    wins = int(family_stats.get("wins", 0))
+    adjustment = suggest_probability_adjustment(wins, total)
 
     if adjustment:
         updated["final_score"] = round(max(0, min(100, float(updated.get("final_score", 0)) + adjustment)), 1)

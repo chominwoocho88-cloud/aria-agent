@@ -2838,13 +2838,13 @@ def summarize_candidate_probabilities(
             )
 
     def _finalize(bucket: dict[str, Any]) -> dict[str, Any]:
+        from .learning_policy import effective_win_rate as _effective_win_rate, is_qualified
+
         total = int(bucket.get("total", 0))
         wins = int(bucket.get("wins", 0))
         losses = int(bucket.get("losses", 0))
         win_rate = round(wins / total * 100, 1) if total > 0 else 0.0
-        prior_total = 4
-        prior_wins = 2
-        effective_win_rate = round(((wins + prior_wins) / (total + prior_total)) * 100, 1) if total > 0 else 0.0
+        effective_win_rate = round(_effective_win_rate(wins, total) * 100, 1) if total > 0 else 0.0
         return {
             **bucket,
             "wins": wins,
@@ -2852,7 +2852,7 @@ def summarize_candidate_probabilities(
             "total": total,
             "win_rate": win_rate,
             "effective_win_rate": effective_win_rate,
-            "qualified": total >= min_samples,
+            "qualified": is_qualified(total, min_samples=min_samples),
         }
 
     signal_summary = {key: _finalize(val) for key, val in by_signal_family.items()}

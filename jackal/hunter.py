@@ -1239,7 +1239,7 @@ def _stage4_full_analysis(top10: list, aria: dict) -> list:
     최종 점수 상위 5개 반환 (알림 발송 대상).
     """
     results = []
-    lesson_summary = load_probability_summary(days=90, min_samples=3)
+    lesson_summary = load_probability_summary(days=90)
     for item in top10:
         ticker = item["ticker"]
         tech   = item["tech"]
